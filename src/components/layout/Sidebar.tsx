@@ -91,6 +91,7 @@ const Sidebar = ({ userRole: propUserRole, onRoleChange }: SidebarProps) => {
     setMobileMenuOpen,
   } = useUI();
   const [isLargeScreen, setIsLargeScreen] = React.useState(false);
+  const previousPathRef = React.useRef<string>(pathname);
 
   const collapsed = sidebarCollapsed;
 
@@ -105,16 +106,19 @@ const Sidebar = ({ userRole: propUserRole, onRoleChange }: SidebarProps) => {
     return () => window.removeEventListener("resize", checkScreenSize);
   }, []);
 
-  // Close mobile sidebar on navigation (only on mobile)
+  // Close mobile sidebar on navigation (only on mobile, only when pathname actually changes)
   React.useEffect(() => {
     // Don't do anything on large screens
     if (isLargeScreen) return;
 
-    // Only close if mobile sidebar is open
-    if (mobileMenuOpen) {
+    // Only close if pathname has actually changed
+    if (previousPathRef.current !== pathname && mobileMenuOpen) {
       setMobileMenuOpen(false);
+      previousPathRef.current = pathname;
+    } else if (previousPathRef.current !== pathname) {
+      previousPathRef.current = pathname;
     }
-  }, [pathname, mobileMenuOpen, setMobileMenuOpen, isLargeScreen]);
+  }, [pathname, isLargeScreen, mobileMenuOpen, setMobileMenuOpen]);
 
   const isSettingsActive = pathname?.startsWith("/settings");
   const isProfileActive =
@@ -171,6 +175,7 @@ const Sidebar = ({ userRole: propUserRole, onRoleChange }: SidebarProps) => {
           "z-50",
           isRTL ? "right-0" : "left-0",
         )}
+        style={{ pointerEvents: "auto" }}
       >
         {/* Mobile close touch area */}
         {mobileMenuOpen && (
@@ -286,6 +291,12 @@ const Sidebar = ({ userRole: propUserRole, onRoleChange }: SidebarProps) => {
                 key={item.name}
                 href={item.href}
                 prefetch={true}
+                onClick={() => {
+                  // Auto-close mobile menu on navigation (only if on mobile)
+                  if (!isLargeScreen && mobileMenuOpen) {
+                    setMobileMenuOpen(false);
+                  }
+                }}
                 className={cn(
                   "flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200",
                   isActive
@@ -339,6 +350,11 @@ const Sidebar = ({ userRole: propUserRole, onRoleChange }: SidebarProps) => {
                   : "/profile"
             }
             prefetch={true}
+            onClick={() => {
+              if (!isLargeScreen && mobileMenuOpen) {
+                setMobileMenuOpen(false);
+              }
+            }}
             className={cn(
               "flex items-center gap-3 px-4 py-3 rounded-xl transition-all",
               isProfileActive
@@ -355,6 +371,11 @@ const Sidebar = ({ userRole: propUserRole, onRoleChange }: SidebarProps) => {
           <Link
             href="/settings"
             prefetch={true}
+            onClick={() => {
+              if (!isLargeScreen && mobileMenuOpen) {
+                setMobileMenuOpen(false);
+              }
+            }}
             className={cn(
               "flex items-center gap-3 px-4 py-3 rounded-xl transition-all",
               isSettingsActive

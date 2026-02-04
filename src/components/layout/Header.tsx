@@ -22,6 +22,7 @@ const Header = ({ userRole, sidebarWidth }: HeaderProps) => {
   const { user } = useAuth();
   const { mobileMenuOpen, setMobileMenuOpen } = useUI();
   const [isLargeScreen, setIsLargeScreen] = useState(false);
+  const [isClickable, setIsClickable] = useState(true);
 
   useEffect(() => {
     const checkScreenSize = () => {
@@ -57,7 +58,7 @@ const Header = ({ userRole, sidebarWidth }: HeaderProps) => {
     <motion.header
       initial={false}
       animate={false}
-      className="fixed top-0 h-16 lg:h-20 bg-card/80 backdrop-blur-xl border-b border-border z-40 flex items-center justify-between px-4 sm:px-6"
+      className="fixed top-0 h-16 lg:h-20 bg-card/80 backdrop-blur-xl border-b border-border z-30 flex items-center justify-between px-4 sm:px-6"
       style={{
         left: isLargeScreen ? (isRTL ? 0 : sidebarWidth) : 0,
         right: isLargeScreen ? (isRTL ? sidebarWidth : 0) : 0,
@@ -68,8 +69,15 @@ const Header = ({ userRole, sidebarWidth }: HeaderProps) => {
       <Button
         variant="ghost"
         size="icon"
-        onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-        className="lg:hidden"
+        onClick={() => {
+          setMobileMenuOpen(!mobileMenuOpen);
+          setIsClickable(false);
+          setTimeout(() => setIsClickable(true), 300);
+        }}
+        disabled={!isClickable}
+        aria-pressed={mobileMenuOpen}
+        aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
+        className="lg:hidden transition-all duration-200"
       >
         <Menu className="w-5 h-5" />
       </Button>
