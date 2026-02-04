@@ -1,11 +1,12 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import Sidebar from "./Sidebar";
 import Header from "./Header";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useUI } from "@/contexts/UIContext";
 
 interface MainLayoutProps {
   children: React.ReactNode;
@@ -13,8 +14,12 @@ interface MainLayoutProps {
 }
 
 const MainLayout = ({ children, requireRole }: MainLayoutProps) => {
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const {
+    sidebarCollapsed,
+    setSidebarCollapsed,
+    mobileMenuOpen,
+    setMobileMenuOpen,
+  } = useUI();
   const [isLargeScreen, setIsLargeScreen] = useState(false);
   const { user } = useAuth();
   const { isRTL } = useLanguage();
@@ -36,17 +41,8 @@ const MainLayout = ({ children, requireRole }: MainLayoutProps) => {
   return (
     <ProtectedRoute requireRole={requireRole}>
       <div className="min-h-screen bg-background">
-        <Sidebar
-          collapsed={sidebarCollapsed}
-          onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
-          mobileOpen={mobileMenuOpen}
-          onMobileClose={() => setMobileMenuOpen(false)}
-        />
-        <Header
-          userRole={user?.role || "owner"}
-          sidebarWidth={sidebarWidth}
-          onMobileMenuToggle={() => setMobileMenuOpen(!mobileMenuOpen)}
-        />
+        <Sidebar />
+        <Header userRole={user?.role || "owner"} sidebarWidth={sidebarWidth} />
         <main
           className="pt-20 pb-8 px-4 sm:px-6 lg:pt-24 min-h-screen"
           style={{

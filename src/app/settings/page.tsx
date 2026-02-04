@@ -2,11 +2,13 @@
 
 import { useState } from "react";
 import { motion } from "framer-motion";
-import MainLayout from "@/components/layout/MainLayout";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/components/ui/sonner";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { settingSections, StaffMember } from "@/components/settings/settingsConfig";
+import {
+  settingSections,
+  StaffMember,
+} from "@/components/settings/settingsConfig";
 import SettingsSidebar from "@/components/settings/SettingsSidebar";
 import NotificationSettings from "@/components/settings/NotificationSettings";
 import SecuritySettings from "@/components/settings/SecuritySettings";
@@ -15,7 +17,10 @@ import DashboardCustomization from "@/components/settings/DashboardCustomization
 import DataBackupSettings from "@/components/settings/DataBackupSettings";
 import HelpSupport from "@/components/settings/HelpSupport";
 import StaffManagement from "@/components/settings/StaffManagement";
-import { userPreferences, defaultQuickActions } from "@/data/dashboardCustomization";
+import {
+  userPreferences,
+  defaultQuickActions,
+} from "@/data/dashboardCustomization";
 import { QuickAction } from "@/types/dashboardCustomizationTypes";
 
 export default function Settings() {
@@ -84,85 +89,83 @@ export default function Settings() {
   };
 
   return (
-    <MainLayout>
-      <div className="max-w-5xl mx-auto">
-        <div className="mb-8">
-          <h1 className="font-display text-3xl font-bold text-foreground mb-2">
-            {t("Settings")}
-          </h1>
-          <p className="text-muted-foreground">
-            {t("Manage your account and preferences")}
-          </p>
+    <div className="max-w-5xl mx-auto">
+      <div className="mb-8">
+        <h1 className="font-display text-3xl font-bold text-foreground mb-2">
+          {t("Settings")}
+        </h1>
+        <p className="text-muted-foreground">
+          {t("Manage your account and preferences")}
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        {/* Sidebar */}
+        <div className="lg:col-span-1">
+          <SettingsSidebar
+            sections={visibleSections}
+            activeSection={activeSection}
+            onSectionChange={setActiveSection}
+          />
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          {/* Sidebar */}
-          <div className="lg:col-span-1">
-            <SettingsSidebar
-              sections={visibleSections}
-              activeSection={activeSection}
-              onSectionChange={setActiveSection}
-            />
-          </div>
+        {/* Content */}
+        <div className="lg:col-span-3">
+          <motion.div
+            key={activeSection}
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.2 }}
+            className="bg-card rounded-2xl border card-elevated p-6"
+          >
+            {activeSection === "notifications" && (
+              <NotificationSettings userRole={userRole} />
+            )}
 
-          {/* Content */}
-          <div className="lg:col-span-3">
-            <motion.div
-              key={activeSection}
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.2 }}
-              className="bg-card rounded-2xl border card-elevated p-6"
-            >
-              {activeSection === "notifications" && (
-                <NotificationSettings userRole={userRole} />
-              )}
+            {activeSection === "security" && <SecuritySettings />}
 
-              {activeSection === "security" && <SecuritySettings />}
+            {activeSection === "appearance" && (
+              <AppearanceSettings
+                theme={theme}
+                onThemeChange={handleThemeChange}
+              />
+            )}
 
-              {activeSection === "appearance" && (
-                <AppearanceSettings
-                  theme={theme}
-                  onThemeChange={handleThemeChange}
-                />
-              )}
+            {activeSection === "dashboard" && (
+              <DashboardCustomization
+                selectedLayout={selectedLayout}
+                onLayoutChange={setSelectedLayout}
+                welcomeMessage={welcomeMessage}
+                onWelcomeMessageChange={setWelcomeMessage}
+                showTips={showTips}
+                onShowTipsChange={setShowTips}
+                autoRefresh={autoRefresh}
+                onAutoRefreshChange={setAutoRefresh}
+                refreshInterval={refreshInterval}
+                onRefreshIntervalChange={setRefreshInterval}
+                quickActions={quickActions}
+                onQuickActionsChange={setQuickActions}
+                onSave={handleSaveDashboardSettings}
+              />
+            )}
 
-              {activeSection === "dashboard" && (
-                <DashboardCustomization
-                  selectedLayout={selectedLayout}
-                  onLayoutChange={setSelectedLayout}
-                  welcomeMessage={welcomeMessage}
-                  onWelcomeMessageChange={setWelcomeMessage}
-                  showTips={showTips}
-                  onShowTipsChange={setShowTips}
-                  autoRefresh={autoRefresh}
-                  onAutoRefreshChange={setAutoRefresh}
-                  refreshInterval={refreshInterval}
-                  onRefreshIntervalChange={setRefreshInterval}
-                  quickActions={quickActions}
-                  onQuickActionsChange={setQuickActions}
-                  onSave={handleSaveDashboardSettings}
-                />
-              )}
+            {activeSection === "data" && userRole === "owner" && (
+              <DataBackupSettings
+                onExportAll={handleExportAll}
+                onBackup={handleBackup}
+              />
+            )}
 
-              {activeSection === "data" && userRole === "owner" && (
-                <DataBackupSettings
-                  onExportAll={handleExportAll}
-                  onBackup={handleBackup}
-                />
-              )}
+            {activeSection === "help" && userRole === "owner" && (
+              <HelpSupport />
+            )}
 
-              {activeSection === "help" && userRole === "owner" && (
-                <HelpSupport />
-              )}
-
-              {activeSection === "staff" && userRole === "owner" && (
-                <StaffManagement staff={staff} />
-              )}
-            </motion.div>
-          </div>
+            {activeSection === "staff" && userRole === "owner" && (
+              <StaffManagement staff={staff} />
+            )}
+          </motion.div>
         </div>
       </div>
-    </MainLayout>
+    </div>
   );
 }

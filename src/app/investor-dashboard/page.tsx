@@ -1,6 +1,5 @@
 "use client";
 
-import MainLayout from "@/components/layout/MainLayout";
 import {
   getInvestorDashboardData,
   formatCurrency,
@@ -27,18 +26,14 @@ export default function InvestorDashboard() {
 
   if (!investor) {
     return (
-      <MainLayout requireRole="investor">
-        <div className="flex items-center justify-center min-h-screen">
-          <div className="text-center">
-            <h1 className="text-2xl font-bold text-foreground mb-2">
-              {t("Investor Profile Not Found")}
-            </h1>
-            <p className="text-muted-foreground">
-              {t("Please contact support")}
-            </p>
-          </div>
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-foreground mb-2">
+            {t("Investor Profile Not Found")}
+          </h1>
+          <p className="text-muted-foreground">{t("Please contact support")}</p>
         </div>
-      </MainLayout>
+      </div>
     );
   }
 
@@ -54,43 +49,41 @@ export default function InvestorDashboard() {
   );
 
   return (
-    <MainLayout requireRole="investor">
-      <div className="max-w-7xl mx-auto space-y-6">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="font-display text-3xl font-bold text-foreground mb-2">
-            {t("Investment Dashboard")}
-          </h1>
-          <p className="text-muted-foreground">
-            {t("Track your investment performance and earnings")}
-          </p>
+    <div className="max-w-7xl mx-auto space-y-6">
+      {/* Header */}
+      <div className="mb-8">
+        <h1 className="font-display text-3xl font-bold text-foreground mb-2">
+          {t("Investment Dashboard")}
+        </h1>
+        <p className="text-muted-foreground">
+          {t("Track your investment performance and earnings")}
+        </p>
+      </div>
+
+      {/* Main Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Left Column - Overview Cards */}
+        <div className="lg:col-span-2 space-y-6">
+          <InvestmentOverview
+            investor={investor}
+            dashboardData={dashboardData}
+          />
+          <ProfitChart
+            financialRecords={mockFinancialRecords}
+            investor={investor}
+          />
         </div>
 
-        {/* Main Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Left Column - Overview Cards */}
-          <div className="lg:col-span-2 space-y-6">
-            <InvestmentOverview
-              investor={investor}
-              dashboardData={dashboardData}
-            />
-            <ProfitChart
-              financialRecords={mockFinancialRecords}
-              investor={investor}
-            />
-          </div>
-
-          {/* Right Column - Summary */}
-          <div className="space-y-6">
-            <ProfitSummary dashboardData={dashboardData} investor={investor} />
-            <WithdrawalRequests
-              withdrawalRecords={mockWithdrawalRecords}
-              investorId={investor.id}
-              pendingCount={pendingWithdrawals.length}
-            />
-          </div>
+        {/* Right Column - Summary */}
+        <div className="space-y-6">
+          <ProfitSummary dashboardData={dashboardData} investor={investor} />
+          <WithdrawalRequests
+            withdrawalRecords={mockWithdrawalRecords}
+            investorId={investor.id}
+            pendingCount={pendingWithdrawals.length}
+          />
         </div>
       </div>
-    </MainLayout>
+    </div>
   );
 }

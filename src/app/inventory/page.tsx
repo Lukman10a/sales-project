@@ -2,7 +2,6 @@
 
 import { useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import MainLayout from "@/components/layout/MainLayout";
 import { useAuth } from "@/contexts/AuthContext";
 import { useData } from "@/contexts/DataContext";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -159,7 +158,7 @@ export default function Inventory() {
   };
 
   return (
-    <MainLayout>
+    <>
       <div className="max-w-7xl mx-auto space-y-4 sm:space-y-6">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
@@ -412,6 +411,6 @@ export default function Inventory() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </MainLayout>
+    </>
   );
 }

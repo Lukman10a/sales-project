@@ -1,6 +1,5 @@
 "use client";
 
-import MainLayout from "@/components/layout/MainLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -75,182 +74,180 @@ export default function EditInvestorClient({
   };
 
   return (
-    <MainLayout requireRole="owner">
-      <div className="max-w-2xl mx-auto space-y-6">
-        {/* Header */}
-        <Link href="/investors">
-          <Button variant="ghost" className="mb-4">
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Investors
-          </Button>
-        </Link>
+    <div className="max-w-2xl mx-auto space-y-6">
+      {/* Header */}
+      <Link href="/investors">
+        <Button variant="ghost" className="mb-4">
+          <ArrowLeft className="w-4 h-4 mr-2" />
+          Back to Investors
+        </Button>
+      </Link>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Edit Investor</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            {/* Profile Picture */}
-            <div className="space-y-3">
-              <Label>Profile Picture</Label>
-              <div className="flex items-center gap-4">
-                <Avatar className="w-16 h-16">
-                  <AvatarImage src={investor.avatar} />
-                  <AvatarFallback className="bg-accent text-accent-foreground font-bold">
-                    {investorInitials}
-                  </AvatarFallback>
-                </Avatar>
-                <div>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    id="avatarInput"
-                  />
-                  <label htmlFor="avatarInput">
-                    <Button
-                      asChild
-                      size="sm"
-                      variant="outline"
-                      className="cursor-pointer"
-                    >
-                      <span>Change Avatar</span>
-                    </Button>
-                  </label>
-                </div>
-              </div>
-            </div>
-
-            {/* Name Fields */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="firstName">First Name</Label>
-                <Input
-                  id="firstName"
-                  value={form.firstName}
-                  onChange={(e) =>
-                    setForm((prev) => ({ ...prev, firstName: e.target.value }))
-                  }
-                  placeholder="First name"
+      <Card>
+        <CardHeader>
+          <CardTitle>Edit Investor</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {/* Profile Picture */}
+          <div className="space-y-3">
+            <Label>Profile Picture</Label>
+            <div className="flex items-center gap-4">
+              <Avatar className="w-16 h-16">
+                <AvatarImage src={investor.avatar} />
+                <AvatarFallback className="bg-accent text-accent-foreground font-bold">
+                  {investorInitials}
+                </AvatarFallback>
+              </Avatar>
+              <div>
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  id="avatarInput"
                 />
+                <label htmlFor="avatarInput">
+                  <Button
+                    asChild
+                    size="sm"
+                    variant="outline"
+                    className="cursor-pointer"
+                  >
+                    <span>Change Avatar</span>
+                  </Button>
+                </label>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="lastName">Last Name</Label>
-                <Input
-                  id="lastName"
-                  value={form.lastName}
-                  onChange={(e) =>
-                    setForm((prev) => ({ ...prev, lastName: e.target.value }))
-                  }
-                  placeholder="Last name"
-                />
-              </div>
             </div>
+          </div>
 
-            {/* Email */}
+          {/* Name Fields */}
+          <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="firstName">First Name</Label>
               <Input
-                id="email"
-                type="email"
-                value={form.email}
+                id="firstName"
+                value={form.firstName}
                 onChange={(e) =>
-                  setForm((prev) => ({ ...prev, email: e.target.value }))
+                  setForm((prev) => ({ ...prev, firstName: e.target.value }))
                 }
-                placeholder="Email address"
+                placeholder="First name"
               />
             </div>
-
-            {/* Investment Amount */}
             <div className="space-y-2">
-              <Label htmlFor="amount">Investment Amount (₦)</Label>
+              <Label htmlFor="lastName">Last Name</Label>
               <Input
-                id="amount"
-                type="number"
-                value={form.investmentAmount}
+                id="lastName"
+                value={form.lastName}
                 onChange={(e) =>
-                  setForm((prev) => ({
-                    ...prev,
-                    investmentAmount: e.target.value as any,
-                  }))
+                  setForm((prev) => ({ ...prev, lastName: e.target.value }))
                 }
-                placeholder="0"
+                placeholder="Last name"
               />
             </div>
+          </div>
 
-            {/* Investment Date */}
-            <div className="space-y-2">
-              <Label htmlFor="date">Investment Date</Label>
-              <Input
-                id="date"
-                type="date"
-                value={form.dateInvested}
-                onChange={(e) =>
-                  setForm((prev) => ({ ...prev, dateInvested: e.target.value }))
-                }
-              />
-            </div>
+          {/* Email */}
+          <div className="space-y-2">
+            <Label htmlFor="email">Email</Label>
+            <Input
+              id="email"
+              type="email"
+              value={form.email}
+              onChange={(e) =>
+                setForm((prev) => ({ ...prev, email: e.target.value }))
+              }
+              placeholder="Email address"
+            />
+          </div>
 
-            {/* Ownership Percentage */}
-            <div className="space-y-2">
-              <Label htmlFor="ownership">Ownership Percentage</Label>
-              <Input
-                id="ownership"
-                type="number"
-                step="0.01"
-                value={form.ownership}
-                onChange={(e) =>
-                  setForm((prev) => ({ ...prev, ownership: e.target.value }))
-                }
-                placeholder="0"
-                min="0"
-                max="100"
-              />
-              <p className="text-xs text-muted-foreground">
-                Enter percentage (0-100)
-              </p>
-            </div>
+          {/* Investment Amount */}
+          <div className="space-y-2">
+            <Label htmlFor="amount">Investment Amount (₦)</Label>
+            <Input
+              id="amount"
+              type="number"
+              value={form.investmentAmount}
+              onChange={(e) =>
+                setForm((prev) => ({
+                  ...prev,
+                  investmentAmount: e.target.value as any,
+                }))
+              }
+              placeholder="0"
+            />
+          </div>
 
-            {/* Status */}
-            <div className="space-y-2">
-              <Label htmlFor="status">Status</Label>
-              <Select
-                value={form.status}
-                onValueChange={(value) =>
-                  setForm((prev) => ({
-                    ...prev,
-                    status: value as "active" | "inactive",
-                  }))
-                }
-              >
-                <SelectTrigger id="status">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="inactive">Inactive</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+          {/* Investment Date */}
+          <div className="space-y-2">
+            <Label htmlFor="date">Investment Date</Label>
+            <Input
+              id="date"
+              type="date"
+              value={form.dateInvested}
+              onChange={(e) =>
+                setForm((prev) => ({ ...prev, dateInvested: e.target.value }))
+              }
+            />
+          </div>
 
-            {/* Form Actions */}
-            <div className="flex gap-3 pt-4">
-              <Button
-                className="flex-1 bg-gradient-accent text-accent-foreground"
-                onClick={handleSave}
-                disabled={isSubmitting}
-              >
-                {isSubmitting ? "Saving..." : "Save Changes"}
+          {/* Ownership Percentage */}
+          <div className="space-y-2">
+            <Label htmlFor="ownership">Ownership Percentage</Label>
+            <Input
+              id="ownership"
+              type="number"
+              step="0.01"
+              value={form.ownership}
+              onChange={(e) =>
+                setForm((prev) => ({ ...prev, ownership: e.target.value }))
+              }
+              placeholder="0"
+              min="0"
+              max="100"
+            />
+            <p className="text-xs text-muted-foreground">
+              Enter percentage (0-100)
+            </p>
+          </div>
+
+          {/* Status */}
+          <div className="space-y-2">
+            <Label htmlFor="status">Status</Label>
+            <Select
+              value={form.status}
+              onValueChange={(value) =>
+                setForm((prev) => ({
+                  ...prev,
+                  status: value as "active" | "inactive",
+                }))
+              }
+            >
+              <SelectTrigger id="status">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="active">Active</SelectItem>
+                <SelectItem value="inactive">Inactive</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Form Actions */}
+          <div className="flex gap-3 pt-4">
+            <Button
+              className="flex-1 bg-gradient-accent text-accent-foreground"
+              onClick={handleSave}
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? "Saving..." : "Save Changes"}
+            </Button>
+            <Link href="/investors" className="flex-1">
+              <Button variant="outline" className="w-full">
+                Cancel
               </Button>
-              <Link href="/investors" className="flex-1">
-                <Button variant="outline" className="w-full">
-                  Cancel
-                </Button>
-              </Link>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    </MainLayout>
+            </Link>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
   );
 }

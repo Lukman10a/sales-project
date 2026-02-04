@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import ClientProviders from "./providers";
+import LayoutWrapper from "./layout-wrapper";
 import LoadingBar from "@/components/LoadingBar";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
@@ -37,7 +38,7 @@ export default function RootLayout({
             <LoadingBar />
             <Toaster />
             <Sonner />
-            {children}
+            <LayoutWrapper>{children}</LayoutWrapper>
           </TooltipProvider>
         </ClientProviders>
       </body>

@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import MainLayout from "@/components/layout/MainLayout";
 import { CartItem, SaleItem } from "@/types/salesTypes";
 import { toast } from "@/components/ui/sonner";
 import { useAuth } from "@/contexts/AuthContext";
@@ -183,7 +182,7 @@ export default function Sales() {
   };
 
   return (
-    <MainLayout>
+    <>
       <div className="max-w-7xl mx-auto">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Product Selection */}
@@ -248,6 +247,6 @@ export default function Sales() {
         onAdd={handleQuickAdd}
         onClose={() => setQuickAddDialog({ open: false, item: null })}
       />
-    </MainLayout>
+    </>
   );
 }

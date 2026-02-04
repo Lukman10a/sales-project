@@ -10,20 +10,17 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/contexts/AuthContext";
+import { useUI } from "@/contexts/UIContext";
 
 interface HeaderProps {
   userRole: "owner" | "apprentice" | "investor";
   sidebarWidth: number;
-  onMobileMenuToggle?: () => void;
 }
 
-const Header = ({
-  userRole,
-  sidebarWidth,
-  onMobileMenuToggle,
-}: HeaderProps) => {
+const Header = ({ userRole, sidebarWidth }: HeaderProps) => {
   const { t, language, toggleLanguage, isRTL } = useLanguage();
   const { user } = useAuth();
+  const { mobileMenuOpen, setMobileMenuOpen } = useUI();
   const [isLargeScreen, setIsLargeScreen] = useState(false);
 
   useEffect(() => {
@@ -71,7 +68,7 @@ const Header = ({
       <Button
         variant="ghost"
         size="icon"
-        onClick={onMobileMenuToggle}
+        onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
         className="lg:hidden"
       >
         <Menu className="w-5 h-5" />

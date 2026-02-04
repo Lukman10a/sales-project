@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import MainLayout from "@/components/layout/MainLayout";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -98,85 +97,83 @@ export default function Profile() {
   };
 
   return (
-    <MainLayout>
-      <div className="max-w-5xl mx-auto space-y-4 sm:space-y-6">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
-          <div>
-            <h1 className="font-display text-2xl sm:text-3xl font-bold text-foreground mb-1 sm:mb-2">
-              {t("Profile & Settings")}
-            </h1>
-            <p className="text-sm sm:text-base text-muted-foreground">
-              {t("Manage your account settings and preferences")}
-            </p>
-          </div>
+    <div className="max-w-5xl mx-auto space-y-4 sm:space-y-6">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+        <div>
+          <h1 className="font-display text-2xl sm:text-3xl font-bold text-foreground mb-1 sm:mb-2">
+            {t("Profile & Settings")}
+          </h1>
+          <p className="text-sm sm:text-base text-muted-foreground">
+            {t("Manage your account settings and preferences")}
+          </p>
         </div>
-
-        <Tabs defaultValue="profile" className="w-full">
-          <TabsList className="grid w-full grid-cols-2 lg:grid-cols-5">
-            <TabsTrigger value="profile" className="gap-2">
-              <User className="w-4 h-4" />
-              <span className="hidden sm:inline">{t("Profile")}</span>
-            </TabsTrigger>
-            <TabsTrigger value="notifications" className="gap-2">
-              <Bell className="w-4 h-4" />
-              <span className="hidden sm:inline">{t("Notifications")}</span>
-            </TabsTrigger>
-            <TabsTrigger value="security" className="gap-2">
-              <Shield className="w-4 h-4" />
-              <span className="hidden sm:inline">{t("Security")}</span>
-            </TabsTrigger>
-            <TabsTrigger value="appearance" className="gap-2">
-              <Palette className="w-4 h-4" />
-              <span className="hidden sm:inline">{t("Appearance")}</span>
-            </TabsTrigger>
-            <TabsTrigger value="data" className="gap-2">
-              <Database className="w-4 h-4" />
-              <span className="hidden sm:inline">{t("Data")}</span>
-            </TabsTrigger>
-          </TabsList>
-
-          {/* Profile Tab */}
-          <TabsContent value="profile" className="space-y-4">
-            <ProfileInfoForm
-              profile={profile}
-              onProfileChange={setProfile}
-              onAvatarUpload={handleAvatarUpload}
-              onSave={handleSaveProfile}
-            />
-          </TabsContent>
-
-          {/* Notifications Tab */}
-          <TabsContent value="notifications" className="space-y-4">
-            <ProfileNotificationSettings
-              notifications={notifications}
-              onNotificationsChange={setNotifications}
-              onSave={handleSaveNotifications}
-            />
-          </TabsContent>
-
-          {/* Security Tab */}
-          <TabsContent value="security" className="space-y-4">
-            <SecuritySettings settings={securitySettings} />
-          </TabsContent>
-
-          {/* Appearance Tab */}
-          <TabsContent value="appearance" className="space-y-4">
-            <ProfileAppearanceSettings
-              appearance={appearance}
-              onAppearanceChange={setAppearance}
-              onThemeChange={applyTheme}
-              onLanguageChange={() => {}}
-              onSave={handleSaveAppearance}
-            />
-          </TabsContent>
-
-          {/* Data Tab */}
-          <TabsContent value="data" className="space-y-4">
-            <DataManagement />
-          </TabsContent>
-        </Tabs>
       </div>
-    </MainLayout>
+
+      <Tabs defaultValue="profile" className="w-full">
+        <TabsList className="grid w-full grid-cols-2 lg:grid-cols-5">
+          <TabsTrigger value="profile" className="gap-2">
+            <User className="w-4 h-4" />
+            <span className="hidden sm:inline">{t("Profile")}</span>
+          </TabsTrigger>
+          <TabsTrigger value="notifications" className="gap-2">
+            <Bell className="w-4 h-4" />
+            <span className="hidden sm:inline">{t("Notifications")}</span>
+          </TabsTrigger>
+          <TabsTrigger value="security" className="gap-2">
+            <Shield className="w-4 h-4" />
+            <span className="hidden sm:inline">{t("Security")}</span>
+          </TabsTrigger>
+          <TabsTrigger value="appearance" className="gap-2">
+            <Palette className="w-4 h-4" />
+            <span className="hidden sm:inline">{t("Appearance")}</span>
+          </TabsTrigger>
+          <TabsTrigger value="data" className="gap-2">
+            <Database className="w-4 h-4" />
+            <span className="hidden sm:inline">{t("Data")}</span>
+          </TabsTrigger>
+        </TabsList>
+
+        {/* Profile Tab */}
+        <TabsContent value="profile" className="space-y-4">
+          <ProfileInfoForm
+            profile={profile}
+            onProfileChange={setProfile}
+            onAvatarUpload={handleAvatarUpload}
+            onSave={handleSaveProfile}
+          />
+        </TabsContent>
+
+        {/* Notifications Tab */}
+        <TabsContent value="notifications" className="space-y-4">
+          <ProfileNotificationSettings
+            notifications={notifications}
+            onNotificationsChange={setNotifications}
+            onSave={handleSaveNotifications}
+          />
+        </TabsContent>
+
+        {/* Security Tab */}
+        <TabsContent value="security" className="space-y-4">
+          <SecuritySettings settings={securitySettings} />
+        </TabsContent>
+
+        {/* Appearance Tab */}
+        <TabsContent value="appearance" className="space-y-4">
+          <ProfileAppearanceSettings
+            appearance={appearance}
+            onAppearanceChange={setAppearance}
+            onThemeChange={applyTheme}
+            onLanguageChange={() => {}}
+            onSave={handleSaveAppearance}
+          />
+        </TabsContent>
+
+        {/* Data Tab */}
+        <TabsContent value="data" className="space-y-4">
+          <DataManagement />
+        </TabsContent>
+      </Tabs>
+    </div>
   );
 }

@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import MainLayout from "@/components/layout/MainLayout";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import NotificationActionModal from "@/components/notifications/NotificationActionModal";
@@ -89,7 +88,7 @@ export default function Notifications() {
   };
 
   return (
-    <MainLayout>
+    <>
       <div className="max-w-3xl mx-auto space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
@@ -238,6 +237,6 @@ export default function Notifications() {
           onActionComplete={handleActionComplete}
         />
       )}
-    </MainLayout>
+    </>
   );
 }

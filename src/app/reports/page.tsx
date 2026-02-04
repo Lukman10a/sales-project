@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import MainLayout from "@/components/layout/MainLayout";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ReportFormat } from "@/types/reportTypes";
@@ -56,7 +55,7 @@ export default function Reports() {
   };
 
   return (
-    <MainLayout requireRole="owner">
+    <>
       <div className="max-w-7xl mx-auto space-y-4 sm:space-y-6">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
@@ -103,6 +102,6 @@ export default function Reports() {
         onFormChange={setGenerateForm}
         onSubmit={handleGenerateReport}
       />
-    </MainLayout>
+    </>
   );
 }

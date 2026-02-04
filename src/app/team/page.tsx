@@ -1,17 +1,12 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import MainLayout from "@/components/layout/MainLayout";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, Users, Activity } from "lucide-react";
 import { toast } from "@/components/ui/sonner";
-import {
-  TeamMember,
-  TeamRole,
-  Permission,
-} from "@/types/teamTypes";
+import { TeamMember, TeamRole, Permission } from "@/types/teamTypes";
 import {
   teamMembers as initialTeamMembers,
   rolePermissions,
@@ -147,7 +142,7 @@ export default function TeamManagement() {
   };
 
   return (
-    <MainLayout requireRole="owner">
+    <>
       <div className="max-w-7xl mx-auto space-y-4 sm:space-y-6">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
@@ -241,6 +236,6 @@ export default function TeamManagement() {
         onConfirm={handleDeleteMember}
         onClose={() => setDeleteTarget(null)}
       />
-    </MainLayout>
+    </>
   );
 }

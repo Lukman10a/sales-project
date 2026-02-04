@@ -1,4 +1,3 @@
-import MainLayout from "@/components/layout/MainLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -20,23 +19,21 @@ export default function WithdrawalsPage({
 
   if (!investor) {
     return (
-      <MainLayout requireRole="owner">
-        <div className="max-w-4xl mx-auto">
-          <Link href="/investors">
-            <Button variant="ghost" className="mb-4">
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Back to Investors
-            </Button>
-          </Link>
-          <Card>
-            <CardContent className="py-12">
-              <p className="text-center text-muted-foreground">
-                Investor not found
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-      </MainLayout>
+      <div className="max-w-4xl mx-auto">
+        <Link href="/investors">
+          <Button variant="ghost" className="mb-4">
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back to Investors
+          </Button>
+        </Link>
+        <Card>
+          <CardContent className="py-12">
+            <p className="text-center text-muted-foreground">
+              Investor not found
+            </p>
+          </CardContent>
+        </Card>
+      </div>
     );
   }
 

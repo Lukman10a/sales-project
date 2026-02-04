@@ -5,6 +5,7 @@ import { useState } from "react";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { DataProvider } from "@/contexts/DataContext";
 import { LanguageProvider } from "@/contexts/LanguageContext";
+import { UIProvider } from "@/contexts/UIContext";
 
 export default function ClientProviders({
   children,
@@ -17,7 +18,9 @@ export default function ClientProviders({
     <QueryClientProvider client={queryClient}>
       <LanguageProvider>
         <AuthProvider>
-          <DataProvider>{children}</DataProvider>
+          <UIProvider>
+            <DataProvider>{children}</DataProvider>
+          </UIProvider>
         </AuthProvider>
       </LanguageProvider>
     </QueryClientProvider>

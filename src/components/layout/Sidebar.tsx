@@ -27,15 +27,12 @@ import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/contexts/AuthContext";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useUI } from "@/contexts/UIContext";
 import { getNotificationsByRole } from "@/data/roleNotifications";
 
 interface SidebarProps {
   userRole?: "owner" | "apprentice" | "investor";
   onRoleChange?: (role: "owner" | "apprentice" | "investor") => void;
-  collapsed?: boolean;
-  onToggleCollapse?: () => void;
-  mobileOpen?: boolean;
-  onMobileClose?: () => void;
 }
 
 interface NavigationItem {
@@ -83,20 +80,19 @@ const getNavigation = (role: "owner" | "apprentice" | "investor" = "owner") => {
   return ownerNavigation;
 };
 
-const Sidebar = ({
-  userRole: propUserRole,
-  onRoleChange,
-  collapsed: propCollapsed = false,
-  onToggleCollapse,
-  mobileOpen = false,
-  onMobileClose,
-}: SidebarProps) => {
+const Sidebar = ({ userRole: propUserRole, onRoleChange }: SidebarProps) => {
   const pathname = usePathname();
   const { user, logout } = useAuth();
   const { t, isRTL } = useLanguage();
+  const {
+    sidebarCollapsed,
+    setSidebarCollapsed,
+    mobileMenuOpen,
+    setMobileMenuOpen,
+  } = useUI();
   const [isLargeScreen, setIsLargeScreen] = React.useState(false);
 
-  const collapsed = propCollapsed;
+  const collapsed = sidebarCollapsed;
 
   // Detect screen size
   React.useEffect(() => {
@@ -111,18 +107,14 @@ const Sidebar = ({
 
   // Close mobile sidebar on navigation (only on mobile)
   React.useEffect(() => {
-    // if (mobileOpen && onMobileClose && !isLargeScreen) {
-    //   onMobileClose();
-    // }
-
     // Don't do anything on large screens
     if (isLargeScreen) return;
 
     // Only close if mobile sidebar is open
-    if (mobileOpen && onMobileClose) {
-      onMobileClose();
+    if (mobileMenuOpen) {
+      setMobileMenuOpen(false);
     }
-  }, [pathname, mobileOpen, onMobileClose, isLargeScreen]);
+  }, [pathname, mobileMenuOpen, setMobileMenuOpen, isLargeScreen]);
 
   const isSettingsActive = pathname?.startsWith("/settings");
   const isProfileActive =
@@ -138,9 +130,9 @@ const Sidebar = ({
   const sidebarAnimation = React.useMemo(
     () => ({
       width: collapsed ? 80 : 280,
-      x: isLargeScreen ? 0 : mobileOpen ? 0 : isRTL ? 280 : -280,
+      x: isLargeScreen ? 0 : mobileMenuOpen ? 0 : isRTL ? 280 : -280,
     }),
-    [collapsed, isLargeScreen, mobileOpen, isRTL],
+    [collapsed, isLargeScreen, mobileMenuOpen, isRTL],
   );
 
   // Memoize navigation items and unread count
@@ -158,12 +150,12 @@ const Sidebar = ({
     <>
       {/* Mobile backdrop */}
       <AnimatePresence>
-        {mobileOpen && (
+        {mobileMenuOpen && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            onClick={onMobileClose}
+            onClick={() => setMobileMenuOpen(false)}
             className="fixed inset-0 bg-black/60 z-40 lg:hidden"
           />
         )}
@@ -181,9 +173,9 @@ const Sidebar = ({
         )}
       >
         {/* Mobile close touch area */}
-        {mobileOpen && (
+        {mobileMenuOpen && (
           <button
-            onClick={onMobileClose}
+            onClick={() => setMobileMenuOpen(false)}
             className="lg:hidden absolute -right-12 top-4 w-10 h-10 bg-card rounded-full flex items-center justify-center shadow-lg"
           >
             <ChevronLeft className="w-5 h-5" />
@@ -392,7 +384,7 @@ const Sidebar = ({
 
         {/* Collapse Button - Desktop only */}
         <button
-          onClick={onToggleCollapse}
+          onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
           className={cn(
             "hidden lg:flex absolute top-1/2 -translate-y-1/2 w-6 h-6 bg-card border border-border rounded-full items-center justify-center shadow-md hover:bg-muted transition-colors",
             isRTL ? "-left-3" : "-right-3",

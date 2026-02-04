@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import MainLayout from "@/components/layout/MainLayout";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { Badge } from "@/components/ui/badge";
@@ -125,86 +124,84 @@ export default function StaffProfile() {
   };
 
   return (
-    <MainLayout>
-      <div className="max-w-5xl mx-auto space-y-4 sm:space-y-6">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
-          <div>
-            <h1 className="font-display text-2xl sm:text-3xl font-bold text-foreground mb-1 sm:mb-2">
-              {t("Staff Profile & Settings")}
-            </h1>
-            <p className="text-sm sm:text-base text-muted-foreground">
-              {t("Manage your profile and preferences")}
-            </p>
-          </div>
-          <Badge className="w-fit">{t("Staff Member")}</Badge>
+    <div className="max-w-5xl mx-auto space-y-4 sm:space-y-6">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+        <div>
+          <h1 className="font-display text-2xl sm:text-3xl font-bold text-foreground mb-1 sm:mb-2">
+            {t("Staff Profile & Settings")}
+          </h1>
+          <p className="text-sm sm:text-base text-muted-foreground">
+            {t("Manage your profile and preferences")}
+          </p>
         </div>
-
-        {/* Performance Overview */}
-        <PerformanceStats />
-
-        {/* Settings Tabs */}
-        <Tabs defaultValue="profile" className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="profile" className="gap-2">
-              <User className="w-4 h-4" />
-              <span className="hidden sm:inline">{t("Profile")}</span>
-            </TabsTrigger>
-            <TabsTrigger value="notifications" className="gap-2">
-              <Bell className="w-4 h-4" />
-              <span className="hidden sm:inline">{t("Notifications")}</span>
-            </TabsTrigger>
-            <TabsTrigger value="appearance" className="gap-2">
-              <Palette className="w-4 h-4" />
-              <span className="hidden sm:inline">{t("Appearance")}</span>
-            </TabsTrigger>
-          </TabsList>
-
-          {/* Profile Tab */}
-          <TabsContent value="profile" className="space-y-4">
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-            >
-              <ProfileSection
-                profile={profile}
-                onProfileChange={setProfile}
-                onSave={handleSaveProfile}
-              />
-            </motion.div>
-          </TabsContent>
-
-          {/* Notifications Tab */}
-          <TabsContent value="notifications" className="space-y-4">
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-            >
-              <NotificationsSection
-                notifications={notifications}
-                onNotificationsChange={setNotifications}
-                onSave={handleSaveNotifications}
-              />
-            </motion.div>
-          </TabsContent>
-
-          {/* Appearance Tab */}
-          <TabsContent value="appearance" className="space-y-4">
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-            >
-              <AppearanceSection
-                appearance={appearance}
-                onAppearanceChange={setAppearance}
-                onThemeChange={handleThemeChange}
-                onLanguageChange={handleLanguageChange}
-                onSave={handleSaveAppearance}
-              />
-            </motion.div>
-          </TabsContent>
-        </Tabs>
+        <Badge className="w-fit">{t("Staff Member")}</Badge>
       </div>
-    </MainLayout>
+
+      {/* Performance Overview */}
+      <PerformanceStats />
+
+      {/* Settings Tabs */}
+      <Tabs defaultValue="profile" className="w-full">
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="profile" className="gap-2">
+            <User className="w-4 h-4" />
+            <span className="hidden sm:inline">{t("Profile")}</span>
+          </TabsTrigger>
+          <TabsTrigger value="notifications" className="gap-2">
+            <Bell className="w-4 h-4" />
+            <span className="hidden sm:inline">{t("Notifications")}</span>
+          </TabsTrigger>
+          <TabsTrigger value="appearance" className="gap-2">
+            <Palette className="w-4 h-4" />
+            <span className="hidden sm:inline">{t("Appearance")}</span>
+          </TabsTrigger>
+        </TabsList>
+
+        {/* Profile Tab */}
+        <TabsContent value="profile" className="space-y-4">
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+          >
+            <ProfileSection
+              profile={profile}
+              onProfileChange={setProfile}
+              onSave={handleSaveProfile}
+            />
+          </motion.div>
+        </TabsContent>
+
+        {/* Notifications Tab */}
+        <TabsContent value="notifications" className="space-y-4">
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+          >
+            <NotificationsSection
+              notifications={notifications}
+              onNotificationsChange={setNotifications}
+              onSave={handleSaveNotifications}
+            />
+          </motion.div>
+        </TabsContent>
+
+        {/* Appearance Tab */}
+        <TabsContent value="appearance" className="space-y-4">
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+          >
+            <AppearanceSection
+              appearance={appearance}
+              onAppearanceChange={setAppearance}
+              onThemeChange={handleThemeChange}
+              onLanguageChange={handleLanguageChange}
+              onSave={handleSaveAppearance}
+            />
+          </motion.div>
+        </TabsContent>
+      </Tabs>
+    </div>
   );
 }

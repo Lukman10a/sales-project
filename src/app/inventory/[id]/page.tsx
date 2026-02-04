@@ -33,23 +33,21 @@ export default function InventoryItemDetails({
 
   if (!item) {
     return (
-      <MainLayout>
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center py-12">
-            <Package className="w-16 h-16 mx-auto text-muted-foreground mb-4" />
-            <h2 className="text-2xl font-bold text-foreground mb-2">
-              {t("Item not found")}
-            </h2>
-            <p className="text-muted-foreground mb-6">
-              {t("The item you're looking for doesn't exist")}
-            </p>
-            <Button onClick={() => router.push("/inventory")}>
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              {t("Back to Inventory")}
-            </Button>
-          </div>
+      <div className="max-w-7xl mx-auto">
+        <div className="text-center py-12">
+          <Package className="w-16 h-16 mx-auto text-muted-foreground mb-4" />
+          <h2 className="text-2xl font-bold text-foreground mb-2">
+            {t("Item not found")}
+          </h2>
+          <p className="text-muted-foreground mb-6">
+            {t("The item you're looking for doesn't exist")}
+          </p>
+          <Button onClick={() => router.push("/inventory")}>
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            {t("Back to Inventory")}
+          </Button>
         </div>
-      </MainLayout>
+      </div>
     );
   }
 
@@ -73,40 +71,38 @@ export default function InventoryItemDetails({
   };
 
   return (
-    <MainLayout>
-      <div className="max-w-7xl mx-auto space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <Button
-            variant="ghost"
-            onClick={() => router.push("/inventory")}
-            className="gap-2"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            {t("Back to Inventory")}
-          </Button>
-          <Button className="gap-2">
-            <Edit className="w-4 h-4" />
-            {t("Edit Item")}
-          </Button>
+    <div className="max-w-7xl mx-auto space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <Button
+          variant="ghost"
+          onClick={() => router.push("/inventory")}
+          className="gap-2"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          {t("Back to Inventory")}
+        </Button>
+        <Button className="gap-2">
+          <Edit className="w-4 h-4" />
+          {t("Edit Item")}
+        </Button>
+      </div>
+
+      {/* Main Content */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Left Column - Image and Basic Info */}
+        <div className="lg:col-span-1 space-y-6">
+          <ItemBasicInfoCard item={item} />
+          <StockAlertCard item={item} />
         </div>
 
-        {/* Main Content */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Left Column - Image and Basic Info */}
-          <div className="lg:col-span-1 space-y-6">
-            <ItemBasicInfoCard item={item} />
-            <StockAlertCard item={item} />
-          </div>
-
-          {/* Right Column - Details and Analytics */}
-          <div className="lg:col-span-2 space-y-6">
-            <ItemMetricsGrid {...metricsData} />
-            <SalesTrendChart salesTrend={salesTrend} />
-            <QuickActionsCard />
-          </div>
+        {/* Right Column - Details and Analytics */}
+        <div className="lg:col-span-2 space-y-6">
+          <ItemMetricsGrid {...metricsData} />
+          <SalesTrendChart salesTrend={salesTrend} />
+          <QuickActionsCard />
         </div>
       </div>
-    </MainLayout>
+    </div>
   );
 }

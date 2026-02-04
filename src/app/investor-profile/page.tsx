@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import MainLayout from "@/components/layout/MainLayout";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { Badge } from "@/components/ui/badge";
@@ -157,80 +156,78 @@ export default function InvestorProfile() {
   ];
 
   return (
-    <MainLayout requireRole="investor">
-      <div className="max-w-5xl mx-auto space-y-4 sm:space-y-6">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
-          <div>
-            <h1 className="font-display text-2xl sm:text-3xl font-bold text-foreground mb-1 sm:mb-2">
-              {t("Investor Profile & Settings")}
-            </h1>
-            <p className="text-sm sm:text-base text-muted-foreground">
-              {t("Manage your investment profile and preferences")}
-            </p>
-          </div>
-          <Badge
-            variant="outline"
-            className="bg-success/10 text-success border-success/20 w-fit"
-          >
-            {t("Investor")}
-          </Badge>
+    <div className="max-w-5xl mx-auto space-y-4 sm:space-y-6">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+        <div>
+          <h1 className="font-display text-2xl sm:text-3xl font-bold text-foreground mb-1 sm:mb-2">
+            {t("Investor Profile & Settings")}
+          </h1>
+          <p className="text-sm sm:text-base text-muted-foreground">
+            {t("Manage your investment profile and preferences")}
+          </p>
         </div>
-
-        {/* Investment Overview */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {investmentStats.map((stat) => (
-            <InvestmentStatsCard key={stat.label} {...stat} />
-          ))}
-        </div>
-
-        <Tabs defaultValue="profile" className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="profile" className="gap-2">
-              <User className="w-4 h-4" />
-              <span className="hidden sm:inline">{t("Profile")}</span>
-            </TabsTrigger>
-            <TabsTrigger value="notifications" className="gap-2">
-              <Bell className="w-4 h-4" />
-              <span className="hidden sm:inline">{t("Notifications")}</span>
-            </TabsTrigger>
-            <TabsTrigger value="appearance" className="gap-2">
-              <Palette className="w-4 h-4" />
-              <span className="hidden sm:inline">{t("Appearance")}</span>
-            </TabsTrigger>
-          </TabsList>
-
-          {/* Profile Tab */}
-          <TabsContent value="profile" className="space-y-4">
-            <ProfileForm
-              profile={profile}
-              onProfileChange={setProfile}
-              onAvatarUpload={handleAvatarUpload}
-              onSave={handleSaveProfile}
-            />
-          </TabsContent>
-
-          {/* Notifications Tab */}
-          <TabsContent value="notifications" className="space-y-4">
-            <NotificationSettings
-              notifications={notifications}
-              onNotificationsChange={setNotifications}
-              onSave={handleSaveNotifications}
-            />
-          </TabsContent>
-
-          {/* Appearance Tab */}
-          <TabsContent value="appearance" className="space-y-4">
-            <AppearanceSettings
-              appearance={appearance}
-              onAppearanceChange={setAppearance}
-              onThemeChange={applyTheme}
-              onLanguageChange={setLanguage}
-              onSave={handleSaveAppearance}
-            />
-          </TabsContent>
-        </Tabs>
+        <Badge
+          variant="outline"
+          className="bg-success/10 text-success border-success/20 w-fit"
+        >
+          {t("Investor")}
+        </Badge>
       </div>
-    </MainLayout>
+
+      {/* Investment Overview */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {investmentStats.map((stat) => (
+          <InvestmentStatsCard key={stat.label} {...stat} />
+        ))}
+      </div>
+
+      <Tabs defaultValue="profile" className="w-full">
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="profile" className="gap-2">
+            <User className="w-4 h-4" />
+            <span className="hidden sm:inline">{t("Profile")}</span>
+          </TabsTrigger>
+          <TabsTrigger value="notifications" className="gap-2">
+            <Bell className="w-4 h-4" />
+            <span className="hidden sm:inline">{t("Notifications")}</span>
+          </TabsTrigger>
+          <TabsTrigger value="appearance" className="gap-2">
+            <Palette className="w-4 h-4" />
+            <span className="hidden sm:inline">{t("Appearance")}</span>
+          </TabsTrigger>
+        </TabsList>
+
+        {/* Profile Tab */}
+        <TabsContent value="profile" className="space-y-4">
+          <ProfileForm
+            profile={profile}
+            onProfileChange={setProfile}
+            onAvatarUpload={handleAvatarUpload}
+            onSave={handleSaveProfile}
+          />
+        </TabsContent>
+
+        {/* Notifications Tab */}
+        <TabsContent value="notifications" className="space-y-4">
+          <NotificationSettings
+            notifications={notifications}
+            onNotificationsChange={setNotifications}
+            onSave={handleSaveNotifications}
+          />
+        </TabsContent>
+
+        {/* Appearance Tab */}
+        <TabsContent value="appearance" className="space-y-4">
+          <AppearanceSettings
+            appearance={appearance}
+            onAppearanceChange={setAppearance}
+            onThemeChange={applyTheme}
+            onLanguageChange={setLanguage}
+            onSave={handleSaveAppearance}
+          />
+        </TabsContent>
+      </Tabs>
+    </div>
   );
 }
