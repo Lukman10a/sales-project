@@ -35,7 +35,7 @@ export default function Profile() {
     } else {
       applyTheme(appearance.theme);
     }
-  }, []);
+  }, [appearance.theme]);
 
   const applyTheme = (theme: string) => {
     if (theme === "dark") {
