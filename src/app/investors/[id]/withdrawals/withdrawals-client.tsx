@@ -8,7 +8,7 @@ import Link from "next/link";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { formatCurrency } from "@/lib/investorUtils";
 import { Investor } from "@/types/investorTypes";
-import { useData } from "@/contexts/DataContext";
+import { useInvestorData } from "@/contexts/InvestorDataContext";
 import { useState } from "react";
 import { toast } from "@/components/ui/sonner";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -20,7 +20,7 @@ interface WithdrawalsClientProps {
 export default function WithdrawalsClient({
   investor,
 }: WithdrawalsClientProps) {
-  const { withdrawals, updateWithdrawal } = useData();
+  const { withdrawals, updateWithdrawal } = useInvestorData();
   const [actioningId, setActioningId] = useState<string | null>(null);
   const { t } = useLanguage();
 

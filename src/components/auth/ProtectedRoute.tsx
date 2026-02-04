@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useRef } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { motion } from "framer-motion";
@@ -14,23 +14,30 @@ interface ProtectedRouteProps {
 export function ProtectedRoute({ children, requireRole }: ProtectedRouteProps) {
   const { isAuthenticated, isLoading, user } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
+  const redirectingRef = useRef(false);
   const { t, isRTL } = useLanguage();
 
   useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
-      router.replace("/auth/login");
-    }
+    if (isLoading) return;
+
+    const isAuthRoute = pathname?.startsWith("/auth");
+    const shouldRedirectUnauthed = !isAuthenticated && !isAuthRoute;
+    const shouldRedirectRole =
+      isAuthenticated && requireRole && user?.role !== requireRole;
 
     if (
-      !isLoading &&
-      isAuthenticated &&
-      requireRole &&
-      user?.role !== requireRole
+      (shouldRedirectUnauthed || shouldRedirectRole) &&
+      !redirectingRef.current
     ) {
-      // User doesn't have required role, redirect to dashboard
-      router.replace("/");
+      redirectingRef.current = true;
+      router.replace(shouldRedirectUnauthed ? "/auth/login" : "/");
+      return;
     }
-  }, [isAuthenticated, isLoading, requireRole, user, router]);
+
+    // Reset once we're in a valid state so future checks can redirect.
+    redirectingRef.current = false;
+  }, [isAuthenticated, isLoading, requireRole, user?.role, router, pathname]);
 
   if (!isAuthenticated && !isLoading) {
     return null;

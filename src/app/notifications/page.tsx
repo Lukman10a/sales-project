@@ -1,10 +1,14 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import dynamic from "next/dynamic";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import NotificationActionModal from "@/components/notifications/NotificationActionModal";
+const NotificationActionModal = dynamic(
+  () => import("@/components/notifications/NotificationActionModal"),
+  { ssr: false, loading: () => null },
+);
 import {
   Bell,
   Check,

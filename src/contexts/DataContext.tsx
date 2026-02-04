@@ -6,6 +6,8 @@ import React, {
   useState,
   ReactNode,
   useMemo,
+  useCallback,
+  useRef,
 } from "react";
 import { inventoryItems } from "@/data/inventory";
 import { recentSalesData } from "@/data/sales";
@@ -51,6 +53,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
     mockWithdrawalRecords,
   );
   const [isHydrated, setIsHydrated] = useState(false);
+  const inventorySaveRef = useRef<NodeJS.Timeout | null>(null);
+  const salesSaveRef = useRef<NodeJS.Timeout | null>(null);
+  const investorsSaveRef = useRef<NodeJS.Timeout | null>(null);
+  const withdrawalsSaveRef = useRef<NodeJS.Timeout | null>(null);
 
   // Load from localStorage on mount (client-only)
   React.useEffect(() => {
@@ -70,43 +76,86 @@ export function DataProvider({ children }: { children: ReactNode }) {
   // Persist to localStorage (only after hydration)
   React.useEffect(() => {
     if (isHydrated) {
-      localStorage.setItem("luxa_inventory", JSON.stringify(inventory));
+      if (inventorySaveRef.current) {
+        clearTimeout(inventorySaveRef.current);
+      }
+      inventorySaveRef.current = setTimeout(() => {
+        localStorage.setItem("luxa_inventory", JSON.stringify(inventory));
+      }, 250);
     }
+    return () => {
+      if (inventorySaveRef.current) {
+        clearTimeout(inventorySaveRef.current);
+      }
+    };
   }, [inventory, isHydrated]);
 
   React.useEffect(() => {
     if (isHydrated) {
-      localStorage.setItem("luxa_sales", JSON.stringify(recentSales));
+      if (salesSaveRef.current) {
+        clearTimeout(salesSaveRef.current);
+      }
+      salesSaveRef.current = setTimeout(() => {
+        localStorage.setItem("luxa_sales", JSON.stringify(recentSales));
+      }, 250);
     }
+    return () => {
+      if (salesSaveRef.current) {
+        clearTimeout(salesSaveRef.current);
+      }
+    };
   }, [recentSales, isHydrated]);
 
   React.useEffect(() => {
     if (isHydrated) {
-      localStorage.setItem("luxa_investors", JSON.stringify(investors));
+      if (investorsSaveRef.current) {
+        clearTimeout(investorsSaveRef.current);
+      }
+      investorsSaveRef.current = setTimeout(() => {
+        localStorage.setItem("luxa_investors", JSON.stringify(investors));
+      }, 250);
     }
+    return () => {
+      if (investorsSaveRef.current) {
+        clearTimeout(investorsSaveRef.current);
+      }
+    };
   }, [investors, isHydrated]);
 
   React.useEffect(() => {
     if (isHydrated) {
-      localStorage.setItem("luxa_withdrawals", JSON.stringify(withdrawals));
+      if (withdrawalsSaveRef.current) {
+        clearTimeout(withdrawalsSaveRef.current);
+      }
+      withdrawalsSaveRef.current = setTimeout(() => {
+        localStorage.setItem("luxa_withdrawals", JSON.stringify(withdrawals));
+      }, 250);
     }
+    return () => {
+      if (withdrawalsSaveRef.current) {
+        clearTimeout(withdrawalsSaveRef.current);
+      }
+    };
   }, [withdrawals, isHydrated]);
 
-  const addInventoryItem = (item: InventoryItem) => {
+  const addInventoryItem = useCallback((item: InventoryItem) => {
     setInventory((prev) => [item, ...prev]);
-  };
+  }, []);
 
-  const updateInventoryItem = (id: string, updates: Partial<InventoryItem>) => {
-    setInventory((prev) =>
-      prev.map((item) => (item.id === id ? { ...item, ...updates } : item)),
-    );
-  };
+  const updateInventoryItem = useCallback(
+    (id: string, updates: Partial<InventoryItem>) => {
+      setInventory((prev) =>
+        prev.map((item) => (item.id === id ? { ...item, ...updates } : item)),
+      );
+    },
+    [],
+  );
 
-  const deleteInventoryItem = (id: string) => {
+  const deleteInventoryItem = useCallback((id: string) => {
     setInventory((prev) => prev.filter((item) => item.id !== id));
-  };
+  }, []);
 
-  const decrementInventory = (id: string, quantity: number) => {
+  const decrementInventory = useCallback((id: string, quantity: number) => {
     setInventory((prev) =>
       prev.map((item) =>
         item.id === id
@@ -114,31 +163,37 @@ export function DataProvider({ children }: { children: ReactNode }) {
           : item,
       ),
     );
-  };
+  }, []);
 
-  const confirmInventoryReceipt = (id: string) => {
+  const confirmInventoryReceipt = useCallback((id: string) => {
     setInventory((prev) =>
       prev.map((item) =>
         item.id === id ? { ...item, confirmedByApprentice: true } : item,
       ),
     );
-  };
+  }, []);
 
-  const addSaleRecord = (sale: SaleRecord) => {
+  const addSaleRecord = useCallback((sale: SaleRecord) => {
     setRecentSales((prev) => [sale, ...prev]);
-  };
+  }, []);
 
-  const updateInvestor = (id: string, updates: Partial<Investor>) => {
-    setInvestors((prev) =>
-      prev.map((inv) => (inv.id === id ? { ...inv, ...updates } : inv)),
-    );
-  };
+  const updateInvestor = useCallback(
+    (id: string, updates: Partial<Investor>) => {
+      setInvestors((prev) =>
+        prev.map((inv) => (inv.id === id ? { ...inv, ...updates } : inv)),
+      );
+    },
+    [],
+  );
 
-  const updateWithdrawal = (id: string, updates: Partial<WithdrawalRecord>) => {
-    setWithdrawals((prev) =>
-      prev.map((w) => (w.id === id ? { ...w, ...updates } : w)),
-    );
-  };
+  const updateWithdrawal = useCallback(
+    (id: string, updates: Partial<WithdrawalRecord>) => {
+      setWithdrawals((prev) =>
+        prev.map((w) => (w.id === id ? { ...w, ...updates } : w)),
+      );
+    },
+    [],
+  );
 
   // Computed stats - memoized to prevent recalculation on every render
   const totalItemsInStock = useMemo(
@@ -200,9 +255,17 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }),
     [
       inventory,
+      addInventoryItem,
+      updateInventoryItem,
+      deleteInventoryItem,
+      decrementInventory,
+      confirmInventoryReceipt,
       recentSales,
+      addSaleRecord,
       investors,
+      updateInvestor,
       withdrawals,
+      updateWithdrawal,
       totalItemsInStock,
       lowStockItems,
       outOfStockItems,

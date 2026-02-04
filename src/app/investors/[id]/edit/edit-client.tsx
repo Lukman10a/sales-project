@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/select";
 import { Investor } from "@/types/investorTypes";
 import { useState } from "react";
-import { useData } from "@/contexts/DataContext";
+import { useInvestorData } from "@/contexts/InvestorDataContext";
 import { toast } from "@/components/ui/sonner";
 import { useRouter } from "next/navigation";
 
@@ -28,7 +28,7 @@ export default function EditInvestorClient({
   investor,
 }: EditInvestorClientProps) {
   const router = useRouter();
-  const { updateInvestor } = useData();
+  const { updateInvestor } = useInvestorData();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [form, setForm] = useState({

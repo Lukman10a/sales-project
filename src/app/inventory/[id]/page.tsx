@@ -3,7 +3,7 @@
 import { use, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import MainLayout from "@/components/layout/MainLayout";
-import { useData } from "@/contexts/DataContext";
+import { useInventoryData } from "@/contexts/InventoryDataContext";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Edit, Package } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -23,7 +23,7 @@ export default function InventoryItemDetails({
 }) {
   const { id } = use(params);
   const router = useRouter();
-  const { inventory } = useData();
+  const { inventory } = useInventoryData();
   const { t, formatCurrency } = useLanguage();
 
   const item = useMemo(

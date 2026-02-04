@@ -31,7 +31,7 @@ export default function InventoryGridItem({
   return (
     <motion.div
       key={item.id}
-      initial={{ opacity: 0, y: 20 }}
+      initial={false}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.05 }}
       className="bg-card rounded-2xl border card-elevated card-hover overflow-hidden"

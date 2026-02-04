@@ -37,7 +37,7 @@ export default function TeamMembersGrid({
         {members.map((member, index) => (
           <motion.div
             key={member.id}
-            initial={{ opacity: 0, y: 20 }}
+            initial={false}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
             transition={{ delay: index * 0.05 }}

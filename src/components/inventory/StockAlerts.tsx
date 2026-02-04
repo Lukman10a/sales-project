@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useData } from "@/contexts/DataContext";
+import { useInventoryData } from "@/contexts/InventoryDataContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -20,7 +20,7 @@ import Link from "next/link";
 import { useState } from "react";
 
 export default function StockAlerts() {
-  const { inventory } = useData();
+  const { inventory } = useInventoryData();
   const { t } = useLanguage();
   const [dismissed, setDismissed] = useState<string[]>([]);
   const [isExpanded, setIsExpanded] = useState(true);

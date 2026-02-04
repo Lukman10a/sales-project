@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import dynamic from "next/dynamic";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -13,11 +14,46 @@ import {
 } from "@/data/team";
 import TeamFilters from "@/components/team/TeamFilters";
 import StatsGrid from "@/components/team/StatsGrid";
-import TeamMembersGrid from "@/components/team/TeamMembersGrid";
-import ActivityLog from "@/components/team/ActivityLog";
-import AddMemberDialog from "@/components/team/AddMemberDialog";
-import EditMemberDialog from "@/components/team/EditMemberDialog";
-import DeleteMemberDialog from "@/components/team/DeleteMemberDialog";
+const TeamMembersGrid = dynamic(
+  () => import("@/components/team/TeamMembersGrid"),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {[0, 1, 2, 3].map((i) => (
+          <div
+            key={i}
+            className="bg-card rounded-2xl border card-elevated p-4 animate-pulse"
+          >
+            <div className="h-4 bg-muted rounded w-1/2" />
+            <div className="mt-3 h-3 bg-muted/70 rounded w-3/4" />
+          </div>
+        ))}
+      </div>
+    ),
+  },
+);
+const ActivityLog = dynamic(() => import("@/components/team/ActivityLog"), {
+  ssr: false,
+  loading: () => (
+    <div className="bg-card rounded-2xl border card-elevated p-4 animate-pulse">
+      <div className="h-4 bg-muted rounded w-1/3" />
+      <div className="mt-3 h-3 bg-muted/70 rounded w-2/3" />
+    </div>
+  ),
+});
+const AddMemberDialog = dynamic(
+  () => import("@/components/team/AddMemberDialog"),
+  { ssr: false, loading: () => null },
+);
+const EditMemberDialog = dynamic(
+  () => import("@/components/team/EditMemberDialog"),
+  { ssr: false, loading: () => null },
+);
+const DeleteMemberDialog = dynamic(
+  () => import("@/components/team/DeleteMemberDialog"),
+  { ssr: false, loading: () => null },
+);
 
 const emptyNewMember: Omit<TeamMember, "id" | "joinedDate"> = {
   name: "",

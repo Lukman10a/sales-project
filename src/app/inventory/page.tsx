@@ -1,9 +1,10 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import dynamic from "next/dynamic";
 import { AnimatePresence, motion } from "framer-motion";
 import { useAuth } from "@/contexts/AuthContext";
-import { useData } from "@/contexts/DataContext";
+import { useInventoryData } from "@/contexts/InventoryDataContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,11 +23,46 @@ import { cn } from "@/lib/utils";
 import { InventoryItem } from "@/types/inventoryTypes";
 import { toast } from "@/components/ui/sonner";
 import StockAlerts from "@/components/inventory/StockAlerts";
-import InventoryFilters from "@/components/inventory/InventoryFilters";
-import InventoryFormDialog from "@/components/inventory/InventoryFormDialog";
-import InventoryGridItem from "@/components/inventory/InventoryGridItem";
-import InventoryListItem from "@/components/inventory/InventoryListItem";
-import InventoryStats from "@/components/inventory/InventoryStats";
+const InventoryFilters = dynamic(
+  () => import("@/components/inventory/InventoryFilters"),
+  { ssr: false, loading: () => null },
+);
+const InventoryFormDialog = dynamic(
+  () => import("@/components/inventory/InventoryFormDialog"),
+  { ssr: false, loading: () => null },
+);
+const InventoryStats = dynamic(
+  () => import("@/components/inventory/InventoryStats"),
+  { ssr: false, loading: () => null },
+);
+const InventoryGridItem = dynamic(
+  () => import("@/components/inventory/InventoryGridItem"),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="bg-card rounded-2xl border card-elevated p-4 animate-pulse">
+        <div className="aspect-square bg-muted rounded-xl" />
+        <div className="mt-4 space-y-2">
+          <div className="h-4 bg-muted rounded" />
+          <div className="h-3 bg-muted/70 rounded w-2/3" />
+        </div>
+      </div>
+    ),
+  },
+);
+const InventoryListItem = dynamic(
+  () => import("@/components/inventory/InventoryListItem"),
+  {
+    ssr: false,
+    loading: () => (
+      <tr className="border-b">
+        <td className="p-4" colSpan={6}>
+          <div className="h-6 bg-muted rounded animate-pulse" />
+        </td>
+      </tr>
+    ),
+  },
+);
 import { emptyNewItem } from "@/components/inventory/inventoryConfig";
 
 export default function Inventory() {
@@ -37,7 +73,7 @@ export default function Inventory() {
     updateInventoryItem,
     deleteInventoryItem,
     confirmInventoryReceipt,
-  } = useData();
+  } = useInventoryData();
   const userRole = user?.role || "owner";
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [searchQuery, setSearchQuery] = useState("");

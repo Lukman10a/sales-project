@@ -1,23 +1,40 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 
 export default function LoadingBar() {
   const pathname = usePathname();
   const [isLoading, setIsLoading] = useState(false);
+  const showTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const hideTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
-    // Start loading animation
-    setIsLoading(true);
+    if (showTimerRef.current) {
+      clearTimeout(showTimerRef.current);
+    }
+    if (hideTimerRef.current) {
+      clearTimeout(hideTimerRef.current);
+    }
 
-    // End loading animation after a short delay
-    const timer = setTimeout(() => {
-      setIsLoading(false);
-    }, 300);
+    // Debounce the bar so quick navigations don't show it at all.
+    setIsLoading(false);
+    showTimerRef.current = setTimeout(() => {
+      setIsLoading(true);
+      hideTimerRef.current = setTimeout(() => {
+        setIsLoading(false);
+      }, 350);
+    }, 200);
 
-    return () => clearTimeout(timer);
+    return () => {
+      if (showTimerRef.current) {
+        clearTimeout(showTimerRef.current);
+      }
+      if (hideTimerRef.current) {
+        clearTimeout(hideTimerRef.current);
+      }
+    };
   }, [pathname]);
 
   return (

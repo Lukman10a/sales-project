@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import dynamic from "next/dynamic";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ReportFormat } from "@/types/reportTypes";
@@ -9,7 +10,10 @@ import { toast } from "@/components/ui/sonner";
 import TemplatesGrid from "@/components/reports/TemplatesGrid";
 import ReportHistory from "@/components/reports/ReportHistory";
 import ScheduledReports from "@/components/reports/ScheduledReports";
-import GenerateReportDialog from "@/components/reports/GenerateReportDialog";
+const GenerateReportDialog = dynamic(
+  () => import("@/components/reports/GenerateReportDialog"),
+  { ssr: false, loading: () => null },
+);
 
 export default function Reports() {
   const { t } = useLanguage();

@@ -24,7 +24,7 @@ import { motion } from "framer-motion";
 import { CheckCircle2, XCircle, Clock } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { useData } from "@/contexts/DataContext";
+import { useInvestorData } from "@/contexts/InvestorDataContext";
 
 interface WithdrawalManagementProps {
   withdrawalRecords: WithdrawalRecord[];
@@ -38,7 +38,7 @@ export function WithdrawalManagement({
   financialRecords,
 }: WithdrawalManagementProps) {
   const { toast } = useToast();
-  const { updateWithdrawal } = useData();
+  const { updateWithdrawal } = useInvestorData();
   const [actioningId, setActioningId] = useState<string | null>(null);
 
   const getInvestor = (investorId: string) =>

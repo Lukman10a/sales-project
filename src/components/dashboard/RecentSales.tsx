@@ -2,12 +2,12 @@
 
 import { motion } from "framer-motion";
 import { Clock, Package, ArrowRight } from "lucide-react";
-import { useData } from "@/contexts/DataContext";
+import { useSalesData } from "@/contexts/SalesDataContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import Link from "next/link";
 
 const RecentSales = () => {
-  const { recentSales } = useData();
+  const { recentSales } = useSalesData();
   const displaySales = recentSales.slice(0, 5);
   const { t, formatCurrency } = useLanguage();
 

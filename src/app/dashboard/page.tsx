@@ -5,7 +5,8 @@ import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import StatCard from "@/components/dashboard/StatCard";
-import { useData } from "@/contexts/DataContext";
+import { useInventoryData } from "@/contexts/InventoryDataContext";
+import { useSalesData } from "@/contexts/SalesDataContext";
 import QuickActions from "@/components/dashboard/QuickActions";
 import {
   DollarSign,
@@ -100,14 +101,8 @@ const getTimeBasedGreeting = () => {
 
 const DashboardContent = memo(function DashboardContent() {
   const { user } = useAuth();
-  const {
-    totalItemsInStock,
-    totalItemsSold,
-    totalSalesAmount,
-    lowStockItems,
-    inventory,
-    recentSales,
-  } = useData();
+  const { totalItemsInStock, lowStockItems, inventory } = useInventoryData();
+  const { totalItemsSold, totalSalesAmount, recentSales } = useSalesData();
   const { t, formatCurrency } = useLanguage();
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [greeting] = useState(getTimeBasedGreeting());

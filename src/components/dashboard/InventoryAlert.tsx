@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 import { AlertTriangle, Package, ArrowRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { useData } from "@/contexts/DataContext";
+import { useInventoryData } from "@/contexts/InventoryDataContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import Link from "next/link";
 
@@ -20,7 +20,7 @@ const statusConfig = {
 };
 
 const InventoryAlert = () => {
-  const { inventory } = useData();
+  const { inventory } = useInventoryData();
   const { t } = useLanguage();
 
   // Get low and out of stock items

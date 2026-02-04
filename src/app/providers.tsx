@@ -3,8 +3,10 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState } from "react";
 import { AuthProvider } from "@/contexts/AuthContext";
-import { DataProvider } from "@/contexts/DataContext";
+import { InventoryDataProvider } from "@/contexts/InventoryDataContext";
+import { InvestorDataProvider } from "@/contexts/InvestorDataContext";
 import { LanguageProvider } from "@/contexts/LanguageContext";
+import { SalesDataProvider } from "@/contexts/SalesDataContext";
 import { UIProvider } from "@/contexts/UIContext";
 
 export default function ClientProviders({
@@ -19,7 +21,11 @@ export default function ClientProviders({
       <LanguageProvider>
         <AuthProvider>
           <UIProvider>
-            <DataProvider>{children}</DataProvider>
+            <InventoryDataProvider>
+              <SalesDataProvider>
+                <InvestorDataProvider>{children}</InvestorDataProvider>
+              </SalesDataProvider>
+            </InventoryDataProvider>
           </UIProvider>
         </AuthProvider>
       </LanguageProvider>

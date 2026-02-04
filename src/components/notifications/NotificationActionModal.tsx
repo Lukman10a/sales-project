@@ -34,7 +34,7 @@ import {
   MessageSquare,
 } from "lucide-react";
 import { toast } from "@/components/ui/sonner";
-import { useData } from "@/contexts/DataContext";
+import { useInventoryData } from "@/contexts/InventoryDataContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { InventoryItem } from "@/types/inventoryTypes";
 import { cn } from "@/lib/utils";
@@ -87,7 +87,8 @@ export default function NotificationActionModal({
     returnQuantity: 0,
   });
 
-  const { inventory, updateInventoryItem, addInventoryItem } = useData();
+  const { inventory, updateInventoryItem, addInventoryItem } =
+    useInventoryData();
   const { t, formatCurrency } = useLanguage();
 
   const relatedItem = inventory.find(

@@ -1,27 +1,37 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import dynamic from "next/dynamic";
 import { CartItem, SaleItem } from "@/types/salesTypes";
 import { toast } from "@/components/ui/sonner";
 import { useAuth } from "@/contexts/AuthContext";
-import { useData } from "@/contexts/DataContext";
+import { useInventoryData } from "@/contexts/InventoryDataContext";
+import { useSalesData } from "@/contexts/SalesDataContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { categories } from "@/data/inventory";
 import ProductSearchBar from "@/components/sales/ProductSearchBar";
 import CategoryFilters from "@/components/sales/CategoryFilters";
-import ProductsGrid from "@/components/sales/ProductsGrid";
-import RecentSalesList from "@/components/sales/RecentSalesList";
-import CartSidebar from "@/components/sales/CartSidebar";
-import QuickAddDialog from "@/components/sales/QuickAddDialog";
+const ProductsGrid = dynamic(() => import("@/components/sales/ProductsGrid"), {
+  ssr: false,
+  loading: () => null,
+});
+const RecentSalesList = dynamic(
+  () => import("@/components/sales/RecentSalesList"),
+  { ssr: false, loading: () => null },
+);
+const CartSidebar = dynamic(() => import("@/components/sales/CartSidebar"), {
+  ssr: false,
+  loading: () => null,
+});
+const QuickAddDialog = dynamic(
+  () => import("@/components/sales/QuickAddDialog"),
+  { ssr: false, loading: () => null },
+);
 
 export default function Sales() {
   const { user } = useAuth();
-  const {
-    inventory: allProducts,
-    decrementInventory,
-    addSaleRecord,
-    recentSales,
-  } = useData();
+  const { inventory: allProducts, decrementInventory } = useInventoryData();
+  const { addSaleRecord, recentSales } = useSalesData();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [cart, setCart] = useState<CartItem[]>([]);
