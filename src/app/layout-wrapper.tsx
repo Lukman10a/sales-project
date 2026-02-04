@@ -1,6 +1,7 @@
 "use client";
 
-import React, { usePathname } from "next/navigation";
+import React from "react";
+import { usePathname } from "next/navigation";
 import MainLayout from "@/components/layout/MainLayout";
 import { useAuth } from "@/contexts/AuthContext";
 
