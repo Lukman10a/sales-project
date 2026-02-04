@@ -49,19 +49,19 @@ export default function Insights() {
   const { t, formatCurrency } = useLanguage();
 
   return (
-    <div className="max-w-5xl mx-auto space-y-6">
-      <div className="flex items-start justify-between">
-        <div>
-          <h1 className="font-display text-3xl font-bold text-foreground mb-2">
+    <div className="max-w-5xl mx-auto space-y-4 sm:space-y-6 px-4 sm:px-6 lg:px-0">
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4">
+        <div className="flex-1">
+          <h1 className="font-display text-2xl sm:text-3xl font-bold text-foreground mb-1 sm:mb-2">
             {t("AI Insights")}
           </h1>
-          <p className="text-muted-foreground">
+          <p className="text-sm sm:text-base text-muted-foreground">
             {t("Smart recommendations to grow your business")}
           </p>
         </div>
-        <div className="flex items-center gap-2 bg-gradient-accent px-4 py-2 rounded-xl">
-          <Sparkles className="w-5 h-5 text-accent-foreground" />
-          <span className="font-semibold text-accent-foreground text-sm">
+        <div className="flex items-center gap-2 bg-gradient-accent px-3 sm:px-4 py-2 rounded-xl flex-shrink-0">
+          <Sparkles className="w-4 sm:w-5 h-4 sm:h-5 text-accent-foreground" />
+          <span className="font-semibold text-accent-foreground text-xs sm:text-sm whitespace-nowrap">
             {insights.length} {t("Active Insights")}
           </span>
         </div>

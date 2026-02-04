@@ -26,16 +26,16 @@ export default function InvestorDetailPage({
 
   if (!investor) {
     return (
-      <div className="max-w-4xl mx-auto">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-0">
         <Link href="/investors">
-          <Button variant="ghost" className="mb-4">
+          <Button variant="ghost" size="sm" className="mb-4">
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back to Investors
           </Button>
         </Link>
         <Card>
-          <CardContent className="py-12">
-            <p className="text-center text-muted-foreground">
+          <CardContent className="py-8 sm:py-12">
+            <p className="text-center text-sm sm:text-base text-muted-foreground">
               Investor not found
             </p>
           </CardContent>

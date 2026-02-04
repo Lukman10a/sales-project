@@ -33,13 +33,13 @@ export default function InventoryItemDetails({
 
   if (!item) {
     return (
-      <div className="max-w-7xl mx-auto">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-0">
         <div className="text-center py-12">
-          <Package className="w-16 h-16 mx-auto text-muted-foreground mb-4" />
-          <h2 className="text-2xl font-bold text-foreground mb-2">
+          <Package className="w-12 sm:w-16 h-12 sm:h-16 mx-auto text-muted-foreground mb-4" />
+          <h2 className="text-xl sm:text-2xl font-bold text-foreground mb-2">
             {t("Item not found")}
           </h2>
-          <p className="text-muted-foreground mb-6">
+          <p className="text-sm sm:text-base text-muted-foreground mb-6">
             {t("The item you're looking for doesn't exist")}
           </p>
           <Button onClick={() => router.push("/inventory")}>
