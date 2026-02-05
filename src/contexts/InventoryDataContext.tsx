@@ -50,6 +50,23 @@ export function InventoryDataProvider({
       setInventory(normalized);
     }
     setIsHydrated(true);
+
+    // Listen for storage changes from other tabs/windows
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === "luxa_inventory" && e.newValue) {
+        const parsed = JSON.parse(e.newValue) as InventoryItem[];
+        const normalized = parsed.map((item) => ({
+          ...item,
+          category: Array.isArray(item.category)
+            ? item.category
+            : [item.category].filter(Boolean),
+        }));
+        setInventory(normalized);
+      }
+    };
+
+    window.addEventListener("storage", handleStorageChange);
+    return () => window.removeEventListener("storage", handleStorageChange);
   }, []);
 
   React.useEffect(() => {

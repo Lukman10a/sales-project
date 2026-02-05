@@ -23,6 +23,7 @@ import { cn } from "@/lib/utils";
 import { getNotificationsByRole } from "@/data/roleNotifications";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/contexts/AuthContext";
+import { useNotifications } from "@/contexts/NotificationContext";
 import { Notification } from "@/types/notificationTypes";
 
 const typeConfig = {
@@ -51,6 +52,9 @@ const typeConfig = {
 export default function Notifications() {
   const { user } = useAuth();
   const userRole = user?.role || "owner";
+  const { notifications: dynamicNotifs, removeNotification } =
+    useNotifications();
+  const staticNotifs = getNotificationsByRole(userRole);
   const [notifs, setNotifs] = useState(getNotificationsByRole(userRole));
   const [filter, setFilter] = useState<"all" | "unread">("all");
   const [activeNotification, setActiveNotification] =
@@ -59,8 +63,10 @@ export default function Notifications() {
   const { t } = useLanguage();
 
   useEffect(() => {
-    setNotifs(getNotificationsByRole(userRole));
-  }, [userRole]);
+    // Combine static and dynamic notifications
+    const combined = [...dynamicNotifs, ...staticNotifs];
+    setNotifs(combined);
+  }, [userRole, dynamicNotifs]);
 
   const unreadCount = notifs.filter((n) => !n.read).length;
   const filteredNotifs =
@@ -76,6 +82,9 @@ export default function Notifications() {
 
   const dismissNotif = (id: string) => {
     setNotifs(notifs.filter((n) => n.id !== id));
+    if (id.startsWith("notif-")) {
+      removeNotification(id);
+    }
   };
 
   const handleTakeAction = (notif: Notification) => {

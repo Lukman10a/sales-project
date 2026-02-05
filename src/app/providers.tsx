@@ -8,6 +8,7 @@ import { InvestorDataProvider } from "@/contexts/InvestorDataContext";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { SalesDataProvider } from "@/contexts/SalesDataContext";
 import { UIProvider } from "@/contexts/UIContext";
+import { NotificationProvider } from "@/contexts/NotificationContext";
 
 export default function ClientProviders({
   children,
@@ -21,11 +22,13 @@ export default function ClientProviders({
       <LanguageProvider>
         <AuthProvider>
           <UIProvider>
-            <InventoryDataProvider>
-              <SalesDataProvider>
-                <InvestorDataProvider>{children}</InvestorDataProvider>
-              </SalesDataProvider>
-            </InventoryDataProvider>
+            <NotificationProvider>
+              <InventoryDataProvider>
+                <SalesDataProvider>
+                  <InvestorDataProvider>{children}</InvestorDataProvider>
+                </SalesDataProvider>
+              </InventoryDataProvider>
+            </NotificationProvider>
           </UIProvider>
         </AuthProvider>
       </LanguageProvider>

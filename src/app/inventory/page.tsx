@@ -6,6 +6,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useAuth } from "@/contexts/AuthContext";
 import { useInventoryData } from "@/contexts/InventoryDataContext";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useNotifications } from "@/contexts/NotificationContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -76,6 +77,7 @@ export default function Inventory() {
     deleteInventoryItem,
     confirmInventoryReceipt,
   } = useInventoryData();
+  const { addNotification } = useNotifications();
   const userRole = user?.role || "owner";
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [searchQuery, setSearchQuery] = useState("");
@@ -227,6 +229,21 @@ export default function Inventory() {
     };
 
     addInventoryItem(itemToAdd);
+
+    // Notify staff about new item
+    if (userRole === "owner") {
+      addNotification({
+        type: "inventory",
+        title: "New Items Added by Owner",
+        message: `${user?.firstName || "Owner"} added "${trimmedName}" (${itemToAdd.quantity} units) to inventory. Please confirm receipt and update shelf location.`,
+        time: "just now",
+        read: false,
+        actionable: true,
+        relatedItemId: itemToAdd.id,
+        actionType: "confirm",
+      });
+    }
+
     setNewItem(emptyNewItem);
     setIsAddOpen(false);
     toast(t("Item added successfully"));
