@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { RoleToggle } from "./RoleToggle";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Loader2, AlertCircle } from "lucide-react";
+import { Loader2, AlertCircle, Eye, EyeOff } from "lucide-react";
 import { motion } from "framer-motion";
 import { useLanguage } from "@/contexts/LanguageContext";
 
@@ -23,6 +23,7 @@ export function LoginForm() {
   const [rememberMe, setRememberMe] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const { t } = useLanguage();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -137,16 +138,31 @@ export function LoginForm() {
           <Label htmlFor="password" className="text-sm font-normal">
             {t("Password")}*
           </Label>
-          <Input
-            id="password"
-            type="password"
-            placeholder={t("minimum 8 characters")}
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="h-11 bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-800"
-            required
-            disabled={isLoading}
-          />
+          <div className="relative">
+            <Input
+              id="password"
+              type={showPassword ? "text" : "password"}
+              placeholder={t("minimum 8 characters")}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="h-11 bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-800 pr-10"
+              required
+              disabled={isLoading}
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+              disabled={isLoading}
+              tabIndex={-1}
+            >
+              {showPassword ? (
+                <EyeOff className="w-4 h-4" />
+              ) : (
+                <Eye className="w-4 h-4" />
+              )}
+            </button>
+          </div>
         </div>
 
         {/* Role Toggle */}
