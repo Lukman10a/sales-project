@@ -23,7 +23,7 @@ export default function StockAlerts() {
   const { inventory } = useInventoryData();
   const { t } = useLanguage();
   const [dismissed, setDismissed] = useState<string[]>([]);
-  const [isExpanded, setIsExpanded] = useState(true);
+  const [isExpanded, setIsExpanded] = useState(false);
 
   const alerts = useMemo(() => {
     const criticalAlerts: any[] = [];
