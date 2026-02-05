@@ -134,194 +134,225 @@ export default function InventoryFormDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
-        <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
+      <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto rounded-2xl my-8">
+        <DialogHeader className="pb-4 border-b">
+          <DialogTitle className="text-2xl">{title}</DialogTitle>
         </DialogHeader>
-        <div className="grid gap-4 py-2">
-          <div className="grid gap-2">
-            <Label htmlFor="name">{t("Item Name")}</Label>
-            <Input
-              id="name"
-              placeholder={t("e.g. Bluetooth Speaker")}
-              value={item.name}
-              onChange={(e) => onItemChange({ ...item, name: e.target.value })}
-            />
-            {validation?.nameError && (
-              <p className="text-xs text-destructive">{validation.nameError}</p>
-            )}
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor="barcode">
-              {t("Barcode")}{" "}
-              <span className="text-muted-foreground text-xs">
-                ({t("optional")})
-              </span>
-            </Label>
-            <div className="relative">
-              <Input
-                id="barcode"
-                placeholder={t("Scan or enter barcode")}
-                value={item.barcode || ""}
-                onChange={(e) =>
-                  onItemChange({ ...item, barcode: e.target.value })
-                }
-              />
-              {barcodeBuffer && (
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
-                  {t("Scanning...")}
-                </span>
-              )}
+        <div className="grid gap-6 py-6 px-2">
+          {/* Basic Information Section */}
+          <div className="space-y-4">
+            <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+              {t("Basic Information")}
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="name">{t("Item Name")}</Label>
+                <Input
+                  id="name"
+                  placeholder={t("e.g. Bluetooth Speaker")}
+                  value={item.name}
+                  onChange={(e) =>
+                    onItemChange({ ...item, name: e.target.value })
+                  }
+                />
+                {validation?.nameError && (
+                  <p className="text-xs text-destructive">
+                    {validation.nameError}
+                  </p>
+                )}
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="barcode">
+                  {t("Barcode")}{" "}
+                  <span className="text-muted-foreground text-xs">
+                    ({t("optional")})
+                  </span>
+                </Label>
+                <div className="relative">
+                  <Input
+                    id="barcode"
+                    placeholder={t("Scan or enter barcode")}
+                    value={item.barcode || ""}
+                    onChange={(e) =>
+                      onItemChange({ ...item, barcode: e.target.value })
+                    }
+                  />
+                  {barcodeBuffer && (
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
+                      {t("Scanning...")}
+                    </span>
+                  )}
+                </div>
+                {validation?.barcodeError && (
+                  <p className="text-xs text-destructive">
+                    {validation.barcodeError}
+                  </p>
+                )}
+              </div>
             </div>
-            {validation?.barcodeError && (
-              <p className="text-xs text-destructive">
-                {validation.barcodeError}
-              </p>
-            )}
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor="category">{t("Category")}</Label>
-            <div className="flex flex-wrap gap-2">
-              {item.category.length === 0 ? (
-                <span className="text-xs text-muted-foreground">
-                  {t("No categories selected")}
-                </span>
-              ) : (
-                item.category.map((category) => (
-                  <Badge
+            <div className="grid gap-2">
+              <Label htmlFor="category">{t("Category")}</Label>
+              <div className="flex flex-wrap gap-2 min-h-[2.5rem] p-2 border rounded-md bg-muted/30">
+                {item.category.length === 0 ? (
+                  <span className="text-xs text-muted-foreground">
+                    {t("No categories selected")}
+                  </span>
+                ) : (
+                  item.category.map((category) => (
+                    <Badge
+                      key={category}
+                      variant="secondary"
+                      className="flex items-center gap-1"
+                    >
+                      {t(category)}
+                      <button
+                        type="button"
+                        className="text-muted-foreground hover:text-foreground"
+                        onClick={() => removeCategory(category)}
+                        aria-label={t("Remove category")}
+                      >
+                        x
+                      </button>
+                    </Badge>
+                  ))
+                )}
+              </div>
+              <div className="flex gap-2">
+                <Input
+                  id="category"
+                  placeholder={t("Add a category")}
+                  value={categoryInput}
+                  onChange={(e) => setCategoryInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      addCategory(categoryInput);
+                    }
+                  }}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => addCategory(categoryInput)}
+                >
+                  {t("Add")}
+                </Button>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {categorySuggestions.map((category) => (
+                  <Button
                     key={category}
-                    variant="secondary"
-                    className="flex items-center gap-1"
+                    type="button"
+                    size="sm"
+                    variant={hasCategory(category) ? "secondary" : "outline"}
+                    onClick={() => addCategory(category)}
+                    disabled={hasCategory(category)}
                   >
                     {t(category)}
-                    <button
-                      type="button"
-                      className="text-muted-foreground hover:text-foreground"
-                      onClick={() => removeCategory(category)}
-                      aria-label={t("Remove category")}
-                    >
-                      x
-                    </button>
-                  </Badge>
-                ))
-              )}
-            </div>
-            <div className="flex gap-2">
-              <Input
-                id="category"
-                placeholder={t("Add a category")}
-                value={categoryInput}
-                onChange={(e) => setCategoryInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    addCategory(categoryInput);
-                  }
-                }}
-              />
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => addCategory(categoryInput)}
-              >
-                {t("Add")}
-              </Button>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {categorySuggestions.map((category) => (
-                <Button
-                  key={category}
-                  type="button"
-                  size="sm"
-                  variant={hasCategory(category) ? "secondary" : "outline"}
-                  onClick={() => addCategory(category)}
-                  disabled={hasCategory(category)}
-                >
-                  {t(category)}
-                </Button>
-              ))}
-            </div>
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor="image">{t("Image URL (optional)")}</Label>
-            <Input
-              id="image"
-              placeholder="https://..."
-              value={item.image}
-              onChange={(e) => onItemChange({ ...item, image: e.target.value })}
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="grid gap-2">
-              <Label htmlFor="wholesale">{t("Cost Price (NGN)")}</Label>
-              <Input
-                id="wholesale"
-                type="number"
-                min={0}
-                value={item.wholesalePrice}
-                onChange={(e) =>
-                  onItemChange({
-                    ...item,
-                    wholesalePrice: Number(e.target.value) || 0,
-                  })
-                }
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="selling">{t("Selling Price (NGN)")}</Label>
-              <Input
-                id="selling"
-                type="number"
-                min={0}
-                value={item.sellingPrice}
-                onChange={(e) =>
-                  onItemChange({
-                    ...item,
-                    sellingPrice: Number(e.target.value) || 0,
-                  })
-                }
-              />
-              {validation?.priceError && (
-                <p className="text-xs text-destructive">
-                  {validation.priceError}
-                </p>
-              )}
-            </div>
-          </div>
-          {/* Markup & Profit Margin Display */}
-          {item.wholesalePrice > 0 &&
-            item.sellingPrice > item.wholesalePrice && (
-              <div className="bg-muted/50 rounded-lg p-3 grid grid-cols-2 gap-3">
-                <div>
-                  <p className="text-xs text-muted-foreground">{t("Markup")}</p>
-                  <p className={`text-lg font-bold ${getMarginColor(markup)}`}>
-                    {markup.toFixed(1)}%
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">
-                    {t("Profit Margin")}
-                  </p>
-                  <p
-                    className={`text-lg font-bold ${getMarginColor(profitMargin)}`}
-                  >
-                    {profitMargin.toFixed(1)}%
-                  </p>
-                </div>
+                  </Button>
+                ))}
               </div>
-            )}
+            </div>
+          </div>
+
+          {/* Media Section */}
+          <div className="space-y-4 border-t pt-6">
+            <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+              {t("Media")}
+            </h3>
+            <div className="grid gap-2">
+              <Label htmlFor="image">{t("Image URL (optional)")}</Label>
+              <Input
+                id="image"
+                placeholder="https://..."
+                value={item.image}
+                onChange={(e) =>
+                  onItemChange({ ...item, image: e.target.value })
+                }
+              />
+            </div>
+          </div>
+          {/* Pricing Section */}
+          <div className="space-y-4 border-t pt-6">
+            <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+              {t("Pricing")}
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="wholesale">{t("Cost Price (NGN)")}</Label>
+                <Input
+                  id="wholesale"
+                  type="number"
+                  min={0}
+                  value={item.wholesalePrice}
+                  onChange={(e) =>
+                    onItemChange({
+                      ...item,
+                      wholesalePrice: Number(e.target.value) || 0,
+                    })
+                  }
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="selling">{t("Selling Price (NGN)")}</Label>
+                <Input
+                  id="selling"
+                  type="number"
+                  min={0}
+                  value={item.sellingPrice}
+                  onChange={(e) =>
+                    onItemChange({
+                      ...item,
+                      sellingPrice: Number(e.target.value) || 0,
+                    })
+                  }
+                />
+                {validation?.priceError && (
+                  <p className="text-xs text-destructive">
+                    {validation.priceError}
+                  </p>
+                )}
+              </div>
+            </div>
+            {/* Markup & Profit Margin Display */}
+            {item.wholesalePrice > 0 &&
+              item.sellingPrice > item.wholesalePrice && (
+                <div className="bg-gradient-to-r from-muted/50 to-muted/30 rounded-xl p-4 grid grid-cols-2 gap-4 border">
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1">
+                      {t("Markup")}
+                    </p>
+                    <p
+                      className={`text-2xl font-bold ${getMarginColor(markup)}`}
+                    >
+                      {markup.toFixed(1)}%
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-1">
+                      {t("Profit Margin")}
+                    </p>
+                    <p
+                      className={`text-2xl font-bold ${getMarginColor(profitMargin)}`}
+                    >
+                      {profitMargin.toFixed(1)}%
+                    </p>
+                  </div>
+                </div>
+              )}
+          </div>
           {/* Bundle Pricing */}
-          <div className="border-t pt-4">
-            <Label className="text-sm font-semibold">
-              {t("Bundle Pricing")}{" "}
-              <span className="text-muted-foreground text-xs">
-                ({t("optional")})
-              </span>
-            </Label>
-            <p className="text-xs text-muted-foreground mb-3">
-              {t("Offer discounts for bulk purchases")}
-            </p>
-            <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-4 border-t pt-6">
+            <div>
+              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+                {t("Bundle Pricing")}{" "}
+                <span className="text-xs normal-case">({t("optional")})</span>
+              </h3>
+              <p className="text-xs text-muted-foreground mt-1">
+                {t("Offer discounts for bulk purchases")}
+              </p>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="grid gap-2">
                 <Label htmlFor="bundleQty">{t("Bundle Quantity")}</Label>
                 <Input
@@ -356,8 +387,8 @@ export default function InventoryFormDialog({
               </div>
             </div>
             {item.bundleQuantity && item.bundlePrice && bundleDiscount > 0 && (
-              <div className="mt-2 bg-success/10 border border-success/20 rounded-lg p-2">
-                <p className="text-xs text-success font-medium">
+              <div className="bg-success/10 border border-success/20 rounded-xl p-3">
+                <p className="text-sm text-success font-medium">
                   {t("Bundle saves {discount}% ({amount} off)", {
                     values: {
                       discount: bundleDiscount.toFixed(1),
@@ -371,74 +402,81 @@ export default function InventoryFormDialog({
               </div>
             )}
           </div>
-          <div className="grid gap-2">
-            <Label htmlFor="reorderPoint">
-              {t("Minimum Reorder Quantity")}
-            </Label>
-            <Input
-              id="reorderPoint"
-              type="number"
-              min={0}
-              value={item.reorderPoint ?? 0}
-              onChange={(e) =>
-                onItemChange({
-                  ...item,
-                  reorderPoint: Number(e.target.value) || 0,
-                })
-              }
-            />
-            {validation?.reorderError && (
-              <p className="text-xs text-destructive">
-                {validation.reorderError}
-              </p>
-            )}
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="grid gap-2">
-              <Label htmlFor="qty">{t("Quantity")}</Label>
-              <Input
-                id="qty"
-                type="number"
-                min={0}
-                value={item.quantity}
-                onChange={(e) =>
-                  onItemChange({
-                    ...item,
-                    quantity: Number(e.target.value) || 0,
-                  })
-                }
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label>{t("Status")}</Label>
-              <Select
-                value={item.status}
-                onValueChange={(value: InventoryItem["status"]) =>
-                  onItemChange({
-                    ...item,
-                    status: value as InventoryItem["status"],
-                  })
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder={t("Select status")} />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="in-stock">{t("In Stock")}</SelectItem>
-                  <SelectItem value="low-stock">{t("Low Stock")}</SelectItem>
-                  <SelectItem value="out-of-stock">
-                    {t("Out of Stock")}
-                  </SelectItem>
-                </SelectContent>
-              </Select>
+
+          {/* Inventory Section */}
+          <div className="space-y-4 border-t pt-6">
+            <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+              {t("Inventory")}
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="reorderPoint">
+                  {t("Minimum Reorder Quantity")}
+                </Label>
+                <Input
+                  id="reorderPoint"
+                  type="number"
+                  min={0}
+                  value={item.reorderPoint ?? 0}
+                  onChange={(e) =>
+                    onItemChange({
+                      ...item,
+                      reorderPoint: Number(e.target.value) || 0,
+                    })
+                  }
+                />
+                {validation?.reorderError && (
+                  <p className="text-xs text-destructive">
+                    {validation.reorderError}
+                  </p>
+                )}
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="qty">{t("Quantity")}</Label>
+                <Input
+                  id="qty"
+                  type="number"
+                  min={0}
+                  value={item.quantity}
+                  onChange={(e) =>
+                    onItemChange({
+                      ...item,
+                      quantity: Number(e.target.value) || 0,
+                    })
+                  }
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label>{t("Status")}</Label>
+                <Select
+                  value={item.status}
+                  onValueChange={(value: InventoryItem["status"]) =>
+                    onItemChange({
+                      ...item,
+                      status: value as InventoryItem["status"],
+                    })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder={t("Select status")} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="in-stock">{t("In Stock")}</SelectItem>
+                    <SelectItem value="low-stock">{t("Low Stock")}</SelectItem>
+                    <SelectItem value="out-of-stock">
+                      {t("Out of Stock")}
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </div>
         </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={onCancel}>
+        <DialogFooter className="border-t pt-6 gap-3">
+          <Button variant="outline" onClick={onCancel} className="px-8">
             {t("Cancel")}
           </Button>
-          <Button onClick={onSave} disabled={saveDisabled}>
+          <Button onClick={onSave} disabled={saveDisabled} className="px-8">
             {t("Save Changes")}
           </Button>
         </DialogFooter>
