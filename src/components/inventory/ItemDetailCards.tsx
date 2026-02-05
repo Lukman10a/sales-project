@@ -8,7 +8,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Calendar, Truck, Package, AlertTriangle } from "lucide-react";
-import Image from "next/image";
+import ImageDisplay from "./ImageDisplay";
 import { cn } from "@/lib/utils";
 import { InventoryItem } from "@/types/inventoryTypes";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -26,11 +26,10 @@ export default function ItemBasicInfoCard({ item }: ItemBasicInfoCardProps) {
     <Card>
       <CardContent className="p-6">
         <div className="aspect-square relative bg-muted rounded-xl overflow-hidden mb-4">
-          <Image
-            src={item.image}
+          <ImageDisplay
+            src={item.image || ""}
             alt={item.name}
-            fill
-            className="object-cover"
+            className="w-full h-full"
           />
         </div>
         <div className="space-y-3">

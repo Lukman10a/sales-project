@@ -35,7 +35,7 @@ export const emptyNewItem: Omit<InventoryItem, "id"> = {
   quantity: 0,
   sold: 0,
   status: "in-stock",
-  confirmedByApprentice: true,
+  confirmedByApprentice: false,
   reorderPoint: 0,
   barcode: "",
   bundleQuantity: undefined,

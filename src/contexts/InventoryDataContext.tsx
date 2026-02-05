@@ -59,7 +59,28 @@ export function InventoryDataProvider({
       clearTimeout(inventorySaveRef.current);
     }
     inventorySaveRef.current = setTimeout(() => {
-      localStorage.setItem("luxa_inventory", JSON.stringify(inventory));
+      try {
+        const serialized = JSON.stringify(inventory);
+        localStorage.setItem("luxa_inventory", serialized);
+      } catch (error) {
+        if (error instanceof Error && error.name === "QuotaExceededError") {
+          // Storage quota exceeded - strip images from oldest items to make space
+          console.warn("localStorage quota exceeded, optimizing storage...");
+          const optimized = inventory.map((item, idx) => ({
+            ...item,
+            // Keep images for first 5 items, remove for others to save space
+            image: idx < 5 ? item.image : "",
+          }));
+          try {
+            localStorage.setItem("luxa_inventory", JSON.stringify(optimized));
+          } catch (retryError) {
+            console.error("Failed to save after optimization:", retryError);
+            // Silently fail - app will still work, just won't persist
+          }
+        } else {
+          console.error("Failed to save inventory:", error);
+        }
+      }
     }, 250);
 
     return () => {

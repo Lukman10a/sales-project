@@ -8,6 +8,7 @@ import { useInventoryData } from "@/contexts/InventoryDataContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -81,6 +82,9 @@ export default function Inventory() {
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [filterCategory, setFilterCategory] = useState<string>("All");
   const [sortBy, setSortBy] = useState<string>("name");
+  const [confirmationFilter, setConfirmationFilter] = useState<
+    "all" | "unconfirmed" | "confirmed"
+  >(userRole === "apprentice" ? "unconfirmed" : "all");
   const [showFilters, setShowFilters] = useState(false);
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -133,6 +137,13 @@ export default function Inventory() {
       item.name.toLowerCase().includes(searchQuery.toLowerCase()),
     );
 
+    // Filter by confirmation status for staff
+    if (confirmationFilter === "unconfirmed") {
+      items = items.filter((item) => !item.confirmedByApprentice);
+    } else if (confirmationFilter === "confirmed") {
+      items = items.filter((item) => item.confirmedByApprentice);
+    }
+
     if (filterStatus !== "all")
       items = items.filter((item) => item.status === filterStatus);
     if (filterCategory !== "All")
@@ -158,7 +169,14 @@ export default function Inventory() {
     });
 
     return items;
-  }, [inventory, searchQuery, filterStatus, filterCategory, sortBy]);
+  }, [
+    inventory,
+    searchQuery,
+    filterStatus,
+    filterCategory,
+    sortBy,
+    confirmationFilter,
+  ]);
 
   const categoryOptions = useMemo(() => {
     const baseCategories = categories.filter((category) => category !== "All");
@@ -313,54 +331,102 @@ export default function Inventory() {
         <StockAlerts />
 
         {/* Filters */}
-        <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 items-stretch sm:items-center justify-between">
-          <div className="relative flex-1 max-w-full sm:max-w-md">
-            <Search
-              className={
-                isRTL
-                  ? "absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground"
-                  : "absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground"
-              }
-            />
-            <Input
-              placeholder={t("Search items...")}
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className={isRTL ? "pr-10" : "pl-10"}
-            />
-          </div>
-          <div className="flex items-center gap-2 justify-end">
-            <Button
-              variant="outline"
-              size="icon"
-              className="flex-shrink-0"
-              onClick={() => setShowFilters((prev) => !prev)}
-            >
-              <Filter className="w-4 h-4" />
-            </Button>
-            <div className="flex items-center border rounded-lg p-1">
-              <button
-                onClick={() => setViewMode("grid")}
-                className={cn(
-                  "p-2 rounded-md transition-colors",
-                  viewMode === "grid"
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:text-foreground",
-                )}
+        <div className="flex flex-col gap-3">
+          {/* Confirmation Filter for Staff */}
+          {userRole === "apprentice" && (
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+              <div className="flex flex-col sm:flex-row gap-2 sm:items-center sm:justify-between">
+                <label className="text-sm font-medium text-foreground">
+                  {t("Show Items")}:
+                </label>
+                <div className="flex gap-2">
+                  <Button
+                    variant={
+                      confirmationFilter === "unconfirmed"
+                        ? "default"
+                        : "outline"
+                    }
+                    size="sm"
+                    onClick={() => setConfirmationFilter("unconfirmed")}
+                  >
+                    {t("Unconfirmed")}{" "}
+                    <Badge variant="secondary" className="ml-2">
+                      {inventory.filter((i) => !i.confirmedByApprentice).length}
+                    </Badge>
+                  </Button>
+                  <Button
+                    variant={
+                      confirmationFilter === "all" ? "default" : "outline"
+                    }
+                    size="sm"
+                    onClick={() => setConfirmationFilter("all")}
+                  >
+                    {t("All Items")}
+                  </Button>
+                  <Button
+                    variant={
+                      confirmationFilter === "confirmed" ? "default" : "outline"
+                    }
+                    size="sm"
+                    onClick={() => setConfirmationFilter("confirmed")}
+                  >
+                    {t("Confirmed")}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Search and View Controls */}
+          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 items-stretch sm:items-center justify-between">
+            <div className="relative flex-1 max-w-full sm:max-w-md">
+              <Search
+                className={
+                  isRTL
+                    ? "absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground"
+                    : "absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground"
+                }
+              />
+              <Input
+                placeholder={t("Search items...")}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className={isRTL ? "pr-10" : "pl-10"}
+              />
+            </div>
+            <div className="flex items-center gap-2 justify-end">
+              <Button
+                variant="outline"
+                size="icon"
+                className="flex-shrink-0"
+                onClick={() => setShowFilters((prev) => !prev)}
               >
-                <Grid className="w-4 h-4" />
-              </button>
-              <button
-                onClick={() => setViewMode("list")}
-                className={cn(
-                  "p-2 rounded-md transition-colors",
-                  viewMode === "list"
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:text-foreground",
-                )}
-              >
-                <List className="w-4 h-4" />
-              </button>
+                <Filter className="w-4 h-4" />
+              </Button>
+              <div className="flex items-center border rounded-lg p-1">
+                <button
+                  onClick={() => setViewMode("grid")}
+                  className={cn(
+                    "p-2 rounded-md transition-colors",
+                    viewMode === "grid"
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  <Grid className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => setViewMode("list")}
+                  className={cn(
+                    "p-2 rounded-md transition-colors",
+                    viewMode === "list"
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  <List className="w-4 h-4" />
+                </button>
+              </div>
             </div>
           </div>
         </div>

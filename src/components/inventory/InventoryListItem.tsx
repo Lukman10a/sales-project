@@ -1,4 +1,3 @@
-import Image from "next/image";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -6,6 +5,7 @@ import { Edit, Trash2, AlertTriangle } from "lucide-react";
 import { InventoryItem } from "@/types/inventoryTypes";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { statusConfig } from "./inventoryConfig";
+import ImageDisplay from "./ImageDisplay";
 
 interface InventoryListItemProps {
   item: InventoryItem;
@@ -28,13 +28,13 @@ export default function InventoryListItem({
     <tr className="border-b hover:bg-muted/30 transition-colors">
       <td className="p-4">
         <div className="flex items-center gap-3">
-          <Image
-            width={20}
-            height={20}
-            src={item.image}
-            alt={item.name}
-            className="w-12 h-12 rounded-lg object-cover"
-          />
+          <div className="w-12 h-12 rounded-lg overflow-hidden flex-shrink-0">
+            <ImageDisplay
+              src={item.image || ""}
+              alt={item.name}
+              className="w-12 h-12"
+            />
+          </div>
           <div>
             <Link
               href={`/inventory/${item.id}`}

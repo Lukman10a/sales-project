@@ -1,5 +1,4 @@
 import { motion } from "framer-motion";
-import Image from "next/image";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -8,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { InventoryItem } from "@/types/inventoryTypes";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { statusConfig } from "./inventoryConfig";
+import ImageDisplay from "./ImageDisplay";
 
 interface InventoryGridItemProps {
   item: InventoryItem;
@@ -38,12 +38,10 @@ export default function InventoryGridItem({
     >
       <Link href={`/inventory/${item.id}`} className="block">
         <div className="aspect-square relative bg-muted">
-          <Image
-            width={100}
-            height={100}
-            src={item.image}
+          <ImageDisplay
+            src={item.image || ""}
             alt={item.name}
-            className="w-full h-full object-cover"
+            className="w-full h-full"
           />
           <Badge
             variant="outline"
