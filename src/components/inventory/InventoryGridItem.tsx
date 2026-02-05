@@ -76,7 +76,13 @@ export default function InventoryGridItem({
           <h3 className="font-semibold text-foreground truncate">
             {item.name}
           </h3>
-          <Badge variant="secondary">{item.category}</Badge>
+          <div className="flex flex-wrap gap-1 justify-end">
+            {item.category.map((category) => (
+              <Badge key={category} variant="secondary">
+                {t(category)}
+              </Badge>
+            ))}
+          </div>
         </div>
         <div className="space-y-1 text-sm">
           <div className="flex justify-between">
@@ -101,6 +107,19 @@ export default function InventoryGridItem({
               {formatCurrency(item.sellingPrice)}
             </span>
           </div>
+          {userRole === "owner" && item.wholesalePrice > 0 && (
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">{t("Margin")}</span>
+              <span className="font-medium text-success">
+                {(
+                  ((item.sellingPrice - item.wholesalePrice) /
+                    item.sellingPrice) *
+                  100
+                ).toFixed(0)}
+                %
+              </span>
+            </div>
+          )}
         </div>
         {userRole === "owner" && (
           <div className="flex gap-2 mt-4 pt-4 border-t">

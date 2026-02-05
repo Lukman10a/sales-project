@@ -4,7 +4,7 @@ export const inventoryItems: InventoryItem[] = [
   {
     id: "1",
     name: "Samsung Galaxy A54",
-    category: "Phones",
+    category: ["Phones"],
     image:
       "https://images.unsplash.com/photo-1610945415295-d9bbf067e59c?w=200&h=200&fit=crop",
     wholesalePrice: 150000,
@@ -14,6 +14,7 @@ export const inventoryItems: InventoryItem[] = [
     status: "in-stock",
     confirmedByApprentice: true,
     sku: "PHN-SGA54-001",
+    barcode: "8806094935356",
     supplier: "Samsung Electronics",
     reorderPoint: 5,
     lastRestocked: "2026-01-15",
@@ -21,7 +22,7 @@ export const inventoryItems: InventoryItem[] = [
   {
     id: "2",
     name: "iPhone 15 Pro Max Case",
-    category: "Accessories",
+    category: ["Accessories"],
     image:
       "https://images.unsplash.com/photo-1601784551446-20c9e07cdbdb?w=200&h=200&fit=crop",
     wholesalePrice: 2500,
@@ -31,14 +32,17 @@ export const inventoryItems: InventoryItem[] = [
     status: "low-stock",
     confirmedByApprentice: true,
     sku: "ACC-IP15-CASE",
+    barcode: "194253931645",
     supplier: "Mobile Accessories Ltd",
     reorderPoint: 10,
     lastRestocked: "2026-01-10",
+    bundleQuantity: 3,
+    bundlePrice: 12000,
   },
   {
     id: "3",
     name: "Wireless Earbuds Pro",
-    category: "Accessories",
+    category: ["Accessories"],
     image:
       "https://images.unsplash.com/photo-1590658268037-6bf12165a8df?w=200&h=200&fit=crop",
     wholesalePrice: 15000,
@@ -48,14 +52,17 @@ export const inventoryItems: InventoryItem[] = [
     status: "in-stock",
     confirmedByApprentice: true,
     sku: "ACC-WLEB-PRO",
+    barcode: "6941812700099",
     supplier: "Audio Tech Supply",
     reorderPoint: 8,
     lastRestocked: "2026-01-12",
+    bundleQuantity: 2,
+    bundlePrice: 45000,
   },
   {
     id: "4",
     name: "USB-C Fast Charger 65W",
-    category: "Accessories",
+    category: ["Accessories"],
     image:
       "https://images.unsplash.com/photo-1583863788434-e58a36330cf0?w=200&h=200&fit=crop",
     wholesalePrice: 8000,
@@ -72,7 +79,7 @@ export const inventoryItems: InventoryItem[] = [
   {
     id: "5",
     name: 'Laptop Sleeve 15"',
-    category: "Accessories",
+    category: ["Accessories"],
     image:
       "https://images.unsplash.com/photo-1527864550417-7fd91fc51a46?w=200&h=200&fit=crop",
     wholesalePrice: 7000,
@@ -89,7 +96,7 @@ export const inventoryItems: InventoryItem[] = [
   {
     id: "6",
     name: "Wireless Mouse",
-    category: "Gadgets",
+    category: ["Gadgets"],
     image:
       "https://images.unsplash.com/photo-1527864550417-7fd91fc51a46?w=200&h=200&fit=crop",
     wholesalePrice: 4000,

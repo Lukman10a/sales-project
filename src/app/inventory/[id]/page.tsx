@@ -3,12 +3,14 @@
 import { use, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import MainLayout from "@/components/layout/MainLayout";
+import { useAuth } from "@/contexts/AuthContext";
 import { useInventoryData } from "@/contexts/InventoryDataContext";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Edit, Package } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import ItemBasicInfoCard, {
   StockAlertCard,
+  PricingCard,
 } from "@/components/inventory/ItemDetailCards";
 import ItemMetricsGrid from "@/components/inventory/ItemMetricsGrid";
 import SalesTrendChart, {
@@ -23,8 +25,10 @@ export default function InventoryItemDetails({
 }) {
   const { id } = use(params);
   const router = useRouter();
+  const { user } = useAuth();
   const { inventory } = useInventoryData();
   const { t, formatCurrency } = useLanguage();
+  const userRole = user?.role || "owner";
 
   const item = useMemo(
     () => inventory.find((i) => i.id === id),
@@ -93,6 +97,7 @@ export default function InventoryItemDetails({
         {/* Left Column - Image and Basic Info */}
         <div className="lg:col-span-1 space-y-6">
           <ItemBasicInfoCard item={item} />
+          <PricingCard item={item} userRole={userRole} />
           <StockAlertCard item={item} />
         </div>
 

@@ -544,7 +544,11 @@ export default function NotificationActionModal({
                     <span className="text-muted-foreground">
                       {t("Category")}
                     </span>
-                    <span className="font-medium">{relatedItem.category}</span>
+                    <span className="font-medium">
+                      {relatedItem.category
+                        .map((category) => t(category))
+                        .join(", ")}
+                    </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">

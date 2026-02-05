@@ -23,6 +23,7 @@ import { cn } from "@/lib/utils";
 import { InventoryItem } from "@/types/inventoryTypes";
 import { toast } from "@/components/ui/sonner";
 import StockAlerts from "@/components/inventory/StockAlerts";
+import { categories } from "@/data/inventory";
 const InventoryFilters = dynamic(
   () => import("@/components/inventory/InventoryFilters"),
   { ssr: false, loading: () => null },
@@ -92,6 +93,41 @@ export default function Inventory() {
     useState<Omit<InventoryItem, "id">>(emptyNewItem);
   const { t, formatCurrency, isRTL } = useLanguage();
 
+  const normalizeName = (value: string) => value.trim().toLowerCase();
+  const getNameError = (name: string, excludeId?: string) => {
+    if (!name.trim()) return t("Please enter an item name");
+    const normalized = normalizeName(name);
+    const isDuplicate = inventory.some(
+      (item) =>
+        normalizeName(item.name) === normalized &&
+        (!excludeId || item.id !== excludeId),
+    );
+    if (isDuplicate) return t("An item with this name already exists");
+    return "";
+  };
+  const getPriceError = (wholesalePrice: number, sellingPrice: number) => {
+    if (sellingPrice <= wholesalePrice)
+      return t("Selling price must be greater than cost price");
+    return "";
+  };
+  const getReorderError = (reorderPoint?: number) => {
+    if (reorderPoint !== undefined && reorderPoint < 0)
+      return t("Minimum reorder quantity cannot be negative");
+    return "";
+  };
+  const getBarcodeError = (barcode?: string, excludeId?: string) => {
+    if (!barcode || !barcode.trim()) return ""; // Optional field
+    const normalized = barcode.trim();
+    const isDuplicate = inventory.some(
+      (item) =>
+        item.barcode &&
+        item.barcode.trim().toLowerCase() === normalized.toLowerCase() &&
+        (!excludeId || item.id !== excludeId),
+    );
+    if (isDuplicate) return t("An item with this barcode already exists");
+    return "";
+  };
+
   const filteredItems = useMemo(() => {
     let items = inventory.filter((item) =>
       item.name.toLowerCase().includes(searchQuery.toLowerCase()),
@@ -100,7 +136,7 @@ export default function Inventory() {
     if (filterStatus !== "all")
       items = items.filter((item) => item.status === filterStatus);
     if (filterCategory !== "All")
-      items = items.filter((item) => item.category === filterCategory);
+      items = items.filter((item) => item.category.includes(filterCategory));
 
     items = [...items].sort((a, b) => {
       switch (sortBy) {
@@ -124,12 +160,44 @@ export default function Inventory() {
     return items;
   }, [inventory, searchQuery, filterStatus, filterCategory, sortBy]);
 
+  const categoryOptions = useMemo(() => {
+    const baseCategories = categories.filter((category) => category !== "All");
+    const dynamicCategories = inventory.flatMap((item) => item.category);
+    const unique = Array.from(
+      new Set(
+        [...baseCategories, ...dynamicCategories]
+          .map((category) => category.trim())
+          .filter(Boolean),
+      ),
+    );
+    return ["All", ...unique];
+  }, [inventory]);
+
   const handleAddItem = () => {
-    const trimmedName = newItem.name.trim();
-    if (!trimmedName) {
-      toast(t("Please enter an item name"));
+    const nameError = getNameError(newItem.name);
+    if (nameError) {
+      toast(nameError);
       return;
     }
+    const priceError = getPriceError(
+      newItem.wholesalePrice,
+      newItem.sellingPrice,
+    );
+    if (priceError) {
+      toast(priceError);
+      return;
+    }
+    const reorderError = getReorderError(newItem.reorderPoint);
+    if (reorderError) {
+      toast(reorderError);
+      return;
+    }
+    const barcodeError = getBarcodeError(newItem.barcode);
+    if (barcodeError) {
+      toast(barcodeError);
+      return;
+    }
+    const trimmedName = newItem.name.trim();
 
     const itemToAdd: InventoryItem = {
       ...newItem,
@@ -158,16 +226,39 @@ export default function Inventory() {
       sold: item.sold,
       status: item.status,
       confirmedByApprentice: item.confirmedByApprentice,
+      reorderPoint: item.reorderPoint ?? 0,
+      barcode: item.barcode || "",
+      bundleQuantity: item.bundleQuantity,
+      bundlePrice: item.bundlePrice,
     });
   };
 
   const handleSaveEdit = () => {
     if (!editingId || !editingItem) return;
-    const trimmedName = editingItem.name.trim();
-    if (!trimmedName) {
-      toast(t("Please enter an item name"));
+    const nameError = getNameError(editingItem.name, editingId);
+    if (nameError) {
+      toast(nameError);
       return;
     }
+    const priceError = getPriceError(
+      editingItem.wholesalePrice,
+      editingItem.sellingPrice,
+    );
+    if (priceError) {
+      toast(priceError);
+      return;
+    }
+    const reorderError = getReorderError(editingItem.reorderPoint);
+    if (reorderError) {
+      toast(reorderError);
+      return;
+    }
+    const barcodeError = getBarcodeError(editingItem.barcode, editingId);
+    if (barcodeError) {
+      toast(barcodeError);
+      return;
+    }
+    const trimmedName = editingItem.name.trim();
     updateInventoryItem(editingId, { ...editingItem, name: trimmedName });
     setEditingId(null);
     setEditingItem(null);
@@ -281,6 +372,7 @@ export default function Inventory() {
               filterStatus={filterStatus}
               filterCategory={filterCategory}
               sortBy={sortBy}
+              categories={categoryOptions}
               filteredCount={filteredItems.length}
               onFilterStatusChange={setFilterStatus}
               onFilterCategoryChange={setFilterCategory}
@@ -390,7 +482,22 @@ export default function Inventory() {
           setIsAddOpen(false);
           setNewItem(emptyNewItem);
         }}
-        saveDisabled={!newItem.name.trim()}
+        saveDisabled={
+          !newItem.name.trim() ||
+          !!getNameError(newItem.name) ||
+          !!getPriceError(newItem.wholesalePrice, newItem.sellingPrice) ||
+          !!getReorderError(newItem.reorderPoint) ||
+          !!getBarcodeError(newItem.barcode)
+        }
+        validation={{
+          nameError: getNameError(newItem.name),
+          priceError: getPriceError(
+            newItem.wholesalePrice,
+            newItem.sellingPrice,
+          ),
+          reorderError: getReorderError(newItem.reorderPoint),
+          barcodeError: getBarcodeError(newItem.barcode),
+        }}
       />
 
       {/* Edit Item Dialog */}
@@ -411,7 +518,28 @@ export default function Inventory() {
             setEditingId(null);
             setEditingItem(null);
           }}
-          saveDisabled={!editingItem?.name?.trim()}
+          saveDisabled={
+            !editingItem?.name?.trim() ||
+            !!getNameError(editingItem.name, editingId ?? undefined) ||
+            !!getPriceError(
+              editingItem.wholesalePrice,
+              editingItem.sellingPrice,
+            ) ||
+            !!getReorderError(editingItem.reorderPoint) ||
+            !!getBarcodeError(editingItem.barcode, editingId ?? undefined)
+          }
+          validation={{
+            nameError: getNameError(editingItem.name, editingId ?? undefined),
+            priceError: getPriceError(
+              editingItem.wholesalePrice,
+              editingItem.sellingPrice,
+            ),
+            reorderError: getReorderError(editingItem.reorderPoint),
+            barcodeError: getBarcodeError(
+              editingItem.barcode,
+              editingId ?? undefined,
+            ),
+          }}
         />
       )}
 

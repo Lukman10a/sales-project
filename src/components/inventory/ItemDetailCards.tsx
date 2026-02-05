@@ -52,8 +52,24 @@ export default function ItemBasicInfoCard({ item }: ItemBasicInfoCardProps) {
               <span className="text-sm text-muted-foreground">
                 {t("Category")}
               </span>
-              <Badge variant="secondary">{item.category}</Badge>
+              <div className="flex flex-wrap gap-1 justify-end">
+                {item.category.map((category) => (
+                  <Badge key={category} variant="secondary">
+                    {t(category)}
+                  </Badge>
+                ))}
+              </div>
             </div>
+            {item.barcode && (
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">
+                  {t("Barcode")}
+                </span>
+                <span className="text-sm font-mono font-medium">
+                  {item.barcode}
+                </span>
+              </div>
+            )}
             {item.sku && (
               <div className="flex items-center justify-between">
                 <span className="text-sm text-muted-foreground">
@@ -81,6 +97,24 @@ export default function ItemBasicInfoCard({ item }: ItemBasicInfoCardProps) {
                 </span>
                 <span className="text-sm font-medium">
                   {new Date(item.lastRestocked).toLocaleDateString()}
+                </span>
+              </div>
+            )}
+            {item.bundleQuantity && item.bundlePrice && (
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">
+                  {t("Bundle Offer")}
+                </span>
+                <span className="text-sm font-medium">
+                  {t("{qty} for {price}", {
+                    values: {
+                      qty: item.bundleQuantity,
+                      price: new Intl.NumberFormat("en-NG", {
+                        style: "currency",
+                        currency: "NGN",
+                      }).format(item.bundlePrice),
+                    },
+                  })}
                 </span>
               </div>
             )}
@@ -115,6 +149,115 @@ export function StockAlertCard({ item }: StockAlertCardProps) {
             { values: { point: item.reorderPoint } },
           )}
         </p>
+      </CardContent>
+    </Card>
+  );
+}
+
+interface PricingCardProps {
+  item: InventoryItem;
+  userRole: string;
+}
+
+export function PricingCard({ item, userRole }: PricingCardProps) {
+  const { t, formatCurrency } = useLanguage();
+
+  if (userRole !== "owner") return null;
+
+  const markup =
+    item.wholesalePrice > 0
+      ? ((item.sellingPrice - item.wholesalePrice) / item.wholesalePrice) * 100
+      : 0;
+  const profitMargin =
+    item.sellingPrice > 0
+      ? ((item.sellingPrice - item.wholesalePrice) / item.sellingPrice) * 100
+      : 0;
+
+  const getMarginColor = (margin: number) => {
+    if (margin < 10) return "text-destructive";
+    if (margin < 20) return "text-warning";
+    return "text-success";
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base">{t("Pricing Analysis")}</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <p className="text-xs text-muted-foreground mb-1">{t("Markup")}</p>
+            <p className={`text-2xl font-bold ${getMarginColor(markup)}`}>
+              {markup.toFixed(1)}%
+            </p>
+          </div>
+          <div>
+            <p className="text-xs text-muted-foreground mb-1">
+              {t("Profit Margin")}
+            </p>
+            <p className={`text-2xl font-bold ${getMarginColor(profitMargin)}`}>
+              {profitMargin.toFixed(1)}%
+            </p>
+          </div>
+        </div>
+        <div className="border-t pt-3 space-y-2 text-sm">
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">{t("Cost Price")}</span>
+            <span className="font-medium">
+              {formatCurrency(item.wholesalePrice)}
+            </span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">{t("Selling Price")}</span>
+            <span className="font-medium text-accent">
+              {formatCurrency(item.sellingPrice)}
+            </span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">
+              {t("Profit per Unit")}
+            </span>
+            <span className={`font-bold ${getMarginColor(profitMargin)}`}>
+              {formatCurrency(item.sellingPrice - item.wholesalePrice)}
+            </span>
+          </div>
+        </div>
+        {item.bundleQuantity && item.bundlePrice && (
+          <div className="border-t pt-3">
+            <p className="text-xs text-muted-foreground mb-2">
+              {t("Bundle Offer")}
+            </p>
+            <div className="bg-success/10 border border-success/20 rounded-lg p-3">
+              <p className="text-sm font-semibold">
+                {t("Buy {qty} for {price}", {
+                  values: {
+                    qty: item.bundleQuantity,
+                    price: formatCurrency(item.bundlePrice),
+                  },
+                })}
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">
+                {t("Save {amount}", {
+                  values: {
+                    amount: formatCurrency(
+                      item.bundleQuantity * item.sellingPrice -
+                        item.bundlePrice,
+                    ),
+                  },
+                })}{" "}
+                (
+                {(
+                  ((item.bundleQuantity * item.sellingPrice -
+                    item.bundlePrice) /
+                    (item.bundleQuantity * item.sellingPrice)) *
+                  100
+                ).toFixed(1)}
+                % {t("off")})
+              </p>
+            </div>
+          </div>
+        )}
       </CardContent>
     </Card>
   );

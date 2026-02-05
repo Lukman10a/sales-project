@@ -9,13 +9,13 @@ import {
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { categories } from "@/data/inventory";
 import { sortOptions } from "./inventoryConfig";
 
 interface InventoryFiltersProps {
   filterStatus: string;
   filterCategory: string;
   sortBy: string;
+  categories: string[];
   filteredCount: number;
   onFilterStatusChange: (value: string) => void;
   onFilterCategoryChange: (value: string) => void;
@@ -27,6 +27,7 @@ export default function InventoryFilters({
   filterStatus,
   filterCategory,
   sortBy,
+  categories,
   filteredCount,
   onFilterStatusChange,
   onFilterCategoryChange,

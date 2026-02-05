@@ -39,7 +39,16 @@ export function InventoryDataProvider({
 
   React.useEffect(() => {
     const storedInventory = localStorage.getItem("luxa_inventory");
-    if (storedInventory) setInventory(JSON.parse(storedInventory));
+    if (storedInventory) {
+      const parsed = JSON.parse(storedInventory) as InventoryItem[];
+      const normalized = parsed.map((item) => ({
+        ...item,
+        category: Array.isArray(item.category)
+          ? item.category
+          : [item.category].filter(Boolean),
+      }));
+      setInventory(normalized);
+    }
     setIsHydrated(true);
   }, []);
 

@@ -59,7 +59,15 @@ export default function InventoryListItem({
           {t(statusConfig[item.status].label)}
         </Badge>
       </td>
-      <td className="p-4 text-sm text-muted-foreground">{item.category}</td>
+      <td className="p-4">
+        <div className="flex flex-wrap gap-1">
+          {item.category.map((category) => (
+            <Badge key={category} variant="secondary">
+              {t(category)}
+            </Badge>
+          ))}
+        </div>
+      </td>
       <td className="p-4 text-right font-medium">{item.quantity}</td>
       <td className="p-4 text-right font-medium text-success">{item.sold}</td>
       {userRole === "owner" && (

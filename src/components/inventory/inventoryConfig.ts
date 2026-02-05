@@ -28,7 +28,7 @@ export const statusConfig: Record<
 
 export const emptyNewItem: Omit<InventoryItem, "id"> = {
   name: "",
-  category: "Accessories",
+  category: ["Accessories"],
   image: "",
   wholesalePrice: 0,
   sellingPrice: 0,
@@ -36,6 +36,10 @@ export const emptyNewItem: Omit<InventoryItem, "id"> = {
   sold: 0,
   status: "in-stock",
   confirmedByApprentice: true,
+  reorderPoint: 0,
+  barcode: "",
+  bundleQuantity: undefined,
+  bundlePrice: undefined,
 };
 
 export const sortOptions = [
