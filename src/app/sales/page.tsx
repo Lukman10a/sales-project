@@ -8,6 +8,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useInventoryData } from "@/contexts/InventoryDataContext";
 import { useSalesData } from "@/contexts/SalesDataContext";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { usePermissions } from "@/hooks/usePermissions";
 import { categories } from "@/data/inventory";
 import ProductSearchBar from "@/components/sales/ProductSearchBar";
 import CategoryFilters from "@/components/sales/CategoryFilters";
@@ -49,6 +50,7 @@ const RefundModal = dynamic(() => import("@/components/sales/RefundModal"), {
 
 export default function Sales() {
   const { user } = useAuth();
+  const { hasPermission, isOwner } = usePermissions();
   const { inventory: allProducts, decrementInventory } = useInventoryData();
   const { addSaleRecord, recentSales } = useSalesData();
   const [searchQuery, setSearchQuery] = useState("");
@@ -338,8 +340,10 @@ export default function Sales() {
               onProductClick={openQuickAddDialog}
             />
 
-            {/* Recent Sales */}
-            <RecentSalesList sales={recentSales} />
+            {/* Recent Sales - Only visible if user has permission */}
+            {(isOwner() || hasPermission("view-sales-history")) && (
+              <RecentSalesList sales={recentSales} />
+            )}
           </div>
 
           {/* Cart */}

@@ -1,12 +1,15 @@
 // Mock Authentication Service
 // In production, this would connect to a real backend API
 
+export type StaffRole = "sales-assistant" | "manager" | "checkout" | "inventory";
+
 export interface User {
   id: string;
   email: string;
   firstName: string;
   lastName: string;
   role: "owner" | "apprentice" | "investor";
+  staffRole?: StaffRole;
   businessName: string;
   avatar?: string;
   investorId?: string; // For investors, link to their profile
@@ -49,6 +52,7 @@ const MOCK_USERS: Record<string, { password: string; user: User }> = {
       firstName: "Ibrahim",
       lastName: "Musa",
       role: "apprentice",
+      staffRole: "manager",
       businessName: "Hassan Electronics",
       avatar: "",
     },
@@ -211,6 +215,7 @@ export class AuthService {
           firstName: data.firstName,
           lastName: data.lastName,
           role: data.role,
+          staffRole: data.role === "apprentice" ? "sales-assistant" : undefined,
           businessName: data.businessName,
           avatar: "",
         };

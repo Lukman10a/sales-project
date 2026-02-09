@@ -3,6 +3,8 @@
 import { useState, useMemo } from "react";
 import dynamic from "next/dynamic";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { usePermissions } from "@/hooks/usePermissions";
+import { AccessDenied } from "@/components/auth/AccessDenied";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, Users, Activity } from "lucide-react";
@@ -59,7 +61,7 @@ const emptyNewMember: Omit<TeamMember, "id" | "joinedDate"> = {
   name: "",
   email: "",
   phone: "",
-  role: "sales-staff",
+  role: "sales-assistant",
   status: "invited",
   permissions: [],
   department: "",
@@ -68,8 +70,19 @@ const emptyNewMember: Omit<TeamMember, "id" | "joinedDate"> = {
 
 export default function TeamManagement() {
   const { t } = useLanguage();
+  const { hasPermission, isOwner } = usePermissions();
   const [teamMembers, setTeamMembers] =
     useState<TeamMember[]>(initialTeamMembers);
+
+  // Permission guard: Check if user has permission to manage team/assign roles
+  if (!isOwner() && !hasPermission("assign-roles")) {
+    return (
+      <AccessDenied
+        message="You don't have permission to manage team members and assign roles"
+        requiredPermission="assign-roles"
+      />
+    );
+  }
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [filterRole, setFilterRole] = useState<string>("all");

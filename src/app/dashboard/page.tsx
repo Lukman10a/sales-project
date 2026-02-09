@@ -4,6 +4,8 @@ import { useEffect, memo, useState } from "react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
+import { usePermissions } from "@/hooks/usePermissions";
+import { AccessDenied } from "@/components/auth/AccessDenied";
 import StatCard from "@/components/dashboard/StatCard";
 import { useInventoryData } from "@/contexts/InventoryDataContext";
 import { useSalesData } from "@/contexts/SalesDataContext";
@@ -59,6 +61,17 @@ const AIInsightCard = dynamic(
 
 export default function Dashboard() {
   const { user, isAuthenticated, isLoading } = useAuth();
+  const { isOwner } = usePermissions();
+
+  // Restrict dashboard to owners only (contains business figures)
+  if (!isLoading && isAuthenticated && !isOwner()) {
+    return (
+      <AccessDenied
+        message="Dashboard access is restricted to business owners. This page contains confidential business metrics and financial data."
+        requiredPermission="owner-access"
+      />
+    );
+  }
   const router = useRouter();
 
   useEffect(() => {

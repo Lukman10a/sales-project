@@ -16,6 +16,7 @@ interface InventoryGridItemProps {
   onEdit: (item: InventoryItem) => void;
   onDelete: (item: InventoryItem) => void;
   onConfirmReceipt: (itemId: string, itemName: string) => void;
+  canEdit?: boolean;
 }
 
 export default function InventoryGridItem({
@@ -25,6 +26,7 @@ export default function InventoryGridItem({
   onEdit,
   onDelete,
   onConfirmReceipt,
+  canEdit = false,
 }: InventoryGridItemProps) {
   const { t, formatCurrency } = useLanguage();
 
@@ -119,7 +121,7 @@ export default function InventoryGridItem({
             </div>
           )}
         </div>
-        {userRole === "owner" && (
+        {canEdit && (
           <div className="flex gap-2 mt-4 pt-4 border-t">
             <Button
               variant="outline"

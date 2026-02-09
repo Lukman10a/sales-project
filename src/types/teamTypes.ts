@@ -1,14 +1,18 @@
-export type TeamRole = "owner" | "manager" | "sales-staff" | "inventory-staff";
+export type TeamRole =
+  | "owner"
+  | "manager"
+  | "sales-assistant"
+  | "checkout"
+  | "inventory";
 export type TeamStatus = "active" | "inactive" | "invited";
-export type Permission = 
-  | "view-dashboard" 
-  | "manage-inventory" 
-  | "record-sales" 
-  | "view-analytics" 
-  | "manage-team" 
-  | "view-reports"
-  | "export-data"
-  | "manage-settings";
+export type Permission =
+  | "view-products"
+  | "view-out-of-stock"
+  | "edit-products"
+  | "view-sales-history"
+  | "checkout-sales"
+  | "view-inventory"
+  | "assign-roles";
 
 export interface TeamMember {
   id: string;

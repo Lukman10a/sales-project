@@ -67,10 +67,11 @@ export default function TeamFilters({
           <SelectItem value="all">{t("All Roles")}</SelectItem>
           <SelectItem value="owner">{t("Owner")}</SelectItem>
           <SelectItem value="manager">{t("Manager")}</SelectItem>
-          <SelectItem value="sales-staff">{t("Sales Staff")}</SelectItem>
-          <SelectItem value="inventory-staff">
-            {t("Inventory Staff")}
+          <SelectItem value="sales-assistant">
+            {t("Sales Assistant")}
           </SelectItem>
+          <SelectItem value="checkout">{t("Check Out")}</SelectItem>
+          <SelectItem value="inventory">{t("Inventory")}</SelectItem>
         </SelectContent>
       </Select>
     </div>

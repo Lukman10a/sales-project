@@ -13,6 +13,7 @@ interface InventoryListItemProps {
   onEdit: (item: InventoryItem) => void;
   onDelete: (item: InventoryItem) => void;
   onConfirmReceipt: (itemId: string, itemName: string) => void;
+  canEdit?: boolean;
 }
 
 export default function InventoryListItem({
@@ -21,6 +22,7 @@ export default function InventoryListItem({
   onEdit,
   onDelete,
   onConfirmReceipt,
+  canEdit = false,
 }: InventoryListItemProps) {
   const { t, formatCurrency } = useLanguage();
 
@@ -80,7 +82,7 @@ export default function InventoryListItem({
       </td>
       <td className="p-4 text-right">
         <div className="flex justify-end gap-2">
-          {userRole === "owner" ? (
+          {canEdit ? (
             <>
               <Button variant="ghost" size="icon" onClick={() => onEdit(item)}>
                 <Edit className="w-4 h-4" />
@@ -93,7 +95,7 @@ export default function InventoryListItem({
                 <Trash2 className="w-4 h-4" />
               </Button>
             </>
-          ) : !item.confirmedByApprentice ? (
+          ) : userRole === "apprentice" && !item.confirmedByApprentice ? (
             <Button
               size="sm"
               className="bg-warning text-warning-foreground"

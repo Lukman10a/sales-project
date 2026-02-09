@@ -4,6 +4,9 @@ import { useState } from "react";
 import dynamicImport from "next/dynamic";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/contexts/AuthContext";
+import { usePermissions } from "@/hooks/usePermissions";
+import { AccessDenied } from "@/components/auth/AccessDenied";
 import { Calendar } from "@/components/ui/calendar";
 import {
   Popover,
@@ -38,11 +41,23 @@ const AnalyticsCharts = dynamicImport(
 );
 
 const Analytics = () => {
+  const { isAuthenticated, isLoading } = useAuth();
+  const { isOwner } = usePermissions();
   const [dateRange, setDateRange] = useState<
     "today" | "week" | "month" | "custom"
   >("week");
   const [date, setDate] = useState<Date | undefined>(new Date());
   const { t, formatCurrency } = useLanguage();
+
+  // Restrict analytics to owners only (contains business figures)
+  if (!isLoading && isAuthenticated && !isOwner()) {
+    return (
+      <AccessDenied
+        message="Analytics access is restricted to business owners. This page contains detailed performance metrics and financial analysis."
+        requiredPermission="owner-access"
+      />
+    );
+  }
 
   // Get the appropriate data based on selected period
   const currentChartData =

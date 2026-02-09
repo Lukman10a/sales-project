@@ -2,6 +2,9 @@
 
 import { useState } from "react";
 import dynamic from "next/dynamic";
+import { useAuth } from "@/contexts/AuthContext";
+import { usePermissions } from "@/hooks/usePermissions";
+import { AccessDenied } from "@/components/auth/AccessDenied";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ReportFormat } from "@/types/reportTypes";
@@ -16,7 +19,19 @@ const GenerateReportDialog = dynamic(
 );
 
 export default function Reports() {
+  const { isAuthenticated, isLoading } = useAuth();
+  const { isOwner } = usePermissions();
   const { t } = useLanguage();
+
+  // Restrict reports to owners only (contains business figures and financial data)
+  if (!isLoading && isAuthenticated && !isOwner()) {
+    return (
+      <AccessDenied
+        message="Reports access is restricted to business owners. This page contains confidential financial reports and business analysis."
+        requiredPermission="owner-access"
+      />
+    );
+  }
   const [isGenerateOpen, setIsGenerateOpen] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
   const [generateForm, setGenerateForm] = useState({

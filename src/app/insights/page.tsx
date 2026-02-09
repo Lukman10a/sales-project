@@ -4,7 +4,9 @@ import { motion } from "framer-motion";
 import dynamic from "next/dynamic";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
+import { useAuth } from "@/contexts/AuthContext";
+import { usePermissions } from "@/hooks/usePermissions";
+import { AccessDenied } from "@/components/auth/AccessDenied";
   Sparkles,
   TrendingUp,
   AlertTriangle,
@@ -46,7 +48,19 @@ const typeIcons = {
 };
 
 export default function Insights() {
+  const { isAuthenticated, isLoading } = useAuth();
+  const { isOwner } = usePermissions();
   const { t, formatCurrency } = useLanguage();
+
+  // Restrict insights to owners only (contains business figures and AI-powered recommendations)
+  if (!isLoading && isAuthenticated && !isOwner()) {
+    return (
+      <AccessDenied
+        message="AI Insights access is restricted to business owners. This page contains AI-powered business intelligence and recommendations based on confidential business data."
+        requiredPermission="owner-access"
+      />
+    );
+  }
 
   return (
     <div className="max-w-5xl mx-auto space-y-4 sm:space-y-6 px-4 sm:px-6 lg:px-0">

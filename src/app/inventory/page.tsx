@@ -5,6 +5,8 @@ import dynamic from "next/dynamic";
 import { AnimatePresence, motion } from "framer-motion";
 import { useAuth } from "@/contexts/AuthContext";
 import { useInventoryData } from "@/contexts/InventoryDataContext";
+import { usePermissions } from "@/hooks/usePermissions";
+import { AccessDenied } from "@/components/auth/AccessDenied";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useNotifications } from "@/contexts/NotificationContext";
 import { Button } from "@/components/ui/button";
@@ -79,6 +81,7 @@ import { emptyNewItem } from "@/components/inventory/inventoryConfig";
 
 export default function Inventory() {
   const { user } = useAuth();
+  const { hasPermission, isOwner } = usePermissions();
   const {
     inventory,
     addInventoryItem,
@@ -88,6 +91,16 @@ export default function Inventory() {
   } = useInventoryData();
   const { addNotification } = useNotifications();
   const userRole = user?.role || "owner";
+
+  // Permission guard: Check if user has permission to view inventory
+  if (!isOwner() && !hasPermission("view-inventory")) {
+    return (
+      <AccessDenied
+        message="You don't have permission to view the inventory"
+        requiredPermission="view-inventory"
+      />
+    );
+  }
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("all");
@@ -372,7 +385,7 @@ export default function Inventory() {
               {t("Export")}
             </Button>
 
-            {userRole === "owner" && (
+            {(isOwner() || hasPermission("edit-products")) && (
               <Button
                 onClick={() => setIsAddOpen(true)}
                 className="bg-gradient-accent text-accent-foreground hover:opacity-90 glow-accent w-full sm:w-auto"

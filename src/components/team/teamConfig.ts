@@ -24,8 +24,12 @@ export const roleConfig: Record<TeamRole, { label: string; color: string }> =
   {
     owner: { label: "Owner", color: "text-purple-600" },
     manager: { label: "Manager", color: "text-blue-600" },
-    "sales-staff": { label: "Sales Staff", color: "text-green-600" },
-    "inventory-staff": { label: "Inventory Staff", color: "text-orange-600" },
+    "sales-assistant": {
+      label: "Sales Assistant",
+      color: "text-green-600",
+    },
+    checkout: { label: "Check Out", color: "text-cyan-600" },
+    inventory: { label: "Inventory", color: "text-orange-600" },
   };
 
 export interface TeamStats {

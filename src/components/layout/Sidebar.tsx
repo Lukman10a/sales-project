@@ -57,13 +57,30 @@ const ownerNavigation: NavigationItem[] = [
   { name: "AI Insights", href: "/insights", icon: Sparkles },
 ];
 
-const apprenticeNavigation: NavigationItem[] = [
-  { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-  { name: "Inventory", href: "/inventory", icon: Package },
-  { name: "Sales", href: "/sales", icon: ShoppingCart },
-  { name: "Analytics", href: "/analytics", icon: BarChart3 },
-  { name: "Notifications", href: "/notifications", icon: Bell },
-];
+const staffNavigation: Record<
+  "sales-assistant" | "manager" | "checkout" | "inventory",
+  NavigationItem[]
+> = {
+  "sales-assistant": [
+    { name: "Sales", href: "/sales", icon: ShoppingCart },
+    { name: "Inventory", href: "/inventory", icon: Package },
+    { name: "Notifications", href: "/notifications", icon: Bell },
+  ],
+  manager: [
+    { name: "Sales", href: "/sales", icon: ShoppingCart },
+    { name: "Inventory", href: "/inventory", icon: Package },
+    { name: "Team", href: "/team", icon: Users },
+    { name: "Notifications", href: "/notifications", icon: Bell },
+  ],
+  checkout: [
+    { name: "Sales", href: "/sales", icon: ShoppingCart },
+    { name: "Notifications", href: "/notifications", icon: Bell },
+  ],
+  inventory: [
+    { name: "Inventory", href: "/inventory", icon: Package },
+    { name: "Notifications", href: "/notifications", icon: Bell },
+  ],
+};
 
 const investorNavigation: NavigationItem[] = [
   {
@@ -75,9 +92,16 @@ const investorNavigation: NavigationItem[] = [
   { name: "Notifications", href: "/notifications", icon: Bell },
 ];
 
-const getNavigation = (role: "owner" | "apprentice" | "investor" = "owner") => {
+const getNavigation = (
+  role: "owner" | "apprentice" | "investor" = "owner",
+  staffRole:
+    | "sales-assistant"
+    | "manager"
+    | "checkout"
+    | "inventory" = "sales-assistant",
+) => {
   if (role === "investor") return investorNavigation;
-  if (role === "apprentice") return apprenticeNavigation;
+  if (role === "apprentice") return staffNavigation[staffRole];
   return ownerNavigation;
 };
 
@@ -129,6 +153,7 @@ const Sidebar = ({ userRole: propUserRole, onRoleChange }: SidebarProps) => {
     pathname?.startsWith("/investor-profile");
 
   const userRole = user?.role || propUserRole || "owner";
+  const staffRole = user?.staffRole || "sales-assistant";
   const displayName = user ? `${user.firstName} ${user.lastName}` : t("User");
   const initials = user ? `${user.firstName[0]}${user.lastName[0]}` : "U";
 
@@ -143,8 +168,8 @@ const Sidebar = ({ userRole: propUserRole, onRoleChange }: SidebarProps) => {
 
   // Memoize navigation items and unread count
   const navigationItems = React.useMemo(
-    () => getNavigation(userRole),
-    [userRole],
+    () => getNavigation(userRole, staffRole),
+    [userRole, staffRole],
   );
 
   const unreadNotificationCount = React.useMemo(() => {
@@ -262,7 +287,15 @@ const Sidebar = ({ userRole: propUserRole, onRoleChange }: SidebarProps) => {
                       ? t("Owner")
                       : userRole === "investor"
                         ? t("Investor")
-                        : t("Staff")}
+                        : t(
+                            staffRole
+                              .split("-")
+                              .map(
+                                (part) =>
+                                  part.charAt(0).toUpperCase() + part.slice(1),
+                              )
+                              .join(" "),
+                          )}
                   </p>
                 </div>
               </motion.div>
