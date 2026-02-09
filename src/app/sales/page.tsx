@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import dynamic from "next/dynamic";
-import { CartItem, SaleItem } from "@/types/salesTypes";
+import { CartItem, SaleItem, PaymentPart } from "@/types/salesTypes";
 import { toast } from "@/components/ui/sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { useInventoryData } from "@/contexts/InventoryDataContext";
@@ -11,6 +11,9 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { categories } from "@/data/inventory";
 import ProductSearchBar from "@/components/sales/ProductSearchBar";
 import CategoryFilters from "@/components/sales/CategoryFilters";
+import { Button } from "@/components/ui/button";
+import { RotateCcw } from "lucide-react";
+
 const ProductsGrid = dynamic(() => import("@/components/sales/ProductsGrid"), {
   ssr: false,
   loading: () => null,
@@ -27,6 +30,22 @@ const QuickAddDialog = dynamic(
   () => import("@/components/sales/QuickAddDialog"),
   { ssr: false, loading: () => null },
 );
+const SplitPaymentModal = dynamic(
+  () => import("@/components/sales/SplitPaymentModal"),
+  { ssr: false, loading: () => null },
+);
+const CustomerAccountModal = dynamic(
+  () => import("@/components/sales/CustomerAccountModal"),
+  { ssr: false, loading: () => null },
+);
+const SaleDateModal = dynamic(
+  () => import("@/components/sales/SaleDateModal"),
+  { ssr: false, loading: () => null },
+);
+const RefundModal = dynamic(() => import("@/components/sales/RefundModal"), {
+  ssr: false,
+  loading: () => null,
+});
 
 export default function Sales() {
   const { user } = useAuth();
@@ -36,7 +55,7 @@ export default function Sales() {
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [cart, setCart] = useState<CartItem[]>([]);
   const [paymentMethod, setPaymentMethod] = useState<
-    "cash" | "card" | "transfer"
+    "cash" | "card" | "transfer" | "split" | "account"
   >("cash");
   const [discountPercent, setDiscountPercent] = useState(0);
   const [quickAddDialog, setQuickAddDialog] = useState<{
@@ -44,6 +63,22 @@ export default function Sales() {
     item: SaleItem | null;
   }>({ open: false, item: null });
   const [quickQuantity, setQuickQuantity] = useState("1");
+
+  // New feature states
+  const [splitPayments, setSplitPayments] = useState<PaymentPart[]>([]);
+  const [splitPaymentOpen, setSplitPaymentOpen] = useState(false);
+  const [customerAccountOpen, setCustomerAccountOpen] = useState(false);
+  const [selectedCustomer, setSelectedCustomer] = useState<{
+    name: string;
+  } | null>(null);
+  const [loyaltyPointsUsed, setLoyaltyPointsUsed] = useState(0);
+  const [accountCreditUsed, setAccountCreditUsed] = useState(0);
+  const [saleDate, setSaleDate] = useState(
+    new Date().toISOString().split("T")[0],
+  );
+  const [saleDateOpen, setSaleDateOpen] = useState(false);
+  const [refundModalOpen, setRefundModalOpen] = useState(false);
+
   const { t, formatCurrency } = useLanguage();
 
   // Convert inventory items to SaleItem format for cart - memoized
@@ -131,6 +166,58 @@ export default function Sales() {
     );
   };
 
+  const handleApplySplitPayment = (payments: PaymentPart[]) => {
+    setSplitPayments(payments);
+    setPaymentMethod("split");
+    toast(t("Split payment configured"));
+  };
+
+  const handleApplyCustomerAccount = (
+    customer: { name: string } | null,
+    loyaltyPoints: number,
+    accountCredit: number,
+  ) => {
+    setSelectedCustomer(customer);
+    setLoyaltyPointsUsed(loyaltyPoints);
+    setAccountCreditUsed(accountCredit);
+    if (customer) {
+      setPaymentMethod("account");
+      toast(t("Customer selected") + ": " + customer.name);
+    }
+  };
+
+  const handleApplySaleDate = (date: string) => {
+    setSaleDate(date);
+    toast(t("Sale date updated"));
+  };
+
+  const handleProcessRefund = (
+    saleId: string,
+    refundAmount: number,
+    reason: string,
+  ) => {
+    // Find the original sale and process refund
+    const originalSale = recentSales.find((s) => s.id === saleId);
+    if (originalSale) {
+      const refundRecord = {
+        id: String(Date.now()),
+        items: originalSale.items,
+        total: refundAmount,
+        soldBy: originalSale.soldBy,
+        time: "just now",
+        status:
+          refundAmount >= originalSale.total
+            ? ("refunded" as const)
+            : ("partial-refund" as const),
+        refundReason: reason,
+        refundAmount: refundAmount,
+        originalSaleId: saleId,
+      };
+      addSaleRecord(refundRecord);
+      toast(t("Refund processed successfully"));
+    }
+  };
+
   const handleCompleteSale = () => {
     if (cart.length === 0) {
       toast(t("Cart is empty"));
@@ -153,7 +240,9 @@ export default function Sales() {
       0,
     );
     const cartDiscount = (cartSubtotal * discountPercent) / 100;
-    const cartTotal = cartSubtotal - cartDiscount;
+    const loyaltyDiscount = loyaltyPointsUsed / 100;
+    const cartTotal =
+      cartSubtotal - cartDiscount - loyaltyDiscount - accountCreditUsed;
 
     // Decrement inventory globally
     cart.forEach((item) => {
@@ -174,6 +263,13 @@ export default function Sales() {
       status: "completed" as const,
       paymentMethod,
       discount: discountPercent,
+      splitPayments: paymentMethod === "split" ? splitPayments : undefined,
+      customerId: selectedCustomer ? "generated-id" : undefined,
+      customerName: selectedCustomer?.name,
+      loyaltyPointsUsed,
+      accountCredit: accountCreditUsed,
+      saleDate,
+      saleTimestamp: new Date(saleDate).getTime(),
     };
     addSaleRecord(newRecord);
 
@@ -182,6 +278,11 @@ export default function Sales() {
     setSearchQuery("");
     setDiscountPercent(0);
     setPaymentMethod("cash");
+    setSplitPayments([]);
+    setSelectedCustomer(null);
+    setLoyaltyPointsUsed(0);
+    setAccountCreditUsed(0);
+    setSaleDate(new Date().toISOString().split("T")[0]);
 
     toast(t("Sale completed"), {
       description: t("Total {amount}", {
@@ -197,14 +298,24 @@ export default function Sales() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Product Selection */}
           <div className="lg:col-span-2 space-y-6">
-            {/* Header */}
-            <div>
-              <h1 className="font-display text-3xl font-bold text-foreground mb-2">
-                {t("Record Sale")}
-              </h1>
-              <p className="text-muted-foreground">
-                {t("Select items and record transactions")}
-              </p>
+            {/* Header with Refund Button */}
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h1 className="font-display text-3xl font-bold text-foreground mb-2">
+                  {t("Record Sale")}
+                </h1>
+                <p className="text-muted-foreground">
+                  {t("Select items and record transactions")}
+                </p>
+              </div>
+              <Button
+                onClick={() => setRefundModalOpen(true)}
+                variant="outline"
+                className="gap-2"
+              >
+                <RotateCcw className="w-4 h-4" />
+                {t("Refund")}
+              </Button>
             </div>
 
             {/* Search */}
@@ -243,6 +354,12 @@ export default function Sales() {
               onDiscountChange={setDiscountPercent}
               onPaymentMethodChange={setPaymentMethod}
               onCompleteSale={handleCompleteSale}
+              onOpenSplitPayment={() => setSplitPaymentOpen(true)}
+              onOpenCustomerAccount={() => setCustomerAccountOpen(true)}
+              onOpenDatePicker={() => setSaleDateOpen(true)}
+              splitPayments={splitPayments}
+              selectedCustomer={selectedCustomer}
+              saleDate={saleDate}
             />
           </div>
         </div>
@@ -256,6 +373,60 @@ export default function Sales() {
         onQuantityChange={setQuickQuantity}
         onAdd={handleQuickAdd}
         onClose={() => setQuickAddDialog({ open: false, item: null })}
+      />
+
+      {/* Split Payment Modal */}
+      <SplitPaymentModal
+        open={splitPaymentOpen}
+        total={
+          cart.reduce(
+            (sum, item) => sum + item.actualPrice * item.quantity,
+            0,
+          ) -
+          (cart.reduce(
+            (sum, item) => sum + item.actualPrice * item.quantity,
+            0,
+          ) *
+            discountPercent) /
+            100
+        }
+        onClose={() => setSplitPaymentOpen(false)}
+        onApply={handleApplySplitPayment}
+      />
+
+      {/* Customer Account Modal */}
+      <CustomerAccountModal
+        open={customerAccountOpen}
+        total={
+          cart.reduce(
+            (sum, item) => sum + item.actualPrice * item.quantity,
+            0,
+          ) -
+          (cart.reduce(
+            (sum, item) => sum + item.actualPrice * item.quantity,
+            0,
+          ) *
+            discountPercent) /
+            100
+        }
+        onClose={() => setCustomerAccountOpen(false)}
+        onApply={handleApplyCustomerAccount}
+      />
+
+      {/* Sale Date Modal */}
+      <SaleDateModal
+        open={saleDateOpen}
+        currentDate={saleDate}
+        onClose={() => setSaleDateOpen(false)}
+        onApply={handleApplySaleDate}
+      />
+
+      {/* Refund Modal */}
+      <RefundModal
+        open={refundModalOpen}
+        recentSales={recentSales}
+        onClose={() => setRefundModalOpen(false)}
+        onProcessRefund={handleProcessRefund}
       />
     </>
   );

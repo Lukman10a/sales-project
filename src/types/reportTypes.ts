@@ -1,4 +1,13 @@
-export type ReportType = "sales" | "inventory" | "profit" | "customer" | "team" | "custom";
+export type ReportType =
+  | "sales"
+  | "inventory"
+  | "profit"
+  | "expenses"
+  | "audit"
+  | "investor"
+  | "customer"
+  | "team"
+  | "custom";
 export type ReportFormat = "pdf" | "csv" | "excel";
 export type ReportFrequency = "once" | "daily" | "weekly" | "monthly";
 export type ReportStatus = "pending" | "processing" | "completed" | "failed" | "scheduled";

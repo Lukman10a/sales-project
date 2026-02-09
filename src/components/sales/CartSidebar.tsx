@@ -12,25 +12,36 @@ import {
   Banknote,
   CreditCard,
   Smartphone,
+  Split,
+  User,
+  Calendar,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { CartItem } from "@/types/salesTypes";
+import { CartItem, PaymentPart } from "@/types/salesTypes";
 import Image from "next/image";
 
 interface CartSidebarProps {
   cart: CartItem[];
   discountPercent: number;
-  paymentMethod: "cash" | "card" | "transfer";
+  paymentMethod: "cash" | "card" | "transfer" | "split" | "account";
   onRemoveItem: (itemId: string) => void;
   onUpdateQuantity: (itemId: string, delta: number) => void;
   onUpdatePrice: (itemId: string, price: number) => void;
   onDiscountChange: (discount: number) => void;
-  onPaymentMethodChange: (method: "cash" | "card" | "transfer") => void;
+  onPaymentMethodChange: (
+    method: "cash" | "card" | "transfer" | "split" | "account",
+  ) => void;
   onCompleteSale: () => void;
+  onOpenSplitPayment?: () => void;
+  onOpenCustomerAccount?: () => void;
+  onOpenDatePicker?: () => void;
+  splitPayments?: PaymentPart[];
+  selectedCustomer?: { name: string } | null;
+  saleDate?: string;
 }
 
 export default function CartSidebar({
@@ -43,6 +54,12 @@ export default function CartSidebar({
   onDiscountChange,
   onPaymentMethodChange,
   onCompleteSale,
+  onOpenSplitPayment,
+  onOpenCustomerAccount,
+  onOpenDatePicker,
+  splitPayments,
+  selectedCustomer,
+  saleDate,
 }: CartSidebarProps) {
   const { t, formatCurrency } = useLanguage();
 
@@ -69,6 +86,36 @@ export default function CartSidebar({
         </div>
       </div>
 
+      {/* Selected Features Header */}
+      {(selectedCustomer || saleDate || splitPayments) && (
+        <div className="mb-4 space-y-2 pb-3 border-b">
+          {selectedCustomer && (
+            <div className="flex items-center gap-2 p-2 rounded bg-accent/10">
+              <User className="w-4 h-4 text-accent" />
+              <span className="text-xs font-medium text-accent">
+                {t("Customer")}: {selectedCustomer.name}
+              </span>
+            </div>
+          )}
+          {saleDate && (
+            <div className="flex items-center gap-2 p-2 rounded bg-accent/10">
+              <Calendar className="w-4 h-4 text-accent" />
+              <span className="text-xs font-medium text-accent">
+                {t("Sale Date")}: {saleDate}
+              </span>
+            </div>
+          )}
+          {splitPayments && splitPayments.length > 1 && (
+            <div className="flex items-center gap-2 p-2 rounded bg-accent/10">
+              <Split className="w-4 h-4 text-accent" />
+              <span className="text-xs font-medium text-accent">
+                {t("Split Payment")}: {splitPayments.length} {t("methods")}
+              </span>
+            </div>
+          )}
+        </div>
+      )}
+
       {cart.length === 0 ? (
         <div className="text-center py-12">
           <Package className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
@@ -78,7 +125,7 @@ export default function CartSidebar({
         </div>
       ) : (
         <>
-          <div className="space-y-4 mb-6 max-h-[400px] overflow-y-auto">
+          <div className="space-y-4 mb-6 max-h-[300px] overflow-y-auto">
             {cart.map((item) => (
               <motion.div
                 key={item.id}
@@ -180,6 +227,43 @@ export default function CartSidebar({
             <div className="flex justify-between text-lg font-display font-bold">
               <span>{t("Total")}</span>
               <span className="text-accent">{formatCurrency(cartTotal)}</span>
+            </div>
+
+            {/* Advanced Options Buttons */}
+            <div className="grid grid-cols-2 gap-2 pt-2">
+              {onOpenCustomerAccount && (
+                <Button
+                  onClick={onOpenCustomerAccount}
+                  variant="outline"
+                  size="sm"
+                  className="text-xs"
+                >
+                  <User className="w-3 h-3 mr-1" />
+                  {t("Customer")}
+                </Button>
+              )}
+              {onOpenDatePicker && (
+                <Button
+                  onClick={onOpenDatePicker}
+                  variant="outline"
+                  size="sm"
+                  className="text-xs"
+                >
+                  <Calendar className="w-3 h-3 mr-1" />
+                  {t("Date")}
+                </Button>
+              )}
+              {onOpenSplitPayment && (
+                <Button
+                  onClick={onOpenSplitPayment}
+                  variant="outline"
+                  size="sm"
+                  className="text-xs"
+                >
+                  <Split className="w-3 h-3 mr-1" />
+                  {t("Split")}
+                </Button>
+              )}
             </div>
 
             {/* Payment Method */}
