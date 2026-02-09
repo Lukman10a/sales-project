@@ -47,6 +47,10 @@ const RefundModal = dynamic(() => import("@/components/sales/RefundModal"), {
   ssr: false,
   loading: () => null,
 });
+const PrintPreviewDialog = dynamic(
+  () => import("@/components/sales/PrintPreviewDialog"),
+  { ssr: false, loading: () => null },
+);
 
 export default function Sales() {
   const { user } = useAuth();
@@ -80,6 +84,7 @@ export default function Sales() {
   );
   const [saleDateOpen, setSaleDateOpen] = useState(false);
   const [refundModalOpen, setRefundModalOpen] = useState(false);
+  const [printPreviewOpen, setPrintPreviewOpen] = useState(false);
 
   const { t, formatCurrency } = useLanguage();
 
@@ -237,6 +242,11 @@ export default function Sales() {
       }
     }
 
+    // Open print preview instead of completing directly
+    setPrintPreviewOpen(true);
+  };
+
+  const completeSaleDirectly = () => {
     const cartSubtotal = cart.reduce(
       (sum, item) => sum + item.actualPrice * item.quantity,
       0,
@@ -431,6 +441,23 @@ export default function Sales() {
         recentSales={recentSales}
         onClose={() => setRefundModalOpen(false)}
         onProcessRefund={handleProcessRefund}
+      />
+
+      {/* Print Preview Dialog */}
+      <PrintPreviewDialog
+        open={printPreviewOpen}
+        onOpenChange={setPrintPreviewOpen}
+        cart={cart}
+        discountPercent={discountPercent}
+        paymentMethod={paymentMethod}
+        splitPayments={splitPayments}
+        customerName={selectedCustomer?.name}
+        loyaltyPointsUsed={loyaltyPointsUsed}
+        accountCreditUsed={accountCreditUsed}
+        saleDate={saleDate}
+        soldBy={user ? user.firstName : "Staff"}
+        onConfirmSale={completeSaleDirectly}
+        onPrintAndComplete={completeSaleDirectly}
       />
     </>
   );
