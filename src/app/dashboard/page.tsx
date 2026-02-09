@@ -114,6 +114,7 @@ const getTimeBasedGreeting = () => {
 
 const DashboardContent = memo(function DashboardContent() {
   const { user } = useAuth();
+  const { hasPermission, isOwner } = usePermissions();
   const { totalItemsInStock, lowStockItems, inventory } = useInventoryData();
   const { totalItemsSold, totalSalesAmount, recentSales } = useSalesData();
   const { t, formatCurrency } = useLanguage();
@@ -179,53 +180,57 @@ const DashboardContent = memo(function DashboardContent() {
         pendingConfirmations={pendingConfirmations}
       />
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        <StatCard
-          title={t("Today's Sales")}
-          value={formatCurrency(totalSalesAmount)}
-          change={12.5}
-          changeLabel={t("vs yesterday")}
-          icon={DollarSign}
-          variant="accent"
-          delay={0}
-        />
-        <StatCard
-          title={t("Items Sold")}
-          value={String(totalItemsSold)}
-          change={8.2}
-          changeLabel={t("vs yesterday")}
-          icon={ShoppingCart}
-          delay={0.1}
-        />
-        <StatCard
-          title={t("In Stock")}
-          value={String(totalItemsInStock)}
-          change={-2.4}
-          changeLabel={t("from last week")}
-          icon={Package}
-          variant="warning"
-          delay={0.2}
-        />
-        <StatCard
-          title={t("Low Stock Alerts")}
-          value={String(lowStockItems)}
-          change={3.1}
-          changeLabel={t("need attention")}
-          icon={TrendingUp}
-          delay={0.3}
-        />
-      </div>
+      {/* Stats Grid - Owners & Managers only */}
+      {(isOwner() || hasPermission("view-sales-history")) && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+          <StatCard
+            title={t("Today's Sales")}
+            value={formatCurrency(totalSalesAmount)}
+            change={12.5}
+            changeLabel={t("vs yesterday")}
+            icon={DollarSign}
+            variant="accent"
+            delay={0}
+          />
+          <StatCard
+            title={t("Items Sold")}
+            value={String(totalItemsSold)}
+            change={8.2}
+            changeLabel={t("vs yesterday")}
+            icon={ShoppingCart}
+            delay={0.1}
+          />
+          <StatCard
+            title={t("In Stock")}
+            value={String(totalItemsInStock)}
+            change={-2.4}
+            changeLabel={t("from last week")}
+            icon={Package}
+            variant="warning"
+            delay={0.2}
+          />
+          <StatCard
+            title={t("Low Stock Alerts")}
+            value={String(lowStockItems)}
+            change={3.1}
+            changeLabel={t("need attention")}
+            icon={TrendingUp}
+            delay={0.3}
+          />
+        </div>
+      )}
 
-      {/* Charts and Sales */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
-        <div className="lg:col-span-2">
-          <SalesChart />
+      {/* Charts and Sales - Owners & Managers only */}
+      {(isOwner() || hasPermission("view-sales-history")) && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
+          <div className="lg:col-span-2">
+            <SalesChart />
+          </div>
+          <div>
+            <RecentSales />
+          </div>
         </div>
-        <div>
-          <RecentSales />
-        </div>
-      </div>
+      )}
 
       {/* Summary Cards Row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
@@ -325,37 +330,62 @@ const DashboardContent = memo(function DashboardContent() {
 
           <div className="space-y-4">
             <div>
-              <div className="flex justify-between items-baseline mb-2">
-                <span className="text-2xl font-bold text-foreground">
-                  {formatCurrency(currentRevenue)}
-                </span>
-                <span className="text-sm text-muted-foreground">
-                  {t("of")} {formatCurrency(monthlyGoal)}
-                </span>
-              </div>
-              <Progress value={Math.min(goalProgress, 100)} className="h-3" />
-              <p className="text-sm text-muted-foreground mt-2">
-                {goalProgress >= 100
-                  ? t("🎉 Goal achieved! Excellent work!")
-                  : `${Math.round(goalProgress)}% ${t("complete")}`}
-              </p>
+              {(isOwner() || hasPermission("view-sales-history")) ? (
+                <>
+                  <div className="flex justify-between items-baseline mb-2">
+                    <span className="text-2xl font-bold text-foreground">
+                      {formatCurrency(currentRevenue)}
+                    </span>
+                    <span className="text-sm text-muted-foreground">
+                      {t("of")} {formatCurrency(monthlyGoal)}
+                    </span>
+                  </div>
+                  <Progress value={Math.min(goalProgress, 100)} className="h-3" />
+                  <p className="text-sm text-muted-foreground mt-2">
+                    {goalProgress >= 100
+                      ? t("🎉 Goal achieved! Excellent work!")
+                      : `${Math.round(goalProgress)}% ${t("complete")}`}
+                  </p>
+                </>
+              ) : (
+                <>
+                  <div className="flex justify-between items-baseline mb-2">
+                    <span className="text-2xl font-bold text-foreground">
+                      {Math.round(goalProgress)}%
+                    </span>
+                    <span className="text-sm text-muted-foreground">
+                      {t("of monthly goal")}
+                    </span>
+                  </div>
+                  <Progress value={Math.min(goalProgress, 100)} className="h-3" />
+                  <p className="text-sm text-muted-foreground mt-2">
+                    {goalProgress >= 100
+                      ? t("🎉 Goal achieved! Excellent work!")
+                      : t("Keep up the great work!")}
+                  </p>
+                </>
+              )}
             </div>
 
             <div className="pt-4 border-t space-y-2">
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">
-                  {t("Daily Average")}
-                </span>
-                <span className="font-medium">
-                  {formatCurrency(currentRevenue / new Date().getDate())}
-                </span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">{t("Remaining")}</span>
-                <span className="font-medium">
-                  {formatCurrency(Math.max(0, monthlyGoal - currentRevenue))}
-                </span>
-              </div>
+              {(isOwner() || hasPermission("view-sales-history")) && (
+                <>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">
+                      {t("Daily Average")}
+                    </span>
+                    <span className="font-medium">
+                      {formatCurrency(currentRevenue / new Date().getDate())}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">{t("Remaining")}</span>
+                    <span className="font-medium">
+                      {formatCurrency(Math.max(0, monthlyGoal - currentRevenue))}
+                    </span>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </motion.div>

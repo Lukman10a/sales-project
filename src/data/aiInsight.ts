@@ -76,4 +76,49 @@ export const insights: Insight[] = [
       { label: "Est. Weekly Sales", value: "30 units" },
     ],
   },
+  {
+    id: "6",
+    type: "opportunity",
+    priority: "high",
+    title: "Cross-Sell Opportunity: Phone + Case Bundle",
+    description:
+      "Customers who buy smartphones have an 89% probability of needing phone cases. By bundling cases with phones at a slight discount, you can increase attachment rate and revenue per transaction.",
+    impact: "Additional revenue: ₦78,000/week",
+    action: "Create bundle offer",
+    metrics: [
+      { label: "Customers buying phones", value: "156/week" },
+      { label: "Currently buying cases", value: "64 (41%)" },
+      { label: "Potential additional sales", value: "92 units" },
+    ],
+  },
+  {
+    id: "7",
+    type: "opportunity",
+    priority: "medium",
+    title: "Upsell: Premium Wireless Earbuds",
+    description:
+      "Customers purchasing mid-range phones (₦80K-₦150K) frequently ask about audio accessories. Recommending Wireless Earbuds Pro could boost average order value by 12%.",
+    impact: "Additional revenue: ₦45,600/week",
+    action: "Train staff on upselling",
+    metrics: [
+      { label: "Mid-range phone buyers/week", value: "120" },
+      { label: "Avg earbuds margin", value: "42%" },
+      { label: "Conversion potential", value: "38 units/week" },
+    ],
+  },
+  {
+    id: "8",
+    type: "pricing",
+    priority: "medium",
+    title: "Sales Optimization: End-of-Day Strategy",
+    description:
+      "Analysis shows customers have highest purchase intent between 4-6 PM. Implementing flash discounts (5-8%) during this window could increase daily transaction volume by 16% without affecting profit margins significantly.",
+    impact: "Additional daily transactions: +8-10",
+    action: "Schedule daily flash sales",
+    metrics: [
+      { label: "Peak hours", value: "4-6 PM" },
+      { label: "Customer visit surge", value: "+23%" },
+      { label: "Avg order value improvement", value: "+12%" },
+    ],
+  },
 ];

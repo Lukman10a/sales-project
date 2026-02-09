@@ -109,6 +109,12 @@ const Analytics = () => {
       minimumFractionDigits: 0,
     });
 
+  // Calculate summary stats based on selected date range
+  const sumRevenue = currentChartData.reduce((sum: number, item: any) => sum + item.revenue, 0);
+  const sumOrders = currentChartData.reduce((sum: number, item: any) => sum + item.orders, 0);
+  const sumProfit = currentChartData.reduce((sum: number, item: any) => sum + (item.revenue - item.expenses), 0);
+  const avgOrderValue = sumOrders > 0 ? sumRevenue / sumOrders : 0;
+
   return (
     <div className="max-w-7xl mx-auto space-y-4 sm:space-y-6 px-4 sm:px-6 lg:px-0">
       {/* Header */}
@@ -189,7 +195,7 @@ const Analytics = () => {
             {t("Total Revenue")}
           </p>
           <p className="text-2xl sm:text-3xl font-display font-bold text-foreground">
-            {formatCompact(3650000)}
+            {formatCompact(sumRevenue)}
           </p>
         </motion.div>
 
@@ -212,7 +218,7 @@ const Analytics = () => {
             {t("Net Profit")}
           </p>
           <p className="text-2xl sm:text-3xl font-display font-bold text-foreground">
-            {formatCompact(784000)}
+            {formatCompact(sumProfit)}
           </p>
         </motion.div>
 
@@ -235,7 +241,7 @@ const Analytics = () => {
             {t("Total Orders")}
           </p>
           <p className="text-2xl sm:text-3xl font-display font-bold text-foreground">
-            391
+            {sumOrders}
           </p>
         </motion.div>
 
@@ -258,7 +264,7 @@ const Analytics = () => {
             {t("Avg Order Value")}
           </p>
           <p className="text-2xl sm:text-3xl font-display font-bold text-foreground">
-            {formatCurrency(9340)}
+            {formatCurrency(avgOrderValue)}
           </p>
         </motion.div>
       </div>
