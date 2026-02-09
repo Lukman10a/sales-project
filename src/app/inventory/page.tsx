@@ -20,12 +20,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Plus, Search, Filter, Grid, List } from "lucide-react";
+import { Plus, Search, Filter, Grid, List, Download, Mail } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { InventoryItem } from "@/types/inventoryTypes";
 import { toast } from "@/components/ui/sonner";
 import StockAlerts from "@/components/inventory/StockAlerts";
 import { categories } from "@/data/inventory";
+import { loadDailyEmailConfig } from "@/lib/emailService";
 const InventoryFilters = dynamic(
   () => import("@/components/inventory/InventoryFilters"),
   { ssr: false, loading: () => null },
@@ -36,6 +37,14 @@ const InventoryFormDialog = dynamic(
 );
 const InventoryStats = dynamic(
   () => import("@/components/inventory/InventoryStats"),
+  { ssr: false, loading: () => null },
+);
+const InventoryExportDialog = dynamic(
+  () => import("@/components/inventory/InventoryExportDialog"),
+  { ssr: false, loading: () => null },
+);
+const DailyEmailSettingsDialog = dynamic(
+  () => import("@/components/inventory/DailyEmailSettingsDialog"),
   { ssr: false, loading: () => null },
 );
 const InventoryGridItem = dynamic(
@@ -98,6 +107,9 @@ export default function Inventory() {
   const [newItem, setNewItem] =
     useState<Omit<InventoryItem, "id">>(emptyNewItem);
   const { t, formatCurrency, isRTL } = useLanguage();
+  const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
+  const [isEmailSettingsOpen, setIsEmailSettingsOpen] = useState(false);
+  const [emailConfig, setEmailConfig] = useState(() => loadDailyEmailConfig());
 
   const normalizeName = (value: string) => value.trim().toLowerCase();
   const getNameError = (name: string, excludeId?: string) => {
@@ -332,19 +344,46 @@ export default function Inventory() {
               {t("Manage your products and stock levels")}
             </p>
           </div>
-          {userRole === "owner" && (
+          <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 w-full sm:w-auto">
+            {/* Email Settings Button */}
             <Button
-              onClick={() => setIsAddOpen(true)}
-              className="bg-gradient-accent text-accent-foreground hover:opacity-90 glow-accent w-full sm:w-auto"
+              onClick={() => setIsEmailSettingsOpen(true)}
+              variant="outline"
               size="sm"
+              className="w-full sm:w-auto"
             >
-              <Plus className="w-4 h-4 mr-2" />
-              {t("Add New Item")}
+              <Mail className="w-4 h-4 mr-2" />
+              {t("Daily Email")}
+              {emailConfig.enabled && (
+                <Badge variant="default" className="ml-2 bg-green-600">
+                  ON
+                </Badge>
+              )}
             </Button>
-          )}
-        </div>
 
-        {/* Stock Alerts */}
+            {/* Export Button */}
+            <Button
+              onClick={() => setIsExportDialogOpen(true)}
+              variant="outline"
+              size="sm"
+              className="w-full sm:w-auto"
+            >
+              <Download className="w-4 h-4 mr-2" />
+              {t("Export")}
+            </Button>
+
+            {userRole === "owner" && (
+              <Button
+                onClick={() => setIsAddOpen(true)}
+                className="bg-gradient-accent text-accent-foreground hover:opacity-90 glow-accent w-full sm:w-auto"
+                size="sm"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                {t("Add New Item")}
+              </Button>
+            )}
+          </div>
+        </div>
         <StockAlerts />
 
         {/* Filters */}
@@ -658,6 +697,25 @@ export default function Inventory() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Export Dialog */}
+      <InventoryExportDialog
+        isOpen={isExportDialogOpen}
+        onOpenChange={setIsExportDialogOpen}
+        inventory={inventory}
+      />
+
+      {/* Daily Email Settings Dialog */}
+      <DailyEmailSettingsDialog
+        isOpen={isEmailSettingsOpen}
+        onOpenChange={(open) => {
+          setIsEmailSettingsOpen(open);
+          if (!open) {
+            setEmailConfig(loadDailyEmailConfig());
+          }
+        }}
+        inventory={inventory}
+      />
     </>
   );
 }
