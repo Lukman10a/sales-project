@@ -91,16 +91,6 @@ export default function Inventory() {
   } = useInventoryData();
   const { addNotification } = useNotifications();
   const userRole = user?.role || "owner";
-
-  // Permission guard: Check if user has permission to view inventory
-  if (!isOwner() && !hasPermission("view-inventory")) {
-    return (
-      <AccessDenied
-        message="You don't have permission to view the inventory"
-        requiredPermission="view-inventory"
-      />
-    );
-  }
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("all");
@@ -217,6 +207,16 @@ export default function Inventory() {
     );
     return ["All", ...unique];
   }, [inventory]);
+
+  // Permission guard: Check if user has permission to view inventory
+  if (!isOwner() && !hasPermission("view-inventory")) {
+    return (
+      <AccessDenied
+        message="You don't have permission to view the inventory"
+        requiredPermission="view-inventory"
+      />
+    );
+  }
 
   const handleAddItem = () => {
     const nameError = getNameError(newItem.name);

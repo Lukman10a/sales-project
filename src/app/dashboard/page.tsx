@@ -62,16 +62,6 @@ const AIInsightCard = dynamic(
 export default function Dashboard() {
   const { user, isAuthenticated, isLoading } = useAuth();
   const { isOwner } = usePermissions();
-
-  // Restrict dashboard to owners only (contains business figures)
-  if (!isLoading && isAuthenticated && !isOwner()) {
-    return (
-      <AccessDenied
-        message="Dashboard access is restricted to business owners. This page contains confidential business metrics and financial data."
-        requiredPermission="owner-access"
-      />
-    );
-  }
   const router = useRouter();
 
   useEffect(() => {
@@ -84,6 +74,16 @@ export default function Dashboard() {
       router.replace("/investor-dashboard");
     }
   }, [isAuthenticated, isLoading, user, router]);
+
+  // Restrict dashboard to owners only (contains business figures)
+  if (!isLoading && isAuthenticated && !isOwner()) {
+    return (
+      <AccessDenied
+        message="Dashboard access is restricted to business owners. This page contains confidential business metrics and financial data."
+        requiredPermission="owner-access"
+      />
+    );
+  }
 
   // Show loading state while checking auth
   if (isLoading) {
@@ -330,7 +330,7 @@ const DashboardContent = memo(function DashboardContent() {
 
           <div className="space-y-4">
             <div>
-              {(isOwner() || hasPermission("view-sales-history")) ? (
+              {isOwner() || hasPermission("view-sales-history") ? (
                 <>
                   <div className="flex justify-between items-baseline mb-2">
                     <span className="text-2xl font-bold text-foreground">
@@ -340,7 +340,10 @@ const DashboardContent = memo(function DashboardContent() {
                       {t("of")} {formatCurrency(monthlyGoal)}
                     </span>
                   </div>
-                  <Progress value={Math.min(goalProgress, 100)} className="h-3" />
+                  <Progress
+                    value={Math.min(goalProgress, 100)}
+                    className="h-3"
+                  />
                   <p className="text-sm text-muted-foreground mt-2">
                     {goalProgress >= 100
                       ? t("🎉 Goal achieved! Excellent work!")
@@ -357,7 +360,10 @@ const DashboardContent = memo(function DashboardContent() {
                       {t("of monthly goal")}
                     </span>
                   </div>
-                  <Progress value={Math.min(goalProgress, 100)} className="h-3" />
+                  <Progress
+                    value={Math.min(goalProgress, 100)}
+                    className="h-3"
+                  />
                   <p className="text-sm text-muted-foreground mt-2">
                     {goalProgress >= 100
                       ? t("🎉 Goal achieved! Excellent work!")
@@ -379,9 +385,13 @@ const DashboardContent = memo(function DashboardContent() {
                     </span>
                   </div>
                   <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">{t("Remaining")}</span>
+                    <span className="text-muted-foreground">
+                      {t("Remaining")}
+                    </span>
                     <span className="font-medium">
-                      {formatCurrency(Math.max(0, monthlyGoal - currentRevenue))}
+                      {formatCurrency(
+                        Math.max(0, monthlyGoal - currentRevenue),
+                      )}
                     </span>
                   </div>
                 </>

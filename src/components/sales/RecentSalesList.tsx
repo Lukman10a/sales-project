@@ -11,7 +11,7 @@ interface SaleRecord {
   total: number;
   soldBy: string;
   time: string;
-  status: "completed" | "pending";
+  status: "completed" | "pending" | "refunded" | "partial-refund";
   paymentMethod?: string;
   discount?: number;
 }

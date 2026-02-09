@@ -73,16 +73,6 @@ export default function TeamManagement() {
   const { hasPermission, isOwner } = usePermissions();
   const [teamMembers, setTeamMembers] =
     useState<TeamMember[]>(initialTeamMembers);
-
-  // Permission guard: Check if user has permission to manage team/assign roles
-  if (!isOwner() && !hasPermission("assign-roles")) {
-    return (
-      <AccessDenied
-        message="You don't have permission to manage team members and assign roles"
-        requiredPermission="assign-roles"
-      />
-    );
-  }
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [filterRole, setFilterRole] = useState<string>("all");
@@ -113,6 +103,16 @@ export default function TeamManagement() {
     invited: teamMembers.filter((m) => m.status === "invited").length,
     inactive: teamMembers.filter((m) => m.status === "inactive").length,
   };
+
+  // Permission guard: Check if user has permission to manage team/assign roles
+  if (!isOwner() && !hasPermission("assign-roles")) {
+    return (
+      <AccessDenied
+        message="You don't have permission to manage team members and assign roles"
+        requiredPermission="assign-roles"
+      />
+    );
+  }
 
   const handleAddMember = () => {
     if (!newMember.name.trim() || !newMember.email.trim()) {

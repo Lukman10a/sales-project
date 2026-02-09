@@ -22,16 +22,6 @@ export default function Reports() {
   const { isAuthenticated, isLoading } = useAuth();
   const { isOwner } = usePermissions();
   const { t } = useLanguage();
-
-  // Restrict reports to owners only (contains business figures and financial data)
-  if (!isLoading && isAuthenticated && !isOwner()) {
-    return (
-      <AccessDenied
-        message="Reports access is restricted to business owners. This page contains confidential financial reports and business analysis."
-        requiredPermission="owner-access"
-      />
-    );
-  }
   const [isGenerateOpen, setIsGenerateOpen] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
   const [generateForm, setGenerateForm] = useState({
@@ -43,6 +33,16 @@ export default function Reports() {
     includeExpenses: true,
     includeStaff: true,
   });
+
+  // Restrict reports to owners only (contains business figures and financial data)
+  if (!isLoading && isAuthenticated && !isOwner()) {
+    return (
+      <AccessDenied
+        message="Reports access is restricted to business owners. This page contains confidential financial reports and business analysis."
+        requiredPermission="owner-access"
+      />
+    );
+  }
 
   const handleSelectTemplate = (template: any) => {
     setSelectedTemplate(template.id);
