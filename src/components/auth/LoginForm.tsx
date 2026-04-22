@@ -51,17 +51,21 @@ export function LoginForm() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       {/* Logo */}
-      <div className="w-10 h-10 bg-gradient-to-br from-cyan-400 to-blue-500 rounded-lg" />
+      <div className="w-12 h-12 bg-background border border-border/50 shadow-sm rounded-xl flex items-center justify-center">
+        <span className="font-display font-bold text-xl tracking-tight text-foreground">
+          L
+        </span>
+      </div>
 
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-foreground mb-1">
+        <h1 className="text-3xl font-display font-bold tracking-tight text-foreground mb-2">
           {t("Login")}
         </h1>
-        <p className="text-sm text-muted-foreground">
-          {t("See your growth and get support!")}
+        <p className="text-sm text-muted-foreground flex items-center gap-2">
+          {t("Authenticate to access your workspace")}
         </p>
       </div>
 
@@ -118,7 +122,7 @@ export function LoginForm() {
       >
         {/* Email Field */}
         <div className="space-y-2">
-          <Label htmlFor="email" className="text-sm font-normal">
+          <Label htmlFor="email" className="text-sm font-medium">
             {t("Email")}*
           </Label>
           <Input
@@ -127,7 +131,7 @@ export function LoginForm() {
             placeholder={t("Enter your email")}
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="h-11 bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-800"
+            className="h-11 bg-background border-input"
             required
             disabled={isLoading}
           />
@@ -135,7 +139,7 @@ export function LoginForm() {
 
         {/* Password Field */}
         <div className="space-y-2">
-          <Label htmlFor="password" className="text-sm font-normal">
+          <Label htmlFor="password" className="text-sm font-medium">
             {t("Password")}*
           </Label>
           <div className="relative">
@@ -145,7 +149,7 @@ export function LoginForm() {
               placeholder={t("minimum 8 characters")}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="h-11 bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-800 pr-10"
+              className="h-11 bg-background border-input pr-10"
               required
               disabled={isLoading}
             />

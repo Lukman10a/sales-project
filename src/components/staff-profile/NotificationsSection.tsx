@@ -37,7 +37,7 @@ export default function NotificationsSection({
   const { t } = useLanguage();
 
   return (
-    <Card className="card-elevated">
+    <Card className="shadow-sm">
       <CardHeader>
         <CardTitle>{t("Notification Preferences")}</CardTitle>
         <CardDescription>
@@ -157,3 +157,5 @@ export default function NotificationsSection({
     </Card>
   );
 }
+
+

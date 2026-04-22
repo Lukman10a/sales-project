@@ -74,9 +74,9 @@ export default function Insights() {
             {t("Smart recommendations to grow your business")}
           </p>
         </div>
-        <div className="flex items-center gap-2 bg-gradient-accent px-3 sm:px-4 py-2 rounded-xl flex-shrink-0">
-          <Sparkles className="w-4 sm:w-5 h-4 sm:h-5 text-accent-foreground" />
-          <span className="font-semibold text-accent-foreground text-xs sm:text-sm whitespace-nowrap">
+        <div className="flex items-center gap-2 bg-primary/10 border border-primary/20 px-3 sm:px-4 py-2 rounded-xl flex-shrink-0">
+          <Sparkles className="w-4 sm:w-5 h-4 sm:h-5 text-primary" />
+          <span className="font-semibold text-primary text-xs sm:text-sm whitespace-nowrap">
             {insights.length} {t("Active Insights")}
           </span>
         </div>
@@ -97,3 +97,5 @@ export default function Insights() {
     </div>
   );
 }
+
+

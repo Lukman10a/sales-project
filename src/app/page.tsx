@@ -7,7 +7,7 @@ import Image from "next/image";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { motion } from "framer-motion";
-import { Moon, Sun, Globe, Sparkles, Package } from "lucide-react";
+import { Moon, Sun, Globe, Sparkles, Package, ChevronRight, BarChart3, ShieldCheck } from "lucide-react";
 
 export default function LandingPage() {
   const { isAuthenticated, isLoading, user } = useAuth();
@@ -31,7 +31,9 @@ export default function LandingPage() {
       setTheme(saved as "light" | "dark");
       applyTheme(saved as "light" | "dark");
     } else {
-      applyTheme("light");
+      document.documentElement.classList.add("dark");
+      setTheme("dark");
+      localStorage.setItem("luxa_theme", "dark");
     }
   }, []);
 
@@ -50,182 +52,139 @@ export default function LandingPage() {
     applyTheme(newTheme);
   };
 
-  if (isLoading) {
-    return null;
-  }
-
-  if (isAuthenticated) {
-    return null;
-  }
+  if (isLoading || isAuthenticated) return null;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-400 via-blue-300 to-blue-200 dark:from-blue-900 dark:via-blue-800 dark:to-blue-700 relative overflow-hidden">
-      {/* Decorative sparkles */}
-      <motion.div
-        initial={{ opacity: 0, scale: 0 }}
-        animate={{ opacity: 0.6, scale: 1 }}
-        transition={{ delay: 0.5, duration: 0.8 }}
-        className="absolute top-20 left-20 w-8 h-8 text-white"
-      >
-        <Sparkles className="w-full h-full" />
-      </motion.div>
-      <motion.div
-        initial={{ opacity: 0, scale: 0 }}
-        animate={{ opacity: 0.4, scale: 1 }}
-        transition={{ delay: 0.7, duration: 0.8 }}
-        className="absolute top-40 right-32 w-6 h-6 text-white"
-      >
-        <Sparkles className="w-full h-full" />
-      </motion.div>
-      <motion.div
-        initial={{ opacity: 0, scale: 0 }}
-        animate={{ opacity: 0.5, scale: 1 }}
-        transition={{ delay: 0.9, duration: 0.8 }}
-        className="absolute bottom-32 right-20 w-7 h-7 text-white"
-      >
-        <Sparkles className="w-full h-full" />
-      </motion.div>
-      <motion.div
-        initial={{ opacity: 0, scale: 0 }}
-        animate={{ opacity: 0.6, scale: 1 }}
-        transition={{ delay: 1.1, duration: 0.8 }}
-        className="absolute top-1/2 right-10 w-6 h-6 text-white"
-      >
-        <Sparkles className="w-full h-full" />
-      </motion.div>
+    <div className="min-h-screen bg-background text-foreground relative overflow-hidden flex flex-col font-sans selection:bg-accent selection:text-foreground">
+      {/* Background Ambience */}
+      <div className="absolute inset-0 bg-[linear-gradient(to_bottom,transparent,theme(colors.background))] pointer-events-none" />
+      <div className="absolute top-0 w-full h-full bg-grid-white opacity-[0.03] dark:opacity-[0.05] bg-[length:50px_50px] pointer-events-none" />
+      
+      {/* Sleek Golden Glow at the top */}
+      <div className="absolute -top-40 left-1/2 -translate-x-1/2 w-[800px] h-[400px] bg-accent/10 blur-[120px] rounded-full pointer-events-none" />
 
       {/* Navigation */}
       <motion.nav
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6 }}
-        className="relative z-50 px-8 py-4"
+        className="relative z-50 px-6 py-5 border-b border-border/40 backdrop-blur-xl bg-background/50"
       >
         <div className="max-w-7xl mx-auto flex items-center justify-between">
-          {/* Logo */}
           <div className="flex items-center gap-3">
-            <Image
-              src="/primestore.jpg"
-              alt="PrimeStock Logo"
-              width={120}
-              height={40}
-              className="h-10 w-auto object-contain bg-white rounded-lg px-3 py-2"
-            />
+            <div className="font-display font-bold text-2xl tracking-tighter flex items-center gap-2">
+              <span className="bg-foreground text-background w-8 h-8 rounded-md flex items-center justify-center">L</span>
+              LUXA
+            </div>
           </div>
 
-          {/* Nav links & Controls */}
-          <div className="hidden md:flex items-center gap-8 text-gray-900 dark:text-white font-medium text-sm">
-            <Link href="#services" className="hover:opacity-70 transition">
-              {t("Services")}
-            </Link>
-            <Link href="#work" className="hover:opacity-70 transition">
-              {t("Our Work")}
-            </Link>
-            <Link href="#pricing" className="hover:opacity-70 transition">
-              {t("Pricing")}
-            </Link>
-            <Link href="#contact" className="hover:opacity-70 transition">
-              {t("Contact")}
-            </Link>
+          <div className="hidden md:flex items-center gap-8 text-muted-foreground font-medium text-sm">
+            <Link href="#platform" className="hover:text-foreground transition-colors">{t("Platform")}</Link>
+            <Link href="#solutions" className="hover:text-foreground transition-colors">{t("Solutions")}</Link>
+            <Link href="#enterprise" className="hover:text-foreground transition-colors">{t("Enterprise")}</Link>
           </div>
 
-          {/* Right side controls */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-4">
             <button
               onClick={toggleLanguage}
-              className="p-2 rounded-lg hover:bg-white/20 transition-colors text-gray-900 dark:text-white"
-              title="Toggle language"
+              className="p-2 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground transition-all"
             >
-              <Globe className="w-5 h-5" />
+              <Globe className="w-4 h-4" />
             </button>
-
             <button
               onClick={toggleTheme}
-              className="p-2 rounded-lg hover:bg-white/20 transition-colors text-gray-900 dark:text-white"
-              title="Toggle theme"
+              className="p-2 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground transition-all"
             >
-              {theme === "dark" ? (
-                <Sun className="w-5 h-5" />
-              ) : (
-                <Moon className="w-5 h-5" />
-              )}
+              {theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
             </button>
-
             <Link
               href="/auth/login"
-              className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-full font-semibold transition-colors text-sm"
+              className="bg-accent/10 border border-accent/20 hover:bg-accent/20 text-accent px-5 py-2 rounded-full font-medium transition-all text-sm flex items-center gap-2"
             >
-              {t("Book a Call")}
+              {t("Sign In")} <ChevronRight className="w-4 h-4" />
             </Link>
           </div>
         </div>
       </motion.nav>
 
       {/* Hero Section */}
-      <section className="relative px-6 pt-8 pb-12">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, delay: 0.2 }}
-          className="text-center space-y-6 mb-10"
-        >
-          {/* Main Heading */}
-          <h1 className="text-5xl md:text-6xl font-black leading-tight text-gray-900 dark:text-white">
-            {t("Turn Your")}{" "}
-            <span className="inline-block bg-blue-100 dark:bg-blue-800 rounded-2xl px-4 py-1 mx-2 border-2 border-blue-300 dark:border-blue-600">
-              <Package className="w-10 h-10 inline" />
-            </span>
-            {t("Inventory Manager")}
-            <br />
-            {t("Into a Money Making Machine")}
-          </h1>
-
-          {/* Subtitle */}
-          <div className="space-y-2">
-            <p className="text-base text-gray-800 dark:text-gray-200 font-medium">
-              {t("We are a Sales & Inventory Management Platform")}
-            </p>
-            <p className="text-base text-gray-800 dark:text-gray-200 font-medium">
-              {t("We will help you track, manage and grow your business")}
-            </p>
-          </div>
-
-          {/* CTA Buttons */}
-          <div className="flex items-center justify-center gap-4 flex-wrap">
-            <Link
-              href="/auth/login"
-              className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2.5 rounded-lg font-bold transition-colors text-sm"
-            >
-              {t("Start Managing Now")}
-            </Link>
-            <Link
-              href="/auth/login"
-              className="bg-white hover:bg-gray-50 text-gray-900 px-6 py-2.5 rounded-lg font-bold border-2 border-gray-300 transition-colors text-sm"
-            >
-              {t("Learn More")}
-            </Link>
-          </div>
-        </motion.div>
-
-        {/* Dashboard preview */}
+      <section className="relative px-6 pt-32 pb-24 flex-1 flex flex-col items-center justify-center text-center z-10">
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.8, delay: 0.4 }}
-          className="flex items-center justify-center px-4"
+          transition={{ duration: 0.8, delay: 0.2 }}
+          className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-muted/50 border border-border/50 text-muted-foreground text-xs font-medium mb-8 uppercase tracking-widest"
         >
-          <div className="w-full max-w-6xl">
-            <Image
-              src="/luxasolution.com.png"
-              alt="PrimeStock Dashboard"
-              width={1200}
-              height={800}
-              priority
-              className="w-full h-auto rounded-3xl shadow-2xl"
-            />
-          </div>
+          <Sparkles className="w-3 h-3 text-accent" />
+          {t("Premium Operating System")}
+        </motion.div>
+
+        <motion.h1
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8, delay: 0.3 }}
+          className="text-6xl md:text-7xl lg:text-8xl font-display font-bold leading-tight tracking-tighter max-w-5xl text-balance"
+        >
+          {t("Manage your core operations with")}{" "}
+          <span className="text-transparent bg-clip-text bg-gradient-to-r from-accent to-accent/60">
+            {t("absolute precision.")}
+          </span>
+        </motion.h1>
+
+        <motion.p
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8, delay: 0.4 }}
+          className="mt-8 text-lg md:text-xl text-muted-foreground max-w-2xl text-balance leading-relaxed"
+        >
+          {t("An unparalleled enterprise resource platform built for high-performance teams. Elevate your inventory, POS, and analytics into a single, unified experience.")}
+        </motion.p>
+
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8, delay: 0.5 }}
+          className="mt-12 flex flex-col sm:flex-row items-center gap-4"
+        >
+          <Link
+            href="/auth/login"
+            className="h-12 px-8 rounded-full bg-foreground text-background flex items-center justify-center font-medium hover:scale-105 transition-transform w-full sm:w-auto"
+          >
+            {t("Access System")}
+          </Link>
+          <Link
+            href="#demo"
+            className="h-12 px-8 rounded-full bg-muted/30 border border-border/50 text-foreground flex items-center justify-center font-medium hover:bg-muted/50 transition-colors w-full sm:w-auto"
+          >
+            {t("View Architecture")}
+          </Link>
+        </motion.div>
+      </section>
+
+      {/* Feature Preview Section */}
+      <section className="relative w-full max-w-7xl mx-auto px-6 pb-32 z-10">
+        <motion.div 
+          initial={{ opacity: 0, y: 40 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 1, delay: 0.6 }}
+          className="grid grid-cols-1 md:grid-cols-3 gap-6"
+        >
+          {[
+            { icon: <Package className="w-5 h-5" />, title: "Inventory Engine", desc: "Real-time stock synchronization with predictive ordering." },
+            { icon: <BarChart3 className="w-5 h-5" />, title: "Financial Intelligence", desc: "Institutional-grade analytics and custom reporting." },
+            { icon: <ShieldCheck className="w-5 h-5" />, title: "Secure Infrastructure", desc: "Role-based architecture built for enterprise security." }
+          ].map((feature, i) => (
+            <div key={i} className="p-8 rounded-2xl bg-muted/20 border border-border/40 backdrop-blur-sm group hover:border-accent/30 transition-colors">
+              <div className="w-10 h-10 rounded-full bg-background border border-border flex items-center justify-center text-accent mb-6 group-hover:scale-110 transition-transform">
+                {feature.icon}
+              </div>
+              <h3 className="font-display text-lg font-semibold tracking-tight text-foreground mb-2">{feature.title}</h3>
+              <p className="text-sm text-muted-foreground leading-relaxed">{feature.desc}</p>
+            </div>
+          ))}
         </motion.div>
       </section>
     </div>
   );
 }
+

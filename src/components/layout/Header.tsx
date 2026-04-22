@@ -139,9 +139,9 @@ const Header = ({ userRole, sidebarWidth }: HeaderProps) => {
               {roleLabel}
             </Badge>
           </div>
-          <Avatar className="w-8 h-8 sm:w-10 sm:h-10 border-2 border-accent/30">
+          <Avatar className="w-8 h-8 sm:w-10 sm:h-10 border-2 border-primary/20">
             <AvatarImage src={user?.avatar} />
-            <AvatarFallback className="bg-gradient-accent text-accent-foreground font-semibold text-xs sm:text-sm">
+            <AvatarFallback className="bg-primary/10 text-primary font-semibold text-xs sm:text-sm">
               {initials}
             </AvatarFallback>
           </Avatar>
@@ -152,3 +152,5 @@ const Header = ({ userRole, sidebarWidth }: HeaderProps) => {
 };
 
 export default React.memo(Header);
+
+

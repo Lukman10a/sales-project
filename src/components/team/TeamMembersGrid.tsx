@@ -41,7 +41,7 @@ export default function TeamMembersGrid({
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
             transition={{ delay: index * 0.05 }}
-            className="bg-card rounded-2xl border card-elevated card-hover p-4"
+            className="bg-card rounded-xl border shadow-sm card-hover p-4"
           >
             <div className="flex items-start justify-between mb-4">
               <div className="flex items-center gap-3">
@@ -133,3 +133,5 @@ export default function TeamMembersGrid({
     </div>
   );
 }
+
+

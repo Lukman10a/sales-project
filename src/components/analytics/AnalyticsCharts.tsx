@@ -39,7 +39,7 @@ type AnalyticsChartsProps = {
 const CustomTooltip = ({ active, payload, label, formatCurrency }: any) => {
   if (active && payload && payload.length) {
     return (
-      <div className="bg-card border border-border rounded-lg p-3 shadow-lg">
+      <div className="bg-card border border-border rounded-lg p-3 shadow-sm">
         <p className="text-sm font-medium text-foreground mb-2">{label}</p>
         {payload.map((entry: any, index: number) => (
           <p key={index} className="text-sm" style={{ color: entry.color }}>
@@ -73,9 +73,9 @@ export default function AnalyticsCharts({
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
-          className="bg-card rounded-2xl border card-elevated p-6"
+          className="bg-card rounded-xl border shadow-sm p-6"
         >
-          <h3 className="font-display font-semibold text-lg text-foreground mb-6">
+          <h3 className="font-display font-semibold text-lg text-foreground tracking-tight mb-6">
             {chartTitle}
           </h3>
           <div className="h-72">
@@ -130,9 +130,9 @@ export default function AnalyticsCharts({
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
-          className="bg-card rounded-2xl border card-elevated p-6"
+          className="bg-card rounded-xl border shadow-sm p-6"
         >
-          <h3 className="font-display font-semibold text-lg text-foreground mb-6">
+          <h3 className="font-display font-semibold text-lg text-foreground tracking-tight mb-6">
             {areaChartTitle}
           </h3>
           <div className="h-72">
@@ -205,9 +205,9 @@ export default function AnalyticsCharts({
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.4 }}
-          className="bg-card rounded-2xl border card-elevated p-6"
+          className="bg-card rounded-xl border shadow-sm p-6"
         >
-          <h3 className="font-display font-semibold text-lg text-foreground mb-6">
+          <h3 className="font-display font-semibold text-lg text-foreground tracking-tight mb-6">
             {t("Sales by Category")}
           </h3>
           <div className="h-64">
@@ -253,9 +253,9 @@ export default function AnalyticsCharts({
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.5 }}
-          className="bg-card rounded-2xl border card-elevated p-6 lg:col-span-2"
+          className="bg-card rounded-xl border shadow-sm p-6 lg:col-span-2"
         >
-          <h3 className="font-display font-semibold text-lg text-foreground mb-6">
+          <h3 className="font-display font-semibold text-lg text-foreground tracking-tight mb-6">
             {t("Top Performing Products")}
           </h3>
           <div className="space-y-4">
@@ -295,3 +295,5 @@ export default function AnalyticsCharts({
     </>
   );
 }
+
+

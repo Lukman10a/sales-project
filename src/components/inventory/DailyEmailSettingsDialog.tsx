@@ -350,7 +350,7 @@ export default function DailyEmailSettingsDialog({
           <Button
             onClick={handleSave}
             disabled={isSaving}
-            className="bg-gradient-accent text-accent-foreground hover:opacity-90"
+            className="bg-primary text-primary-foreground hover:bg-primary/90"
           >
             {isSaving ? (
               <>
@@ -369,3 +369,6 @@ export default function DailyEmailSettingsDialog({
     </Dialog>
   );
 }
+
+
+

@@ -241,10 +241,13 @@ export default function DashboardCustomization({
       </div>
 
       <div className="flex justify-end">
-        <Button className="bg-gradient-accent" onClick={onSave}>
+        <Button className="bg-primary text-primary-foreground hover:bg-primary/90" onClick={onSave}>
           {t("Save Dashboard Settings")}
         </Button>
       </div>
     </div>
   );
 }
+
+
+

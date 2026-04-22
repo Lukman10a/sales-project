@@ -50,7 +50,7 @@ export default function AppearanceSection({
   };
 
   return (
-    <Card className="card-elevated">
+    <Card className="shadow-sm">
       <CardHeader>
         <CardTitle>{t("Appearance Settings")}</CardTitle>
         <CardDescription>
@@ -148,3 +148,5 @@ export default function AppearanceSection({
     </Card>
   );
 }
+
+

@@ -159,7 +159,7 @@ export default function Notifications() {
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              className="bg-card rounded-2xl border card-elevated p-12 text-center"
+              className="bg-card rounded-xl border shadow-sm p-12 text-center"
             >
               <Bell className="w-12 h-12 text-muted-foreground/30 mx-auto mb-4" />
               <h3 className="font-display font-semibold text-lg text-foreground mb-2">
@@ -182,7 +182,7 @@ export default function Notifications() {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: index * 0.05 }}
                   className={cn(
-                    "bg-card rounded-2xl border p-4 transition-all card-hover",
+                    "bg-card rounded-xl border p-4 transition-all card-hover",
                     !notif.read && "border-l-4 border-l-accent",
                   )}
                 >
@@ -253,3 +253,5 @@ export default function Notifications() {
     </>
   );
 }
+
+

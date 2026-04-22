@@ -226,7 +226,7 @@ export default function Settings() {
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.2 }}
-            className="bg-card rounded-2xl border card-elevated p-6"
+            className="bg-card rounded-xl border shadow-sm p-6"
           >
             {activeSection === "notifications" && (
               <div className="space-y-6">
@@ -837,3 +837,5 @@ export default function Settings() {
     </div>
   );
 }
+
+

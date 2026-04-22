@@ -12,7 +12,7 @@ export default function StatsGrid({ stats }: StatsGridProps) {
 
   return (
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-      <div className="bg-card rounded-xl border p-3 sm:p-4 card-elevated">
+      <div className="bg-card rounded-xl border p-3 sm:p-4 shadow-sm">
         <p className="text-xs sm:text-sm text-muted-foreground">
           {t("Total Members")}
         </p>
@@ -20,7 +20,7 @@ export default function StatsGrid({ stats }: StatsGridProps) {
           {stats.total}
         </p>
       </div>
-      <div className="bg-card rounded-xl border p-3 sm:p-4 card-elevated">
+      <div className="bg-card rounded-xl border p-3 sm:p-4 shadow-sm">
         <p className="text-xs sm:text-sm text-muted-foreground">
           {t("Active")}
         </p>
@@ -28,7 +28,7 @@ export default function StatsGrid({ stats }: StatsGridProps) {
           {stats.active}
         </p>
       </div>
-      <div className="bg-card rounded-xl border p-3 sm:p-4 card-elevated">
+      <div className="bg-card rounded-xl border p-3 sm:p-4 shadow-sm">
         <p className="text-xs sm:text-sm text-muted-foreground">
           {t("Invited")}
         </p>
@@ -36,7 +36,7 @@ export default function StatsGrid({ stats }: StatsGridProps) {
           {stats.invited}
         </p>
       </div>
-      <div className="bg-card rounded-xl border p-3 sm:p-4 card-elevated">
+      <div className="bg-card rounded-xl border p-3 sm:p-4 shadow-sm">
         <p className="text-xs sm:text-sm text-muted-foreground">
           {t("Inactive")}
         </p>
@@ -47,3 +47,5 @@ export default function StatsGrid({ stats }: StatsGridProps) {
     </div>
   );
 }
+
+

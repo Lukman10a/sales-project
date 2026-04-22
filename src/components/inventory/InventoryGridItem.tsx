@@ -36,7 +36,7 @@ export default function InventoryGridItem({
       initial={false}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.05 }}
-      className="bg-card rounded-2xl border card-elevated card-hover overflow-hidden"
+      className="bg-card rounded-xl border overflow-hidden shadow-sm hover:shadow-md transition-shadow"
     >
       <Link href={`/inventory/${item.id}`} className="block">
         <div className="aspect-square relative bg-muted">
@@ -146,3 +146,6 @@ export default function InventoryGridItem({
     </motion.div>
   );
 }
+
+
+

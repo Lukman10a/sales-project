@@ -434,7 +434,7 @@ export default function CustomerAccountModal({
             {t("Cancel")}
           </Button>
           {selectedCustomer && (
-            <Button onClick={handleApply} className="gap-2 bg-gradient-accent">
+            <Button onClick={handleApply} className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90">
               <CheckCircle className="w-4 h-4" />
               {t("Apply")}
             </Button>
@@ -444,3 +444,6 @@ export default function CustomerAccountModal({
     </Dialog>
   );
 }
+
+
+

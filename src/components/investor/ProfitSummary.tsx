@@ -36,10 +36,10 @@ export function ProfitSummary({ dashboardData, investor }: ProfitSummaryProps) {
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.4 }}
     >
-      <Card className="bg-gradient-accent/5 border-accent/20">
+      <Card className="rounded-xl border shadow-sm">
         <CardHeader className="pb-3">
-          <CardTitle className="text-lg flex items-center gap-2">
-            <TrendingUp className="w-5 h-5 text-accent" />
+          <CardTitle className="text-lg flex items-center gap-2 font-display font-bold text-foreground tracking-tight">
+            <TrendingUp className="w-5 h-5 text-primary" />
             {t("Profit Summary")}
           </CardTitle>
         </CardHeader>
@@ -52,7 +52,7 @@ export function ProfitSummary({ dashboardData, investor }: ProfitSummaryProps) {
               </span>
               <Badge
                 variant="secondary"
-                className="bg-accent/20 text-accent hover:bg-accent/30"
+                className="bg-primary/10 text-primary hover:bg-primary/20"
               >
                 {formatPercentage(dashboardData.profitPercentage)}
               </Badge>
@@ -64,7 +64,7 @@ export function ProfitSummary({ dashboardData, investor }: ProfitSummaryProps) {
                   width: `${Math.min(dashboardData.profitPercentage, 100)}%`,
                 }}
                 transition={{ duration: 1, delay: 0.6 }}
-                className="bg-gradient-accent h-2 rounded-full"
+                className="bg-primary h-2 rounded-full"
               />
             </div>
           </div>
@@ -104,13 +104,13 @@ export function ProfitSummary({ dashboardData, investor }: ProfitSummaryProps) {
           </div>
 
           {/* Net Profit */}
-          <div className="pt-4 border-t border-border bg-accent/5 px-3 py-3 rounded-lg">
+          <div className="pt-4 border-t border-border bg-primary/5 px-4 py-4 rounded-xl">
             <div className="flex items-center justify-between">
               <span className="text-sm font-medium text-foreground">
                 {t("Your Total Earnings")}
               </span>
               <div className="text-right">
-                <div className="text-xl font-bold text-accent">
+                <div className="text-xl font-bold font-display tracking-tight text-primary">
                   {formatCurrency(dashboardData.totalProfitAccrued)}
                 </div>
                 <p className="text-xs text-muted-foreground">
@@ -130,3 +130,5 @@ export function ProfitSummary({ dashboardData, investor }: ProfitSummaryProps) {
     </motion.div>
   );
 }
+
+

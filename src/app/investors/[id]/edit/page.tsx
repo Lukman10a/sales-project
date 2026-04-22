@@ -36,3 +36,5 @@ export default function EditInvestorPage({
 
   return <EditInvestorClient investor={investor} />;
 }
+
+

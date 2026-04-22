@@ -77,7 +77,7 @@ export default function InventoryListItem({
           {formatCurrency(item.wholesalePrice)}
         </td>
       )}
-      <td className="p-4 text-right font-medium text-accent">
+      <td className="p-4 text-right font-medium text-primary">
         {formatCurrency(item.sellingPrice)}
       </td>
       <td className="p-4 text-right">
@@ -113,3 +113,6 @@ export default function InventoryListItem({
     </tr>
   );
 }
+
+
+

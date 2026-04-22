@@ -23,3 +23,5 @@ export default function LayoutWrapper({ children }: LayoutWrapperProps) {
 
   return <MainLayout>{children}</MainLayout>;
 }
+
+

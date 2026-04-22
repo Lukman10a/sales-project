@@ -28,7 +28,7 @@ export default function ScheduledReports({
       </div>
       <div className="space-y-3">
         {scheduledReports.map((schedule) => (
-          <Card key={schedule.id} className="card-elevated">
+          <Card key={schedule.id} className="border shadow-sm">
             <CardContent className="p-4">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div className="flex-1">
@@ -85,3 +85,5 @@ export default function ScheduledReports({
     </div>
   );
 }
+
+

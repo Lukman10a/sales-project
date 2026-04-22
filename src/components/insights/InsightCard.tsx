@@ -36,17 +36,17 @@ export default function InsightCard({
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.1 }}
       className={cn(
-        "bg-card rounded-2xl border-l-4 p-6 card-elevated card-hover",
+        "bg-card rounded-xl border border-l-4 p-6 shadow-sm hover:shadow-md transition-shadow",
         config.border,
       )}
     >
       <div className="flex items-start gap-4">
-        <div className="p-3 rounded-xl bg-accent/10">
-          <Icon className="w-6 h-6 text-accent" />
+        <div className="p-3 rounded-xl bg-primary/10">
+          <Icon className="w-6 h-6 text-primary" />
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-2 mb-2">
-            <h3 className="font-display font-semibold text-lg text-foreground">
+            <h3 className="font-display font-semibold text-lg text-foreground tracking-tight">
               {t(insight.title)}
             </h3>
             <Badge className={config.badge}>
@@ -75,7 +75,7 @@ export default function InsightCard({
             </div>
             <Button
               size="sm"
-              className="bg-gradient-accent text-accent-foreground"
+              className="bg-primary text-primary-foreground hover:bg-primary/90"
             >
               {t("Apply")}
               <ArrowRight className="w-4 h-4 ml-2" />
@@ -86,3 +86,5 @@ export default function InsightCard({
     </motion.div>
   );
 }
+
+

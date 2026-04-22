@@ -39,3 +39,5 @@ export default function WithdrawalsPage({
 
   return <WithdrawalsClient investor={investor} />;
 }
+
+

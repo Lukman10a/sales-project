@@ -32,7 +32,7 @@ export default function SecuritySettings({ settings }: SecuritySettingsProps) {
   const { t } = useLanguage();
 
   return (
-    <Card className="card-elevated">
+    <Card className="rounded-xl border shadow-sm">
       <CardHeader>
         <CardTitle>{t("Security Settings")}</CardTitle>
         <CardDescription>
@@ -142,3 +142,4 @@ export default function SecuritySettings({ settings }: SecuritySettingsProps) {
     </Card>
   );
 }
+

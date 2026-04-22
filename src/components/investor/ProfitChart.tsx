@@ -50,7 +50,7 @@ export function ProfitChart({ financialRecords, investor }: ProfitChartProps) {
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.3 }}
     >
-      <Card>
+      <Card className="rounded-xl border shadow-sm">
         <CardHeader>
           <CardTitle>{t("Profit Trend")}</CardTitle>
           <CardDescription>
@@ -65,10 +65,11 @@ export function ProfitChart({ financialRecords, investor }: ProfitChartProps) {
               <YAxis stroke="#9CA3AF" />
               <Tooltip
                 contentStyle={{
-                  backgroundColor: "#1F2937",
-                  border: "1px solid #374151",
-                  borderRadius: "8px",
-                  color: "#F3F4F6",
+                  backgroundColor: "hsl(var(--card))",
+                  border: "1px solid hsl(var(--border))",
+                  borderRadius: "0.5rem",
+                  color: "hsl(var(--foreground))",
+                  boxShadow: "0 1px 2px 0 rgb(0 0 0 / 0.05)",
                 }}
                 formatter={(value: any) => formatCurrency(value)}
               />
@@ -76,7 +77,7 @@ export function ProfitChart({ financialRecords, investor }: ProfitChartProps) {
               <Bar
                 dataKey="Your Share"
                 name={t("Your Share")}
-                fill="#8B5CF6"
+                fill="hsl(160, 60%, 45%)"
                 radius={[8, 8, 0, 0]}
               />
               <Bar
@@ -127,3 +128,5 @@ export function ProfitChart({ financialRecords, investor }: ProfitChartProps) {
     </motion.div>
   );
 }
+
+

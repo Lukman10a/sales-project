@@ -193,7 +193,7 @@ export default function InvestorsOverviewPage() {
                 </div>
                 <div className="relative h-6 bg-muted rounded-full overflow-hidden">
                   <div
-                    className="h-full bg-gradient-accent rounded-full flex items-center justify-end pr-2"
+                    className="h-full bg-primary rounded-full flex items-center justify-end pr-2"
                     style={{
                       width: `${stat.investor.percentageOwnership * 100}%`,
                     }}
@@ -370,3 +370,4 @@ export default function InvestorsOverviewPage() {
     </div>
   );
 }
+

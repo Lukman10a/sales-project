@@ -81,10 +81,10 @@ export function WithdrawalRequests({
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.5 }}
     >
-      <Card>
+      <Card className="rounded-xl border shadow-sm">
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
-            <CardTitle className="text-lg">
+            <CardTitle className="text-lg font-display font-bold text-foreground tracking-tight">
               {t("Withdrawal Requests")}
             </CardTitle>
             {pendingCount > 0 && (
@@ -150,3 +150,5 @@ export function WithdrawalRequests({
     </motion.div>
   );
 }
+
+

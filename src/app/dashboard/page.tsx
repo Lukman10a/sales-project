@@ -239,7 +239,7 @@ const DashboardContent = memo(function DashboardContent() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4, delay: 0.4 }}
-          className="bg-card rounded-2xl border card-elevated p-6"
+          className="bg-card rounded-xl border shadow-sm p-6"
         >
           <h3 className="font-display font-semibold text-lg text-foreground mb-4">
             {t("Today's Summary")}
@@ -312,7 +312,7 @@ const DashboardContent = memo(function DashboardContent() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4, delay: 0.45 }}
-          className="bg-card rounded-2xl border card-elevated p-6"
+          className="bg-card rounded-xl border shadow-sm p-6"
         >
           <div className="flex items-center gap-3 mb-4">
             <div className="p-2 rounded-lg bg-accent/10">
@@ -406,7 +406,7 @@ const DashboardContent = memo(function DashboardContent() {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4, delay: 0.5 }}
-        className="bg-card rounded-2xl border card-elevated p-6"
+        className="bg-card rounded-xl border shadow-sm p-6"
       >
         <h3 className="font-display font-semibold text-lg text-foreground mb-4">
           {t("Top Selling Products")}
@@ -462,3 +462,5 @@ const DashboardContent = memo(function DashboardContent() {
     </div>
   );
 });
+
+

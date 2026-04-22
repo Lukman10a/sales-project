@@ -234,7 +234,7 @@ export default function InventoryExportDialog({
           <Button
             onClick={handleExport}
             disabled={isProcessing}
-            className="bg-gradient-accent text-accent-foreground hover:opacity-90"
+            className="bg-primary text-primary-foreground hover:bg-primary/90"
           >
             {isProcessing ? (
               <>
@@ -253,3 +253,6 @@ export default function InventoryExportDialog({
     </Dialog>
   );
 }
+
+
+

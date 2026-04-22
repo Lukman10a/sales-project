@@ -54,7 +54,7 @@ const InventoryGridItem = dynamic(
   {
     ssr: false,
     loading: () => (
-      <div className="bg-card rounded-2xl border card-elevated p-4 animate-pulse">
+      <div className="bg-card rounded-xl border shadow-sm p-4 animate-pulse">
         <div className="aspect-square bg-muted rounded-xl" />
         <div className="mt-4 space-y-2">
           <div className="h-4 bg-muted rounded" />
@@ -388,7 +388,7 @@ export default function Inventory() {
             {(isOwner() || hasPermission("edit-products")) && (
               <Button
                 onClick={() => setIsAddOpen(true)}
-                className="bg-gradient-accent text-accent-foreground hover:opacity-90 glow-accent w-full sm:w-auto"
+                className="bg-primary text-primary-foreground hover:bg-primary/90 w-full sm:w-auto"
                 size="sm"
               >
                 <Plus className="w-4 h-4 mr-2" />
@@ -552,7 +552,7 @@ export default function Inventory() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="bg-card rounded-2xl border card-elevated overflow-hidden"
+              className="bg-card rounded-xl border shadow-sm overflow-hidden"
             >
               <div className="overflow-x-auto">
                 <table className="w-full">
@@ -732,3 +732,5 @@ export default function Inventory() {
     </>
   );
 }
+
+

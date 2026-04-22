@@ -46,7 +46,7 @@ export default function TemplatesGrid({
               transition={{ delay: index * 0.05 }}
             >
               <Card
-                className="card-elevated card-hover cursor-pointer h-full"
+                className="border shadow-sm hover:shadow-md transition-shadow cursor-pointer h-full"
                 onClick={() => onSelectTemplate(template)}
               >
                 <CardHeader>
@@ -91,3 +91,5 @@ export default function TemplatesGrid({
     </div>
   );
 }
+
+

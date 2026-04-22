@@ -71,13 +71,13 @@ export default function CartSidebar({
   const cartTotal = cartSubtotal - cartDiscount;
 
   return (
-    <div className="bg-card rounded-2xl border card-elevated p-6 sticky top-24">
+    <div className="bg-card rounded-xl border p-6 sticky top-24 shadow-sm">
       <div className="flex items-center gap-3 mb-6">
-        <div className="p-2 rounded-lg bg-accent/10">
-          <ShoppingCart className="w-5 h-5 text-accent" />
+        <div className="p-2 rounded-lg bg-primary/10">
+          <ShoppingCart className="w-5 h-5 text-primary" />
         </div>
         <div>
-          <h3 className="font-display font-semibold text-lg text-foreground">
+          <h3 className="font-display font-semibold text-lg text-foreground tracking-tight">
             {t("Current Sale")}
           </h3>
           <p className="text-sm text-muted-foreground">
@@ -90,25 +90,25 @@ export default function CartSidebar({
       {(selectedCustomer || saleDate || splitPayments) && (
         <div className="mb-4 space-y-2 pb-3 border-b">
           {selectedCustomer && (
-            <div className="flex items-center gap-2 p-2 rounded bg-accent/10">
-              <User className="w-4 h-4 text-accent" />
-              <span className="text-xs font-medium text-accent">
+            <div className="flex items-center gap-2 p-2 rounded bg-primary/10">
+              <User className="w-4 h-4 text-primary" />
+              <span className="text-xs font-medium text-primary">
                 {t("Customer")}: {selectedCustomer.name}
               </span>
             </div>
           )}
           {saleDate && (
-            <div className="flex items-center gap-2 p-2 rounded bg-accent/10">
-              <Calendar className="w-4 h-4 text-accent" />
-              <span className="text-xs font-medium text-accent">
+            <div className="flex items-center gap-2 p-2 rounded bg-primary/10">
+              <Calendar className="w-4 h-4 text-primary" />
+              <span className="text-xs font-medium text-primary">
                 {t("Sale Date")}: {saleDate}
               </span>
             </div>
           )}
           {splitPayments && splitPayments.length > 1 && (
-            <div className="flex items-center gap-2 p-2 rounded bg-accent/10">
-              <Split className="w-4 h-4 text-accent" />
-              <span className="text-xs font-medium text-accent">
+            <div className="flex items-center gap-2 p-2 rounded bg-primary/10">
+              <Split className="w-4 h-4 text-primary" />
+              <span className="text-xs font-medium text-primary">
                 {t("Split Payment")}: {splitPayments.length} {t("methods")}
               </span>
             </div>
@@ -226,7 +226,7 @@ export default function CartSidebar({
 
             <div className="flex justify-between text-lg font-display font-bold">
               <span>{t("Total")}</span>
-              <span className="text-accent">{formatCurrency(cartTotal)}</span>
+              <span className="text-primary">{formatCurrency(cartTotal)}</span>
             </div>
 
             {/* Advanced Options Buttons */}
@@ -275,8 +275,8 @@ export default function CartSidebar({
                   className={cn(
                     "p-2 rounded-lg border-2 transition-all flex flex-col items-center gap-1",
                     paymentMethod === "cash"
-                      ? "border-accent bg-accent/10"
-                      : "border-border hover:border-accent/50",
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border hover:border-primary/50 text-muted-foreground",
                   )}
                 >
                   <Banknote className="w-4 h-4" />
@@ -287,8 +287,8 @@ export default function CartSidebar({
                   className={cn(
                     "p-2 rounded-lg border-2 transition-all flex flex-col items-center gap-1",
                     paymentMethod === "card"
-                      ? "border-accent bg-accent/10"
-                      : "border-border hover:border-accent/50",
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border hover:border-primary/50 text-muted-foreground",
                   )}
                 >
                   <CreditCard className="w-4 h-4" />
@@ -299,8 +299,8 @@ export default function CartSidebar({
                   className={cn(
                     "p-2 rounded-lg border-2 transition-all flex flex-col items-center gap-1",
                     paymentMethod === "transfer"
-                      ? "border-accent bg-accent/10"
-                      : "border-border hover:border-accent/50",
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border hover:border-primary/50 text-muted-foreground",
                   )}
                 >
                   <Smartphone className="w-4 h-4" />
@@ -312,7 +312,7 @@ export default function CartSidebar({
             <Button
               onClick={onCompleteSale}
               disabled={cart.length === 0}
-              className="w-full bg-gradient-accent text-accent-foreground hover:opacity-90 glow-accent mt-4"
+              className="w-full bg-primary text-primary-foreground hover:bg-primary/90 mt-4"
             >
               <CheckCircle className="w-4 h-4 mr-2" />
               {t("Complete Sale")}
@@ -323,3 +323,6 @@ export default function CartSidebar({
     </div>
   );
 }
+
+
+

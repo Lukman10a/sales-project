@@ -36,8 +36,8 @@ export default function ProductsGrid({
             onClick={() => onProductClick(item)}
             disabled={isOutOfStock}
             className={cn(
-              "bg-card rounded-xl border p-3 text-left transition-all card-hover relative",
-              inCart && "border-accent ring-2 ring-accent/20",
+              "bg-card rounded-xl border p-3 text-left transition-all shadow-sm hover:shadow-md relative",
+              inCart && "border-primary ring-2 ring-primary/20",
               isOutOfStock && "opacity-50 cursor-not-allowed",
             )}
           >
@@ -71,7 +71,7 @@ export default function ProductsGrid({
                 className="w-full h-full object-cover"
               />
               {inCart && (
-                <div className="absolute top-2 right-2 w-6 h-6 bg-accent text-accent-foreground rounded-full flex items-center justify-center text-xs font-bold">
+                <div className="absolute top-2 right-2 w-6 h-6 bg-primary text-primary-foreground rounded-full flex items-center justify-center text-xs font-bold">
                   {inCart.quantity}
                 </div>
               )}
@@ -98,3 +98,6 @@ export default function ProductsGrid({
     </div>
   );
 }
+
+
+

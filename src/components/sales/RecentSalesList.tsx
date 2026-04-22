@@ -24,7 +24,7 @@ export default function RecentSalesList({ sales }: RecentSalesListProps) {
   const { t, formatCurrency } = useLanguage();
 
   return (
-    <div className="bg-card rounded-2xl border card-elevated p-6">
+    <div className="bg-card rounded-xl border shadow-sm p-6">
       <h3 className="font-display font-semibold text-lg text-foreground mb-4">
         {t("Recent Sales")}
       </h3>
@@ -78,3 +78,6 @@ export default function RecentSalesList({ sales }: RecentSalesListProps) {
     </div>
   );
 }
+
+
+

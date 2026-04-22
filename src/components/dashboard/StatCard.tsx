@@ -43,20 +43,19 @@ const StatCard = ({
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, delay }}
       className={cn(
-        "stat-card p-6 rounded-2xl border card-elevated card-hover",
-        variantStyles[variant]
+        "stat-card p-6 rounded-xl border bg-card transition-colors hover:bg-muted/50",
       )}
     >
       <div className="flex items-start justify-between mb-4">
-        <div className={cn("p-3 rounded-xl", iconStyles[variant])}>
+        <div className={cn("p-2.5 rounded-lg border", iconStyles[variant])}>
           <Icon className="w-5 h-5" />
         </div>
         <div
           className={cn(
-            "flex items-center gap-1 text-sm font-medium px-2 py-1 rounded-full",
+            "flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-md",
             isPositive
               ? "bg-success/10 text-success"
-              : "bg-destructive/10 text-destructive"
+              : "bg-destructive/10 text-destructive",
           )}
         >
           {isPositive ? (
@@ -67,11 +66,15 @@ const StatCard = ({
           <span>{Math.abs(change)}%</span>
         </div>
       </div>
-      <p className="text-sm text-muted-foreground mb-1">{title}</p>
-      <p className="text-3xl font-display font-bold text-foreground">{value}</p>
+      <p className="text-sm font-medium text-muted-foreground mb-1">{title}</p>
+      <p className="text-2xl font-display font-bold text-foreground tracking-tight">
+        {value}
+      </p>
       <p className="text-xs text-muted-foreground mt-2">{changeLabel}</p>
     </motion.div>
   );
 };
 
 export default StatCard;
+
+

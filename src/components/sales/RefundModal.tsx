@@ -343,7 +343,7 @@ export default function RefundModal({
             <Button
               onClick={handleProcessRefund}
               disabled={!isValidRefund}
-              className="gap-2 bg-gradient-accent"
+              className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
             >
               <CheckCircle className="w-4 h-4" />
               {t("Process Refund")}
@@ -354,3 +354,6 @@ export default function RefundModal({
     </Dialog>
   );
 }
+
+
+

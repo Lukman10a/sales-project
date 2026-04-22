@@ -19,7 +19,7 @@ export const AccessDenied: React.FC<AccessDeniedProps> = ({
 
   return (
     <div className="flex min-h-[60vh] items-center justify-center p-6">
-      <div className="card-elevated max-w-md w-full p-8 text-center">
+      <div className="shadow-sm max-w-md w-full p-8 text-center">
         <div className="flex justify-center mb-4">
           <div className="rounded-full bg-red-500/10 p-4">
             <ShieldAlert className="h-12 w-12 text-red-500" />
@@ -43,7 +43,7 @@ export const AccessDenied: React.FC<AccessDeniedProps> = ({
           </Button>
           <Button
             onClick={() => router.push("/dashboard")}
-            className="bg-gradient-accent"
+            className="bg-primary text-primary-foreground hover:bg-primary/90"
           >
             Go to Dashboard
           </Button>
@@ -52,3 +52,6 @@ export const AccessDenied: React.FC<AccessDeniedProps> = ({
     </div>
   );
 };
+
+
+

@@ -39,7 +39,7 @@ export default function ProfileInfoForm({
   const { t } = useLanguage();
 
   return (
-    <Card className="card-elevated">
+    <Card className="rounded-xl border shadow-sm">
       <CardHeader>
         <CardTitle>{t("Personal Information")}</CardTitle>
         <CardDescription>
@@ -185,3 +185,4 @@ export default function ProfileInfoForm({
     </Card>
   );
 }
+

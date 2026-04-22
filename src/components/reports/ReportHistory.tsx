@@ -38,7 +38,7 @@ export default function ReportHistory({ reports }: ReportHistoryProps) {
         {reports.map((report) => {
           const FormatIcon = formatIcons[report.format];
           return (
-            <Card key={report.id} className="card-elevated">
+            <Card key={report.id} className="border shadow-sm">
               <CardContent className="p-4">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <div className="flex items-start gap-3 flex-1">
@@ -102,3 +102,5 @@ export default function ReportHistory({ reports }: ReportHistoryProps) {
     </div>
   );
 }
+
+

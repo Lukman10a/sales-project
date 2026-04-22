@@ -40,11 +40,15 @@ const MainLayout = ({ children, requireRole }: MainLayoutProps) => {
 
   return (
     <ProtectedRoute requireRole={requireRole}>
-      <div className="min-h-screen bg-background">
+      <div className="min-h-screen bg-background relative font-sans selection:bg-accent selection:text-foreground">
+        {/* Ambient Grid for Premium Dashboard */}
+        <div className="fixed inset-0 pointer-events-none bg-[linear-gradient(to_bottom,transparent,theme(colors.background))] z-0" />
+        <div className="fixed inset-0 pointer-events-none bg-grid-white opacity-[0.03] dark:opacity-[0.05] bg-[length:50px_50px] z-0" />
+
         <Sidebar />
         <Header userRole={user?.role || "owner"} sidebarWidth={sidebarWidth} />
         <main
-          className="pt-20 pb-8 px-4 sm:px-6 lg:pt-24 min-h-screen"
+          className="relative z-10 pt-20 pb-8 px-4 sm:px-6 lg:pt-24 min-h-screen"
           style={{
             marginLeft: isLargeScreen && !isRTL ? sidebarWidth : 0,
             marginRight: isLargeScreen && isRTL ? sidebarWidth : 0,

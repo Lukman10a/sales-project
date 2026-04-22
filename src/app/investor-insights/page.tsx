@@ -51,7 +51,7 @@ export default function InvestorInsightsPage() {
             {t("Data-driven analysis of your investment performance")}
           </p>
         </div>
-        <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-accent">
+        <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground">
           <Sparkles className="w-5 h-5 text-accent-foreground" />
           <span className="text-sm font-medium text-accent-foreground">
             {t("{count} High Priority Insights", {
@@ -77,7 +77,7 @@ export default function InvestorInsightsPage() {
                 <CardHeader>
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex items-start gap-3 flex-1">
-                      <div className="w-10 h-10 rounded-lg bg-gradient-accent flex items-center justify-center flex-shrink-0">
+                      <div className="w-10 h-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center flex-shrink-0">
                         <Icon className="w-5 h-5 text-accent-foreground" />
                       </div>
                       <div className="flex-1 space-y-1">
@@ -147,7 +147,7 @@ export default function InvestorInsightsPage() {
       </div>
 
       {/* Summary Footer */}
-      <Card className="bg-gradient-accent">
+      <Card className="bg-primary text-primary-foreground border-primary/20">
         <CardContent className="p-6">
           <div className="flex items-center gap-3">
             <Sparkles className="w-6 h-6 text-accent-foreground" />
@@ -167,3 +167,4 @@ export default function InvestorInsightsPage() {
     </div>
   );
 }
+

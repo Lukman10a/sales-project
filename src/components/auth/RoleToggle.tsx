@@ -24,10 +24,10 @@ export function RoleToggle({ value, onChange }: RoleToggleProps) {
           type="button"
           onClick={() => onChange("apprentice")}
           className={cn(
-            "flex items-center justify-center gap-2 py-3 px-2 rounded-lg transition-all border-2 font-medium text-sm",
+            "flex items-center justify-center gap-2 py-3 px-2 rounded-lg transition-all border shadow-sm font-medium text-sm",
             value === "apprentice"
-              ? "border-accent bg-accent/10 text-accent"
-              : "border-muted bg-muted/50 text-muted-foreground hover:border-accent/50",
+              ? "border-primary bg-primary/10 text-primary"
+              : "border-muted bg-muted/50 text-muted-foreground hover:border-primary/50",
           )}
         >
           <User className="w-4 h-4" />
@@ -39,10 +39,10 @@ export function RoleToggle({ value, onChange }: RoleToggleProps) {
           type="button"
           onClick={() => onChange("owner")}
           className={cn(
-            "flex items-center justify-center gap-2 py-3 px-2 rounded-lg transition-all border-2 font-medium text-sm",
+            "flex items-center justify-center gap-2 py-3 px-2 rounded-lg transition-all border shadow-sm font-medium text-sm",
             value === "owner"
-              ? "border-accent bg-accent/10 text-accent"
-              : "border-muted bg-muted/50 text-muted-foreground hover:border-accent/50",
+              ? "border-primary bg-primary/10 text-primary"
+              : "border-muted bg-muted/50 text-muted-foreground hover:border-primary/50",
           )}
         >
           <Shield className="w-4 h-4" />
@@ -54,10 +54,10 @@ export function RoleToggle({ value, onChange }: RoleToggleProps) {
           type="button"
           onClick={() => onChange("investor")}
           className={cn(
-            "flex items-center justify-center gap-2 py-3 px-2 rounded-lg transition-all border-2 font-medium text-sm",
+            "flex items-center justify-center gap-2 py-3 px-2 rounded-lg transition-all border shadow-sm font-medium text-sm",
             value === "investor"
-              ? "border-accent bg-accent/10 text-accent"
-              : "border-muted bg-muted/50 text-muted-foreground hover:border-accent/50",
+              ? "border-primary bg-primary/10 text-primary"
+              : "border-muted bg-muted/50 text-muted-foreground hover:border-primary/50",
           )}
         >
           <TrendingUp className="w-4 h-4" />
@@ -67,3 +67,6 @@ export function RoleToggle({ value, onChange }: RoleToggleProps) {
     </div>
   );
 }
+
+
+

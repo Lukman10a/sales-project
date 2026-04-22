@@ -20,7 +20,7 @@ export default function InvestmentStatCard({
   const { t } = useLanguage();
 
   return (
-    <Card className="card-elevated">
+    <Card className="rounded-xl border shadow-sm">
       <CardContent className="p-4">
         <div className="flex items-center gap-3">
           <div className={`p-3 rounded-lg ${bgColor}`}>
@@ -35,3 +35,5 @@ export default function InvestmentStatCard({
     </Card>
   );
 }
+
+

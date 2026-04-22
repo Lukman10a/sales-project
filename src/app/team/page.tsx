@@ -25,7 +25,7 @@ const TeamMembersGrid = dynamic(
         {[0, 1, 2, 3].map((i) => (
           <div
             key={i}
-            className="bg-card rounded-2xl border card-elevated p-4 animate-pulse"
+            className="bg-card rounded-xl border shadow-sm p-4 animate-pulse"
           >
             <div className="h-4 bg-muted rounded w-1/2" />
             <div className="mt-3 h-3 bg-muted/70 rounded w-3/4" />
@@ -38,7 +38,7 @@ const TeamMembersGrid = dynamic(
 const ActivityLog = dynamic(() => import("@/components/team/ActivityLog"), {
   ssr: false,
   loading: () => (
-    <div className="bg-card rounded-2xl border card-elevated p-4 animate-pulse">
+    <div className="bg-card rounded-xl border shadow-sm p-4 animate-pulse">
       <div className="h-4 bg-muted rounded w-1/3" />
       <div className="mt-3 h-3 bg-muted/70 rounded w-2/3" />
     </div>
@@ -205,7 +205,7 @@ export default function TeamManagement() {
           </div>
           <Button
             onClick={() => setIsAddOpen(true)}
-            className="bg-gradient-accent text-accent-foreground hover:opacity-90 glow-accent w-full sm:w-auto"
+            className="bg-primary text-primary-foreground hover:bg-primary/90 w-full sm:w-auto"
             size="sm"
           >
             <Plus className="w-4 h-4 mr-2" />
@@ -288,3 +288,4 @@ export default function TeamManagement() {
     </>
   );
 }
+

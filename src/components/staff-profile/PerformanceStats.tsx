@@ -49,7 +49,7 @@ export default function PerformanceStats({ stats }: PerformanceStatsProps) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
       {displayStats.map((stat) => (
-        <Card key={stat.label} className="card-elevated">
+        <Card key={stat.label} className="shadow-sm">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
               <div className={`p-3 rounded-lg ${stat.bgColor}`}>
@@ -68,3 +68,5 @@ export default function PerformanceStats({ stats }: PerformanceStatsProps) {
     </div>
   );
 }
+
+

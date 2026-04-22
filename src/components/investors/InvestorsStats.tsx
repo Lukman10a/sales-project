@@ -81,22 +81,20 @@ export function InvestorsStats({
           transition={{ delay: stat.delay }}
         >
           <Card
-            className={
-              stat.variant === "accent"
-                ? "bg-gradient-accent/5 border-accent/20"
-                : ""
-            }
+            className={`shadow-sm border rounded-xl ${
+              stat.variant === "accent" ? "bg-primary/5 border-primary/20" : ""
+            }`}
           >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">
                 {stat.title}
               </CardTitle>
               <stat.icon
-                className={`w-4 h-4 ${stat.variant === "accent" ? "text-accent" : "text-muted-foreground"}`}
+                className={`w-4 h-4 ${stat.variant === "accent" ? "text-primary" : "text-muted-foreground"}`}
               />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-foreground">
+              <div className="text-2xl font-display font-bold text-foreground tracking-tight">
                 {stat.value}
               </div>
               <p className="text-xs text-muted-foreground mt-2">
@@ -109,3 +107,5 @@ export function InvestorsStats({
     </div>
   );
 }
+
+

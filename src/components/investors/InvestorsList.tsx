@@ -60,7 +60,7 @@ export function InvestorsList({
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.4 }}
     >
-      <Card>
+      <Card className="rounded-xl border shadow-sm">
         <CardHeader>
           <CardTitle>Investors</CardTitle>
           <CardDescription>
@@ -117,9 +117,9 @@ export function InvestorsList({
                     >
                       <td className="py-4 px-4">
                         <div className="flex items-center gap-3">
-                          <Avatar className="w-10 h-10">
+                          <Avatar className="w-10 h-10 border shadow-sm">
                             <AvatarImage src={investor.avatar} />
-                            <AvatarFallback className="bg-accent text-accent-foreground font-semibold">
+                            <AvatarFallback className="bg-primary/10 text-primary font-semibold">
                               {investorInitials}
                             </AvatarFallback>
                           </Avatar>
@@ -151,7 +151,7 @@ export function InvestorsList({
                         </Badge>
                       </td>
                       <td className="py-4 px-4">
-                        <p className="font-semibold text-accent">
+                        <p className="font-semibold text-primary">
                           {formatCurrency(totalProfit)}
                         </p>
                       </td>
@@ -223,3 +223,5 @@ export function InvestorsList({
     </motion.div>
   );
 }
+
+

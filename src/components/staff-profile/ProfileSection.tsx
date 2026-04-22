@@ -66,7 +66,7 @@ export default function ProfileSection({
   };
 
   return (
-    <Card className="card-elevated">
+    <Card className="shadow-sm">
       <CardHeader>
         <CardTitle>{t("Personal Information")}</CardTitle>
         <CardDescription>
@@ -167,3 +167,5 @@ export default function ProfileSection({
     </Card>
   );
 }
+
+

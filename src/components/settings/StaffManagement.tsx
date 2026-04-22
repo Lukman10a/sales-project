@@ -71,7 +71,7 @@ export default function StaffManagement({
             onChange={(e) => setNewStaffEmail(e.target.value)}
           />
           <Button
-            className="w-full bg-gradient-accent"
+            className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
             onClick={handleSendInvitation}
           >
             {t("Send Invitation")}
@@ -81,3 +81,6 @@ export default function StaffManagement({
     </div>
   );
 }
+
+
+

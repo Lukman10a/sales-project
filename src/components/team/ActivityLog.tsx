@@ -7,7 +7,7 @@ export default function ActivityLog() {
   const { t } = useLanguage();
 
   return (
-    <div className="bg-card rounded-2xl border card-elevated overflow-hidden">
+    <div className="bg-card rounded-xl border shadow-sm overflow-hidden">
       <div className="p-4 border-b">
         <h3 className="font-semibold text-foreground">
           {t("Recent Activity")}
@@ -48,3 +48,5 @@ export default function ActivityLog() {
     </div>
   );
 }
+
+

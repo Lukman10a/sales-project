@@ -62,7 +62,7 @@ export default function ProfileNotificationSettings({
   const { t } = useLanguage();
 
   return (
-    <Card className="card-elevated">
+    <Card className="rounded-xl border shadow-sm">
       <CardHeader>
         <CardTitle>{t("Notification Preferences")}</CardTitle>
         <CardDescription>
@@ -171,3 +171,4 @@ export default function ProfileNotificationSettings({
     </Card>
   );
 }
+

@@ -231,3 +231,5 @@ export default function InvestorProfile() {
     </div>
   );
 }
+
+

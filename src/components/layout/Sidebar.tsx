@@ -274,7 +274,7 @@ const Sidebar = ({ userRole: propUserRole, onRoleChange }: SidebarProps) => {
               >
                 <Avatar className="w-10 h-10 border-2 border-sidebar-border">
                   <AvatarImage src={user?.avatar} />
-                  <AvatarFallback className="bg-gradient-accent text-accent-foreground font-semibold">
+                  <AvatarFallback className="bg-primary/10 text-primary font-semibold">
                     {initials}
                   </AvatarFallback>
                 </Avatar>
@@ -308,7 +308,7 @@ const Sidebar = ({ userRole: propUserRole, onRoleChange }: SidebarProps) => {
               >
                 <Avatar className="w-10 h-10 border-2 border-sidebar-border">
                   <AvatarImage src={user?.avatar} />
-                  <AvatarFallback className="bg-gradient-accent text-accent-foreground font-semibold text-sm">
+                  <AvatarFallback className="bg-primary/10 text-primary font-semibold text-sm">
                     {initials}
                   </AvatarFallback>
                 </Avatar>
@@ -461,3 +461,5 @@ const Sidebar = ({ userRole: propUserRole, onRoleChange }: SidebarProps) => {
 };
 
 export default React.memo(Sidebar);
+
+

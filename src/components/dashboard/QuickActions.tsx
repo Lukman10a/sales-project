@@ -11,11 +11,10 @@ interface QuickActionsProps {
 }
 
 const variantStyles = {
-  primary: "bg-gradient-primary text-primary-foreground hover:opacity-90",
-  accent:
-    "bg-gradient-accent text-accent-foreground hover:opacity-90 glow-accent",
+  primary: "bg-primary text-primary-foreground hover:opacity-90",
+  accent: "bg-accent text-accent-foreground hover:opacity-90 shadow-sm",
   secondary:
-    "bg-card border border-border hover:border-accent/50 text-foreground",
+    "bg-card border border-border hover:border-border/80 hover:bg-muted text-foreground",
 };
 
 const QuickActions = ({
@@ -76,3 +75,5 @@ const QuickActions = ({
 };
 
 export default QuickActions;
+
+

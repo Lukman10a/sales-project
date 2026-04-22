@@ -34,7 +34,7 @@ const AnalyticsCharts = dynamicImport(
   () => import("@/components/analytics/AnalyticsCharts"),
   {
     loading: () => (
-      <div className="h-[520px] bg-card rounded-2xl border card-elevated animate-pulse" />
+      <div className="h-[520px] bg-card rounded-xl border shadow-sm animate-pulse" />
     ),
     ssr: false,
   },
@@ -110,9 +110,18 @@ const Analytics = () => {
     });
 
   // Calculate summary stats based on selected date range
-  const sumRevenue = currentChartData.reduce((sum: number, item: any) => sum + item.revenue, 0);
-  const sumOrders = currentChartData.reduce((sum: number, item: any) => sum + item.orders, 0);
-  const sumProfit = currentChartData.reduce((sum: number, item: any) => sum + (item.revenue - item.expenses), 0);
+  const sumRevenue = currentChartData.reduce(
+    (sum: number, item: any) => sum + item.revenue,
+    0,
+  );
+  const sumOrders = currentChartData.reduce(
+    (sum: number, item: any) => sum + item.orders,
+    0,
+  );
+  const sumProfit = currentChartData.reduce(
+    (sum: number, item: any) => sum + (item.revenue - item.expenses),
+    0,
+  );
   const avgOrderValue = sumOrders > 0 ? sumRevenue / sumOrders : 0;
 
   return (
@@ -180,21 +189,21 @@ const Analytics = () => {
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-card rounded-2xl border card-elevated p-4 sm:p-6"
+          className="bg-card rounded-xl border shadow-sm p-4 sm:p-6"
         >
           <div className="flex items-center justify-between mb-4">
-            <div className="p-2 sm:p-3 rounded-xl bg-accent/10">
-              <DollarSign className="w-4 sm:w-5 h-4 sm:h-5 text-accent" />
+            <div className="p-2 sm:p-3 rounded-lg bg-primary/10">
+              <DollarSign className="w-4 sm:w-5 h-4 sm:h-5 text-primary" />
             </div>
             <div className="flex items-center gap-1 text-xs sm:text-sm font-medium text-success">
               <TrendingUp className="w-3 h-3" />
               <span>+18.2%</span>
             </div>
           </div>
-          <p className="text-xs sm:text-sm text-muted-foreground mb-1">
+          <p className="text-xs sm:text-sm text-muted-foreground font-medium mb-1">
             {t("Total Revenue")}
           </p>
-          <p className="text-2xl sm:text-3xl font-display font-bold text-foreground">
+          <p className="text-2xl sm:text-3xl font-display font-bold text-foreground tracking-tight">
             {formatCompact(sumRevenue)}
           </p>
         </motion.div>
@@ -203,10 +212,10 @@ const Analytics = () => {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="bg-card rounded-2xl border card-elevated p-4 sm:p-6"
+          className="bg-card rounded-xl border shadow-sm p-4 sm:p-6"
         >
           <div className="flex items-center justify-between mb-4">
-            <div className="p-2 sm:p-3 rounded-xl bg-success/10">
+            <div className="p-2 sm:p-3 rounded-lg bg-success/10">
               <TrendingUp className="w-4 sm:w-5 h-4 sm:h-5 text-success" />
             </div>
             <div className="flex items-center gap-1 text-xs sm:text-sm font-medium text-success">
@@ -214,10 +223,10 @@ const Analytics = () => {
               <span>+12.5%</span>
             </div>
           </div>
-          <p className="text-xs sm:text-sm text-muted-foreground mb-1">
+          <p className="text-xs sm:text-sm text-muted-foreground font-medium mb-1">
             {t("Net Profit")}
           </p>
-          <p className="text-2xl sm:text-3xl font-display font-bold text-foreground">
+          <p className="text-2xl sm:text-3xl font-display font-bold text-foreground tracking-tight">
             {formatCompact(sumProfit)}
           </p>
         </motion.div>
@@ -226,10 +235,10 @@ const Analytics = () => {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
-          className="bg-card rounded-2xl border card-elevated p-4 sm:p-6"
+          className="bg-card rounded-xl border shadow-sm p-4 sm:p-6"
         >
           <div className="flex items-center justify-between mb-4">
-            <div className="p-2 sm:p-3 rounded-xl bg-primary/10">
+            <div className="p-2 sm:p-3 rounded-lg bg-primary/10">
               <ShoppingCart className="w-4 sm:w-5 h-4 sm:h-5 text-primary" />
             </div>
             <div className="flex items-center gap-1 text-xs sm:text-sm font-medium text-destructive">
@@ -237,10 +246,10 @@ const Analytics = () => {
               <span>-2.4%</span>
             </div>
           </div>
-          <p className="text-xs sm:text-sm text-muted-foreground mb-1">
+          <p className="text-xs sm:text-sm text-muted-foreground font-medium mb-1">
             {t("Total Orders")}
           </p>
-          <p className="text-2xl sm:text-3xl font-display font-bold text-foreground">
+          <p className="text-2xl sm:text-3xl font-display font-bold text-foreground tracking-tight">
             {sumOrders}
           </p>
         </motion.div>
@@ -249,10 +258,10 @@ const Analytics = () => {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
-          className="bg-card rounded-2xl border card-elevated p-4 sm:p-6"
+          className="bg-card rounded-xl border shadow-sm p-4 sm:p-6"
         >
           <div className="flex items-center justify-between mb-4">
-            <div className="p-2 sm:p-3 rounded-xl bg-warning/10">
+            <div className="p-2 sm:p-3 rounded-lg bg-warning/10">
               <Package className="w-4 sm:w-5 h-4 sm:h-5 text-warning" />
             </div>
             <div className="flex items-center gap-1 text-xs sm:text-sm font-medium text-success">
@@ -260,10 +269,10 @@ const Analytics = () => {
               <span>+5.8%</span>
             </div>
           </div>
-          <p className="text-xs sm:text-sm text-muted-foreground mb-1">
+          <p className="text-xs sm:text-sm text-muted-foreground font-medium mb-1">
             {t("Avg Order Value")}
           </p>
-          <p className="text-2xl sm:text-3xl font-display font-bold text-foreground">
+          <p className="text-2xl sm:text-3xl font-display font-bold text-foreground tracking-tight">
             {formatCurrency(avgOrderValue)}
           </p>
         </motion.div>
@@ -286,3 +295,5 @@ const Analytics = () => {
 };
 
 export default Analytics;
+
+

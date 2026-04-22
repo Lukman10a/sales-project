@@ -234,7 +234,7 @@ export default function EditInvestorClient({
           {/* Form Actions */}
           <div className="flex gap-3 pt-4">
             <Button
-              className="flex-1 bg-gradient-accent text-accent-foreground"
+              className="flex-1 bg-primary text-primary-foreground hover:bg-primary/90"
               onClick={handleSave}
               disabled={isSubmitting}
             >
@@ -251,3 +251,6 @@ export default function EditInvestorClient({
     </div>
   );
 }
+
+
+

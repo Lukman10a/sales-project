@@ -12,7 +12,7 @@ export default function DataManagement() {
   const { t } = useLanguage();
 
   return (
-    <Card className="card-elevated">
+    <Card className="rounded-xl border shadow-sm">
       <CardHeader>
         <CardTitle>{t("Data Management")}</CardTitle>
         <CardDescription>
@@ -67,3 +67,4 @@ export default function DataManagement() {
     </Card>
   );
 }
+

@@ -43,7 +43,7 @@ export default function ProfileAppearanceSettings({
   };
 
   return (
-    <Card className="card-elevated">
+    <Card className="rounded-xl border shadow-sm">
       <CardHeader>
         <CardTitle>{t("Appearance Settings")}</CardTitle>
         <CardDescription>
@@ -259,3 +259,4 @@ export default function ProfileAppearanceSettings({
     </Card>
   );
 }
+

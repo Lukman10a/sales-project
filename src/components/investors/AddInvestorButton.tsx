@@ -105,7 +105,7 @@ export function AddInvestorButton() {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button className="bg-gradient-accent hover:opacity-90 gap-2">
+        <Button className="bg-primary text-primary-foreground hover:bg-primary/90 gap-2">
           <Plus className="w-4 h-4" />
           Add Investor
         </Button>
@@ -224,7 +224,7 @@ export function AddInvestorButton() {
             <Button
               type="submit"
               disabled={isLoading}
-              className="flex-1 bg-gradient-accent hover:opacity-90"
+              className="flex-1 bg-primary text-primary-foreground hover:bg-primary/90"
             >
               {isLoading ? "Adding..." : "Add Investor"}
             </Button>
@@ -234,3 +234,5 @@ export function AddInvestorButton() {
     </Dialog>
   );
 }
+
+

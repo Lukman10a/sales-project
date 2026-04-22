@@ -33,8 +33,11 @@ export default function SecuritySettings() {
           <Label htmlFor="confirmPassword">{t("Confirm Password")}</Label>
           <Input id="confirmPassword" type="password" />
         </div>
-        <Button className="bg-gradient-accent">{t("Update Password")}</Button>
+        <Button className="bg-primary text-primary-foreground hover:bg-primary/90">{t("Update Password")}</Button>
       </div>
     </div>
   );
 }
+
+
+
