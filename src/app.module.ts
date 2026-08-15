@@ -6,6 +6,7 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
 import { ProfileModule } from './profile/profile.module';
+import { InventoryModule } from './inventory/inventory.module';
 import { getDatabaseConfig } from './database/database.config';
 
 @Module({
@@ -23,6 +24,7 @@ import { getDatabaseConfig } from './database/database.config';
     EventEmitterModule.forRoot(),
     AuthModule,
     ProfileModule,
+    InventoryModule,
   ],
   controllers: [AppController],
   providers: [AppService],

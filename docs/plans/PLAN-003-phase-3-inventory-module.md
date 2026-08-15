@@ -2,7 +2,7 @@
 
 - **Module**: Inventory Management
 - **Specification Reference**: [`SPEC-001 Section 4.2: Phase 3 Inventory Module`](file:///C:/Users/Abdulrauf%20Lukman/Desktop/LUXA/sales-backend/docs/specifications/SPEC-001-sales-backend-spec.md#42-phase-3-inventory-module)
-- **Status**: ⏳ Pending Implementation
+- **Status**: ✅ Implemented
 - **Conventions**: This plan follows the guardrails from [`PLAN-001`](./PLAN-001-development-guardrails.md) and [`TDD_WORKFLOW.md`](../TDD_WORKFLOW.md). Every DTO is a **Zod schema + inferred type** applied via `ZodValidationPipe`; domain queries live in **colocated repositories** (`src/inventory/inventory.repository.ts`); services never import `typeorm`/`@nestjs/typeorm`; every logic unit has a **colocated `*.spec.ts`**; the full gate is **`npm run check`**.
 
 ---
@@ -24,18 +24,18 @@
 src/
 ├── inventory/
 │   ├── dto/
-│   │   ├── create-inventory.dto.ts                  # [NEW] Zod schema + inferred type
-│   │   ├── update-inventory.dto.ts                  # [NEW] Zod schema + inferred type
-│   │   ├── query-inventory.dto.ts                   # [NEW] Zod schema + inferred type (filter/sort/pagination)
-│   │   └── decrement-inventory.dto.ts               # [NEW] Zod schema + inferred type
-│   ├── inventory.repository.ts                      # [NEW] Colocated repository (extends Repository<InventoryItem>)
-│   ├── inventory.controller.ts                      # [NEW] Route handlers & guards (ZodValidationPipe)
-│   ├── inventory.service.ts                         # [NEW] Business logic (no direct TypeORM)
-│   ├── inventory.module.ts                          # [NEW] Module definition
-│   ├── inventory.controller.spec.ts                 # [NEW] Unit test suite (parity)
-│   ├── inventory.service.spec.ts                    # [NEW] Unit test suite
-│   └── inventory.repository.spec.ts                 # [NEW] Unit test suite (parity)
-└── app.module.ts                                    # [MODIFY] Register InventoryModule
+│   │   ├── create-inventory.dto.ts                  # [IMPLEMENTED] Zod schema + inferred type
+│   │   ├── update-inventory.dto.ts                  # [IMPLEMENTED] Zod schema + inferred type
+│   │   ├── query-inventory.dto.ts                   # [IMPLEMENTED] Zod schema + inferred type (filter/sort/pagination)
+│   │   └── decrement-inventory.dto.ts               # [IMPLEMENTED] Zod schema + inferred type
+│   ├── inventory.repository.ts                      # [IMPLEMENTED] Colocated repository (extends Repository<InventoryItem>)
+│   ├── inventory.controller.ts                      # [IMPLEMENTED] Route handlers & guards (ZodValidationPipe)
+│   ├── inventory.service.ts                         # [IMPLEMENTED] Business logic (no direct TypeORM)
+│   ├── inventory.module.ts                          # [IMPLEMENTED] Module definition
+│   ├── inventory.controller.spec.ts                 # [IMPLEMENTED] Unit test suite (parity)
+│   ├── inventory.service.spec.ts                    # [IMPLEMENTED] Unit test suite
+│   └── inventory.repository.spec.ts                 # [IMPLEMENTED] Unit test suite (parity)
+└── app.module.ts                                    # [IMPLEMENTED] Register InventoryModule
 ```
 
 ---
@@ -107,10 +107,10 @@ src/
 
 ## 5. Verification Checklist
 
-- [ ] All queries include `where: { businessId: user.businessId }` (AGENTS.md §3.1).
-- [ ] Product status dynamically changes on creation and quantity update.
-- [ ] Stock decrement prevents negative inventory (atomic SQL guard).
-- [ ] `inventory.low-stock` event emits when `quantity <= reorderPoint`.
-- [ ] Bulk import handles valid CSVs and rejects malformed rows gracefully.
-- [ ] Test parity holds: `npm run check:tdd` reports 0 missing specs.
-- [ ] Full gate passes: `npm run check` (lint, typecheck, arch, parity, unit, e2e, build).
+- [x] All queries include `where: { businessId: user.businessId }` (AGENTS.md §3.1).
+- [x] Product status dynamically changes on creation and quantity update.
+- [x] Stock decrement prevents negative inventory (atomic SQL guard).
+- [x] `inventory.low-stock` event emits when `quantity <= reorderPoint`.
+- [x] Bulk import handles valid CSVs and rejects malformed rows gracefully.
+- [x] Test parity holds: `npm run check:tdd` reports 0 missing specs.
+- [x] Full gate passes: `npm run check` (lint, typecheck, arch, parity, unit, e2e, build).

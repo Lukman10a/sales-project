@@ -136,7 +136,7 @@ Status: ⏳ Pending user testing
 
 ---
 
-## Phase 3: Inventory Module ⏳ pending
+## Phase 3: Inventory Module ✅ implemented
 
 ### Objectives
 
@@ -144,6 +144,7 @@ Status: ⏳ Pending user testing
 - Implement CRUD operations
 - Add filtering and sorting
 - Support bulk import
+- Atomic stock decrement with low-stock event
 
 ### Endpoints
 
@@ -157,11 +158,17 @@ Status: ⏳ Pending user testing
 
 ### Status
 
-- [ ] InventoryItem entity created
-- [ ] Inventory service implemented
-- [ ] List endpoint with pagination tested
-- [ ] CRUD operations tested
-- [ ] Stock decrement logic tested
+- [x] InventoryItem entity created
+- [x] Inventory service implemented
+- [x] Inventory repository implemented (colocated, atomic decrement, bulk upsert)
+- [x] List endpoint with pagination tested
+- [x] CRUD operations tested
+- [x] Stock decrement logic tested
+- [x] Bulk import (CSV/JSON) tested
+- [x] `inventory.low-stock` event emitted on low stock
+- [x] Uses Zod DTOs + `ZodValidationPipe`; businessId isolation
+- [x] Test parity: `inventory.service.spec.ts`, `inventory.controller.spec.ts`, `inventory.repository.spec.ts`
+- [x] `npm run check` passes
 
 ---
 
