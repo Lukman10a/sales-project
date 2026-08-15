@@ -102,7 +102,7 @@ Status: ⏳ Pending user testing
 
 ---
 
-## Phase 2: User Profile Module ⏳ pending
+## Phase 2: User Profile Module ✅ implemented
 
 ### Objectives
 
@@ -110,6 +110,7 @@ Status: ⏳ Pending user testing
 - Update user profile
 - Change password
 - Update notification preferences
+- Upload profile avatar
 
 ### Endpoints
 
@@ -117,14 +118,21 @@ Status: ⏳ Pending user testing
 2. `PATCH /profile` - Update profile
 3. `POST /profile/change-password` - Change password
 4. `PATCH /profile/preferences` - Update settings
+5. `POST /profile/avatar` - Upload avatar (base64 data URL)
 
 ### Status
 
-- [ ] Profile controller created
-- [ ] Profile service implemented
-- [ ] Get profile endpoint tested
-- [ ] Update profile endpoint tested
-- [ ] Change password tested
+- [x] Profile controller created
+- [x] Profile service implemented
+- [x] Get profile endpoint tested
+- [x] Update profile endpoint tested
+- [x] Change password tested
+- [x] Update preferences tested
+- [x] Upload avatar tested
+- [x] Uses Zod DTOs + `ZodValidationPipe`
+- [x] Colocated `UserProfileRepository`; injects `UsersRepository` via `AuthModule`
+- [x] Test parity: `profile.service.spec.ts`, `profile.controller.spec.ts`, `user-profiles.repository.spec.ts`
+- [x] `npm run check` passes
 
 ---
 

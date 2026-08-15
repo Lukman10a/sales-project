@@ -189,6 +189,31 @@ describe('ProfileService', () => {
     });
   });
 
+  describe('uploadAvatar', () => {
+    const dto = {
+      dataUrl: 'data:image/png;base64,iVBORw0KGgo=',
+    };
+
+    it('throws NotFoundException when the user is missing', async () => {
+      usersRepository.findById.mockResolvedValue(null);
+
+      await expect(service.uploadAvatar('missing', dto)).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
+    });
+
+    it('updates the user avatar and returns it', async () => {
+      usersRepository.findById.mockResolvedValue(user);
+
+      const result = await service.uploadAvatar('u1', dto);
+
+      expect(usersRepository.save).toHaveBeenCalledWith(
+        expect.objectContaining({ avatar: dto.dataUrl }),
+      );
+      expect(result).toEqual({ avatar: dto.dataUrl });
+    });
+  });
+
   describe('updatePreferences', () => {
     it('creates a profile when missing and merges preferences', async () => {
       profilesRepository.findByUserId.mockResolvedValue(null);

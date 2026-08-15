@@ -9,6 +9,7 @@ import { UserProfileRepository } from './user-profiles.repository';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { UpdatePreferencesDto } from './dto/update-preferences.dto';
+import { UpdateAvatarDto } from './dto/update-avatar.dto';
 
 @Injectable()
 export class ProfileService {
@@ -130,6 +131,19 @@ export class ProfileService {
     await this.usersRepository.save(user);
 
     return { message: 'Password changed successfully' };
+  }
+
+  async uploadAvatar(userId: string, updateAvatarDto: UpdateAvatarDto) {
+    const user = await this.usersRepository.findById(userId);
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    user.avatar = updateAvatarDto.dataUrl;
+    await this.usersRepository.save(user);
+
+    return { avatar: user.avatar };
   }
 
   async updatePreferences(

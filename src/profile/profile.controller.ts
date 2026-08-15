@@ -13,9 +13,11 @@ import type { CurrentUserPayload } from '../common';
 import { UpdateProfileDtoSchema } from './dto/update-profile.dto';
 import { ChangePasswordDtoSchema } from './dto/change-password.dto';
 import { UpdatePreferencesDtoSchema } from './dto/update-preferences.dto';
+import { UpdateAvatarDtoSchema } from './dto/update-avatar.dto';
 import type { UpdateProfileDto } from './dto/update-profile.dto';
 import type { ChangePasswordDto } from './dto/change-password.dto';
 import type { UpdatePreferencesDto } from './dto/update-preferences.dto';
+import type { UpdateAvatarDto } from './dto/update-avatar.dto';
 
 @Controller('profile')
 @UseGuards(JwtAuthGuard)
@@ -73,5 +75,20 @@ export class ProfileController {
     updatePreferencesDto: UpdatePreferencesDto,
   ) {
     return this.profileService.updatePreferences(user.id, updatePreferencesDto);
+  }
+
+  /**
+   * Upload current user avatar
+   * POST /api/profile/avatar
+   * Requires: Bearer token
+   */
+  @Post('avatar')
+  @HttpCode(200)
+  updateAvatar(
+    @CurrentUser() user: CurrentUserPayload,
+    @Body(new ZodValidationPipe(UpdateAvatarDtoSchema))
+    updateAvatarDto: UpdateAvatarDto,
+  ) {
+    return this.profileService.uploadAvatar(user.id, updateAvatarDto);
   }
 }

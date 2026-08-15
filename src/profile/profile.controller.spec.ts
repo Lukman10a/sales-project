@@ -10,6 +10,7 @@ describe('ProfileController', () => {
     updateProfile: jest.Mock;
     changePassword: jest.Mock;
     updatePreferences: jest.Mock;
+    uploadAvatar: jest.Mock;
   };
 
   const currentUser = {
@@ -26,6 +27,7 @@ describe('ProfileController', () => {
       updateProfile: jest.fn(),
       changePassword: jest.fn(),
       updatePreferences: jest.fn(),
+      uploadAvatar: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -76,5 +78,15 @@ describe('ProfileController', () => {
       controller.updatePreferences(currentUser, dto),
     ).resolves.toEqual({ message: 'ok' });
     expect(profileService.updatePreferences).toHaveBeenCalledWith('u1', dto);
+  });
+
+  it('delegates uploadAvatar to the service', async () => {
+    const dto = { dataUrl: 'data:image/png;base64,iVBORw0KGgo=' };
+    profileService.uploadAvatar.mockResolvedValue({ avatar: dto.dataUrl });
+
+    await expect(controller.updateAvatar(currentUser, dto)).resolves.toEqual({
+      avatar: dto.dataUrl,
+    });
+    expect(profileService.uploadAvatar).toHaveBeenCalledWith('u1', dto);
   });
 });
