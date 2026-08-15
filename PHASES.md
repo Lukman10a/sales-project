@@ -286,6 +286,15 @@ Status: ⏳ Pending user testing
   - Shared `PaginationQueryDto` + `PaginatedResult<T>` envelope
   - `@nestjs/event-emitter` registered globally in `AppModule`
   - Guard unit tests (12 tests passing); `npm run build` passes
+- **PLAN-001: Development Guardrails & Automated Enforcement ✅**
+  - Full strict TypeScript (`strict`, `noImplicitAny`, `noUnusedLocals/Parameters`, `noImplicitReturns`, `noFallthroughCasesInSwitch`)
+  - Error-level type-aware ESLint (`no-explicit-any`, `no-unsafe-*`, `no-floating-promises`) + import boundary rules
+  - Zod validation engine: `ZodValidationPipe` + strict Zod schemas replacing `class-validator`/`class-transformer`
+  - Colocated repositories: `UsersRepository` (auth), `UserProfileRepository` (profile); `ProfileModule` imports `AuthModule`
+  - Architecture enforcement via `.dependency-cruiser.cjs` (layer restriction matrix) + `npm run arch`
+  - 1:1 test parity validator `scripts/require-tests.mjs` (`npm run check:tdd`)
+  - 13 unit suites / 57 tests; `npm run check` pipeline wired; Husky `pre-commit` (lint-staged) + `pre-push` (check)
+  - E2E runs against a dummy database (`DB_MANUAL_INIT=true`)
 
 ### In Progress 🔄
 

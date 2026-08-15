@@ -11,26 +11,26 @@ import { User } from './user.entity';
 @Entity('team_members')
 export class TeamMember {
   @PrimaryGeneratedColumn('uuid')
-  id: string;
+  id!: string;
 
   @Column({ type: 'uuid' })
-  businessId: string;
+  businessId!: string;
 
   @Column({ type: 'uuid' })
-  userId: string;
+  userId!: string;
 
   @Column()
-  name: string;
+  name!: string;
 
   @Column({
     type: 'enum',
     enum: ['owner', 'manager', 'sales-assistant', 'checkout', 'inventory'],
     default: 'sales-assistant',
   })
-  role: 'owner' | 'manager' | 'sales-assistant' | 'checkout' | 'inventory';
+  role!: 'owner' | 'manager' | 'sales-assistant' | 'checkout' | 'inventory';
 
   @Column({ type: 'text', array: true, default: () => "'{}'" })
-  permissions: string[];
+  permissions!: string[];
 
   @Column({ nullable: true })
   department?: string;
@@ -40,18 +40,18 @@ export class TeamMember {
     enum: ['active', 'inactive', 'invited'],
     default: 'invited',
   })
-  status: 'active' | 'inactive' | 'invited';
+  status!: 'active' | 'inactive' | 'invited';
 
   @Column({ type: 'date' })
-  joinedDate: Date;
+  joinedDate!: Date;
 
   @CreateDateColumn()
-  createdAt: Date;
+  createdAt!: Date;
 
   @UpdateDateColumn()
-  updatedAt: Date;
+  updatedAt!: Date;
 
   // Relations
   @ManyToOne(() => User, (user) => user.teamMembers)
-  user: User;
+  user!: User;
 }

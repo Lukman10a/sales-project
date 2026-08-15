@@ -1,38 +1,16 @@
-import { IsOptional, IsString, Length } from 'class-validator';
+import { z } from 'zod';
 
-export class UpdateProfileDto {
-  @IsOptional()
-  @IsString()
-  @Length(1, 100)
-  firstName?: string;
+export const UpdateProfileDtoSchema = z
+  .object({
+    firstName: z.string().min(1).max(100).optional(),
+    lastName: z.string().min(1).max(100).optional(),
+    phone: z.string().optional(),
+    company: z.string().optional(),
+    address: z.string().optional(),
+    city: z.string().optional(),
+    country: z.string().optional(),
+    bio: z.string().max(500).optional(),
+  })
+  .strict();
 
-  @IsOptional()
-  @IsString()
-  @Length(1, 100)
-  lastName?: string;
-
-  @IsOptional()
-  @IsString()
-  phone?: string;
-
-  @IsOptional()
-  @IsString()
-  company?: string;
-
-  @IsOptional()
-  @IsString()
-  address?: string;
-
-  @IsOptional()
-  @IsString()
-  city?: string;
-
-  @IsOptional()
-  @IsString()
-  country?: string;
-
-  @IsOptional()
-  @IsString()
-  @Length(0, 500)
-  bio?: string;
-}
+export type UpdateProfileDto = z.infer<typeof UpdateProfileDtoSchema>;

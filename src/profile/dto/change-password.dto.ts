@@ -1,14 +1,14 @@
-import { IsString, MinLength, Matches } from 'class-validator';
+import { z } from 'zod';
 
-export class ChangePasswordDto {
-  @IsString()
-  currentPassword: string;
-
-  @IsString()
-  @MinLength(8, { message: 'Password must be at least 8 characters' })
-  @Matches(/(?=.*[A-Z])/, {
-    message: 'Password must contain at least 1 uppercase letter',
+export const ChangePasswordDtoSchema = z
+  .object({
+    currentPassword: z.string().min(1),
+    newPassword: z
+      .string()
+      .min(8, 'Password must be at least 8 characters')
+      .regex(/[A-Z]/, 'Password must contain at least 1 uppercase letter')
+      .regex(/[0-9]/, 'Password must contain at least 1 number'),
   })
-  @Matches(/(?=.*\d)/, { message: 'Password must contain at least 1 number' })
-  newPassword: string;
-}
+  .strict();
+
+export type ChangePasswordDto = z.infer<typeof ChangePasswordDtoSchema>;

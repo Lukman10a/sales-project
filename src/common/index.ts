@@ -8,6 +8,9 @@ export * from './guards/jwt-auth.guard';
 export * from './guards/roles.guard';
 export * from './guards/permissions.guard';
 
+// Pipes
+export * from './pipes/zod-validation.pipe';
+
 // DTOs
 export * from './dto/pagination-query.dto';
 

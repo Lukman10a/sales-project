@@ -14,22 +14,22 @@ import { TeamMember } from './team-member.entity';
 @Entity('users')
 export class User {
   @PrimaryGeneratedColumn('uuid')
-  id: string;
+  id!: string;
 
   @Column({ unique: true })
-  email: string;
+  email!: string;
 
   @Column()
-  password: string;
+  password!: string;
 
   @Column()
-  firstName: string;
+  firstName!: string;
 
   @Column()
-  lastName: string;
+  lastName!: string;
 
   @Column()
-  businessName: string;
+  businessName!: string;
 
   @Column({ type: 'uuid', nullable: true })
   businessId?: string;
@@ -39,7 +39,7 @@ export class User {
     enum: ['owner', 'manager', 'apprentice'],
     default: 'owner',
   })
-  role: 'owner' | 'manager' | 'apprentice';
+  role!: 'owner' | 'manager' | 'apprentice';
 
   @Column({ nullable: true })
   staffRole?: 'sales-assistant' | 'manager' | 'checkout' | 'inventory';
@@ -52,27 +52,27 @@ export class User {
     enum: ['active', 'inactive', 'invited'],
     default: 'active',
   })
-  status: 'active' | 'inactive' | 'invited';
+  status!: 'active' | 'inactive' | 'invited';
 
   @CreateDateColumn()
-  createdAt: Date;
+  createdAt!: Date;
 
   @UpdateDateColumn()
-  updatedAt: Date;
+  updatedAt!: Date;
 
   @Column({ nullable: true })
   lastLogin?: Date;
 
   // Relations
   @OneToMany(() => Sale, (sale) => sale.owner)
-  sales: Sale[];
+  sales!: Sale[];
 
   @OneToMany(() => InventoryItem, (item) => item.owner)
-  inventory: InventoryItem[];
+  inventory!: InventoryItem[];
 
   @OneToMany(() => Notification, (notification) => notification.user)
-  notifications: Notification[];
+  notifications!: Notification[];
 
   @OneToMany(() => TeamMember, (member) => member.user)
-  teamMembers: TeamMember[];
+  teamMembers!: TeamMember[];
 }

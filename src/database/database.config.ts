@@ -30,6 +30,7 @@ export const getDatabaseConfig = (
   ],
   synchronize: configService.get<string>('NODE_ENV') === 'development',
   logging: configService.get<string>('LOG_LEVEL') === 'debug',
+  manualInitialization: configService.get<string>('DB_MANUAL_INIT') === 'true',
   ssl: {
     rejectUnauthorized: false,
   },

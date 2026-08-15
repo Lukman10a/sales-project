@@ -5,17 +5,20 @@ import {
   Post,
   Body,
   UseGuards,
-  Req,
   HttpCode,
 } from '@nestjs/common';
-import { AuthGuard } from '@nestjs/passport';
 import { ProfileService } from './profile.service';
-import { UpdateProfileDto } from './dto/update-profile.dto';
-import { ChangePasswordDto } from './dto/change-password.dto';
-import { UpdatePreferencesDto } from './dto/update-preferences.dto';
+import { JwtAuthGuard, CurrentUser, ZodValidationPipe } from '../common';
+import type { CurrentUserPayload } from '../common';
+import { UpdateProfileDtoSchema } from './dto/update-profile.dto';
+import { ChangePasswordDtoSchema } from './dto/change-password.dto';
+import { UpdatePreferencesDtoSchema } from './dto/update-preferences.dto';
+import type { UpdateProfileDto } from './dto/update-profile.dto';
+import type { ChangePasswordDto } from './dto/change-password.dto';
+import type { UpdatePreferencesDto } from './dto/update-preferences.dto';
 
 @Controller('profile')
-@UseGuards(AuthGuard('jwt'))
+@UseGuards(JwtAuthGuard)
 export class ProfileController {
   constructor(private profileService: ProfileService) {}
 
@@ -25,8 +28,8 @@ export class ProfileController {
    * Requires: Bearer token
    */
   @Get()
-  getProfile(@Req() req) {
-    return this.profileService.getProfile(req.user.id);
+  getProfile(@CurrentUser() user: CurrentUserPayload) {
+    return this.profileService.getProfile(user.id);
   }
 
   /**
@@ -35,8 +38,12 @@ export class ProfileController {
    * Requires: Bearer token
    */
   @Patch()
-  updateProfile(@Req() req, @Body() updateProfileDto: UpdateProfileDto) {
-    return this.profileService.updateProfile(req.user.id, updateProfileDto);
+  updateProfile(
+    @CurrentUser() user: CurrentUserPayload,
+    @Body(new ZodValidationPipe(UpdateProfileDtoSchema))
+    updateProfileDto: UpdateProfileDto,
+  ) {
+    return this.profileService.updateProfile(user.id, updateProfileDto);
   }
 
   /**
@@ -46,8 +53,12 @@ export class ProfileController {
    */
   @Post('change-password')
   @HttpCode(200)
-  changePassword(@Req() req, @Body() changePasswordDto: ChangePasswordDto) {
-    return this.profileService.changePassword(req.user.id, changePasswordDto);
+  changePassword(
+    @CurrentUser() user: CurrentUserPayload,
+    @Body(new ZodValidationPipe(ChangePasswordDtoSchema))
+    changePasswordDto: ChangePasswordDto,
+  ) {
+    return this.profileService.changePassword(user.id, changePasswordDto);
   }
 
   /**
@@ -57,12 +68,10 @@ export class ProfileController {
    */
   @Patch('preferences')
   updatePreferences(
-    @Req() req,
-    @Body() updatePreferencesDto: UpdatePreferencesDto,
+    @CurrentUser() user: CurrentUserPayload,
+    @Body(new ZodValidationPipe(UpdatePreferencesDtoSchema))
+    updatePreferencesDto: UpdatePreferencesDto,
   ) {
-    return this.profileService.updatePreferences(
-      req.user.id,
-      updatePreferencesDto,
-    );
+    return this.profileService.updatePreferences(user.id, updatePreferencesDto);
   }
 }

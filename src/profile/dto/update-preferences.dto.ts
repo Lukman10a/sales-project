@@ -1,73 +1,33 @@
-import { IsOptional, IsBoolean, IsString, IsIn } from 'class-validator';
-import { Type } from 'class-transformer';
-import { ValidateNested } from 'class-validator';
+import { z } from 'zod';
 
-class NotificationPreferencesDto {
-  @IsOptional()
-  @IsBoolean()
-  email?: boolean;
+const NotificationPreferencesSchema = z
+  .object({
+    email: z.boolean().optional(),
+    push: z.boolean().optional(),
+    lowStock: z.boolean().optional(),
+    newSales: z.boolean().optional(),
+    reports: z.boolean().optional(),
+    teamActivity: z.boolean().optional(),
+    aiInsights: z.boolean().optional(),
+  })
+  .strict();
 
-  @IsOptional()
-  @IsBoolean()
-  push?: boolean;
+const AppearanceSettingsSchema = z
+  .object({
+    theme: z.enum(['light', 'dark', 'system']).optional(),
+    language: z.string().optional(),
+    currency: z.string().optional(),
+    dateFormat: z.string().optional(),
+    timeFormat: z.enum(['12h', '24h']).optional(),
+    compactMode: z.boolean().optional(),
+  })
+  .strict();
 
-  @IsOptional()
-  @IsBoolean()
-  lowStock?: boolean;
+export const UpdatePreferencesDtoSchema = z
+  .object({
+    notificationPreferences: NotificationPreferencesSchema.optional(),
+    appearanceSettings: AppearanceSettingsSchema.optional(),
+  })
+  .strict();
 
-  @IsOptional()
-  @IsBoolean()
-  newSales?: boolean;
-
-  @IsOptional()
-  @IsBoolean()
-  reports?: boolean;
-
-  @IsOptional()
-  @IsBoolean()
-  teamActivity?: boolean;
-
-  @IsOptional()
-  @IsBoolean()
-  aiInsights?: boolean;
-}
-
-class AppearanceSettingsDto {
-  @IsOptional()
-  @IsString()
-  @IsIn(['light', 'dark', 'system'])
-  theme?: string;
-
-  @IsOptional()
-  @IsString()
-  language?: string;
-
-  @IsOptional()
-  @IsString()
-  currency?: string;
-
-  @IsOptional()
-  @IsString()
-  dateFormat?: string;
-
-  @IsOptional()
-  @IsString()
-  @IsIn(['12h', '24h'])
-  timeFormat?: string;
-
-  @IsOptional()
-  @IsBoolean()
-  compactMode?: boolean;
-}
-
-export class UpdatePreferencesDto {
-  @IsOptional()
-  @ValidateNested()
-  @Type(() => NotificationPreferencesDto)
-  notificationPreferences?: NotificationPreferencesDto;
-
-  @IsOptional()
-  @ValidateNested()
-  @Type(() => AppearanceSettingsDto)
-  appearanceSettings?: AppearanceSettingsDto;
-}
+export type UpdatePreferencesDto = z.infer<typeof UpdatePreferencesDtoSchema>;

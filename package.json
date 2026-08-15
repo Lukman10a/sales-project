@@ -13,11 +13,23 @@
     "start:debug": "nest start --debug --watch",
     "start:prod": "node dist/main",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
+    "lint:check": "eslint \"src/**/*.ts\" \"test/**/*.ts\" --max-warnings 0",
+    "typecheck": "tsc --noEmit",
+    "arch": "depcruise src --config .dependency-cruiser.cjs",
+    "check:tdd": "node scripts/require-tests.mjs",
+    "check": "npm run lint:check && npm run typecheck && npm run arch && npm run check:tdd && npm test && npm run test:e2e && npm run build",
+    "prepare": "husky",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json"
+  },
+  "lint-staged": {
+    "*.ts": [
+      "eslint --fix",
+      "prettier --write"
+    ]
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",
@@ -30,8 +42,6 @@
     "@nestjs/swagger": "^11.2.6",
     "@nestjs/typeorm": "^11.0.0",
     "bcrypt": "^6.0.0",
-    "class-transformer": "^0.5.1",
-    "class-validator": "^0.14.3",
     "csv-parse": "^7.0.2",
     "joi": "^18.0.2",
     "passport": "^0.7.0",
@@ -39,7 +49,8 @@
     "pg": "^8.18.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
-    "typeorm": "^0.3.28"
+    "typeorm": "^0.3.28",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.2.0",
@@ -52,12 +63,17 @@
     "@types/jest": "^30.0.0",
     "@types/multer": "^2.2.0",
     "@types/node": "^22.19.10",
+    "@types/passport": "^1.0.17",
+    "@types/passport-jwt": "^4.0.1",
     "@types/supertest": "^6.0.2",
+    "dependency-cruiser": "^18.2.0",
     "eslint": "^9.18.0",
     "eslint-config-prettier": "^10.0.1",
     "eslint-plugin-prettier": "^5.2.2",
     "globals": "^16.0.0",
+    "husky": "^9.1.7",
     "jest": "^30.0.0",
+    "lint-staged": "^17.3.0",
     "prettier": "^3.4.2",
     "source-map-support": "^0.5.21",
     "supertest": "^7.0.0",

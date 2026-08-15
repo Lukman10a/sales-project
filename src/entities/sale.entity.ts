@@ -12,33 +12,33 @@ import { SaleItem } from './sale-item.entity';
 @Entity('sales')
 export class Sale {
   @PrimaryGeneratedColumn('uuid')
-  id: string;
+  id!: string;
 
   @Column({ type: 'uuid' })
-  businessId: string;
+  businessId!: string;
 
   @Column({ type: 'decimal', precision: 12, scale: 2 })
-  total: number;
+  total!: number;
 
   @Column({
     type: 'enum',
     enum: ['cash', 'card', 'transfer', 'split', 'account'],
     default: 'cash',
   })
-  paymentMethod: 'cash' | 'card' | 'transfer' | 'split' | 'account';
+  paymentMethod!: 'cash' | 'card' | 'transfer' | 'split' | 'account';
 
   @Column({
     type: 'enum',
     enum: ['completed', 'pending', 'refunded', 'partial-refund'],
     default: 'completed',
   })
-  status: 'completed' | 'pending' | 'refunded' | 'partial-refund';
+  status!: 'completed' | 'pending' | 'refunded' | 'partial-refund';
 
   @Column({ type: 'date' })
-  saleDate: Date;
+  saleDate!: Date;
 
   @Column({ type: 'uuid' })
-  soldBy: string;
+  soldBy!: string;
 
   @Column({ type: 'uuid', nullable: true })
   customerId?: string;
@@ -47,7 +47,7 @@ export class Sale {
   customerName?: string;
 
   @Column({ type: 'decimal', precision: 5, scale: 2, default: 0 })
-  discountPercent: number;
+  discountPercent!: number;
 
   @Column({ type: 'decimal', precision: 12, scale: 2, nullable: true })
   refundAmount?: number;
@@ -56,12 +56,12 @@ export class Sale {
   refundReason?: string;
 
   @CreateDateColumn()
-  createdAt: Date;
+  createdAt!: Date;
 
   // Relations
   @ManyToOne(() => User, (user) => user.sales)
-  owner: User;
+  owner!: User;
 
   @OneToMany(() => SaleItem, (item) => item.sale, { cascade: true })
-  items: SaleItem[];
+  items!: SaleItem[];
 }

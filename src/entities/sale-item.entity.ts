@@ -10,24 +10,24 @@ import { Sale } from './sale.entity';
 @Entity('sale_items')
 export class SaleItem {
   @PrimaryGeneratedColumn('uuid')
-  id: string;
+  id!: string;
 
   @Column({ type: 'uuid' })
-  saleId: string;
+  saleId!: string;
 
   @Column({ type: 'uuid' })
-  productId: string;
+  productId!: string;
 
   @Column({ type: 'int' })
-  quantity: number;
+  quantity!: number;
 
   @Column({ type: 'decimal', precision: 10, scale: 2 })
-  price: number;
+  price!: number;
 
   @CreateDateColumn()
-  createdAt: Date;
+  createdAt!: Date;
 
   // Relations
   @ManyToOne(() => Sale, (sale) => sale.items, { onDelete: 'CASCADE' })
-  sale: Sale;
+  sale!: Sale;
 }

@@ -1,4 +1,5 @@
-import { ExecutionContext, Reflector } from '@nestjs/core';
+import { ExecutionContext } from '@nestjs/common';
+import { Reflector } from '@nestjs/core';
 import { RolesGuard } from './roles.guard';
 
 describe('RolesGuard', () => {
@@ -12,8 +13,8 @@ describe('RolesGuard', () => {
 
   const mockContext = (user: { role: string } | undefined): ExecutionContext =>
     ({
-      getHandler: () => ({}),
-      getClass: () => ({}),
+      getHandler: jest.fn(),
+      getClass: jest.fn(),
       switchToHttp: () => ({
         getRequest: () => ({ user }),
       }),

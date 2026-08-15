@@ -1,5 +1,4 @@
 import { NestFactory } from '@nestjs/core';
-import { ValidationPipe } from '@nestjs/common';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
@@ -11,15 +10,6 @@ async function bootstrap() {
     credentials: true,
   });
 
-  // Enable validation
-  app.useGlobalPipes(
-    new ValidationPipe({
-      whitelist: true,
-      forbidNonWhitelisted: true,
-      transform: true,
-    }),
-  );
-
   // Set global prefix
   app.setGlobalPrefix('api');
 
@@ -28,4 +18,4 @@ async function bootstrap() {
 
   console.log(`🚀 Server running on http://localhost:${port}/api`);
 }
-bootstrap();
+void bootstrap();

@@ -72,6 +72,18 @@ backend/
 ## 🔧 Common Commands
 
 ```bash
+# Full check pipeline (lint, typecheck, arch, test parity, unit, e2e, build)
+npm run check
+
+# Individual gates
+npm run lint:check      # ESLint (0 errors/warnings)
+npm run typecheck       # TypeScript strict
+npm run arch            # dependency-cruiser architecture rules
+npm run check:tdd       # 1:1 test parity
+npm run test            # unit tests
+npm run test:e2e        # e2e tests (dummy database, no Postgres required)
+npm run build           # production build
+
 # Check if database is running
 docker ps | grep luxa-postgres
 
@@ -98,6 +110,7 @@ npm run test
 | [PHASE1_TESTING.md](./PHASE1_TESTING.md) | Testing guide      |
 | [PHASES.md](./PHASES.md)                 | Progress tracking  |
 | [README.md](./README.md)                 | Full documentation |
+| [docs/TDD_WORKFLOW.md](./docs/TDD_WORKFLOW.md) | TDD workflow & checks |
 
 ---
 

@@ -10,37 +10,37 @@ import { User } from './user.entity';
 @Entity('notifications')
 export class Notification {
   @PrimaryGeneratedColumn('uuid')
-  id: string;
+  id!: string;
 
   @Column({ type: 'uuid' })
-  businessId: string;
+  businessId!: string;
 
   @Column({ type: 'uuid' })
-  userId: string;
+  userId!: string;
 
   @Column({
     type: 'enum',
     enum: ['inventory', 'sale', 'alert', 'ai', 'system'],
     default: 'system',
   })
-  type: 'inventory' | 'sale' | 'alert' | 'ai' | 'system';
+  type!: 'inventory' | 'sale' | 'alert' | 'ai' | 'system';
 
   @Column()
-  title: string;
+  title!: string;
 
   @Column()
-  message: string;
+  message!: string;
 
   @Column({ default: false })
-  read: boolean;
+  read!: boolean;
 
   @Column({ type: 'json', nullable: true })
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 
   @CreateDateColumn()
-  createdAt: Date;
+  createdAt!: Date;
 
   // Relations
   @ManyToOne(() => User, (user) => user.notifications)
-  user: User;
+  user!: User;
 }

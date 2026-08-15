@@ -3,11 +3,9 @@ import {
   NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
-import { User } from '../entities/user.entity';
-import { UserProfile } from '../entities/user-profile.entity';
+import { UsersRepository } from '../auth/users.repository';
+import { UserProfileRepository } from './user-profiles.repository';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { UpdatePreferencesDto } from './dto/update-preferences.dto';
@@ -15,25 +13,19 @@ import { UpdatePreferencesDto } from './dto/update-preferences.dto';
 @Injectable()
 export class ProfileService {
   constructor(
-    @InjectRepository(User)
-    private usersRepository: Repository<User>,
-    @InjectRepository(UserProfile)
-    private profilesRepository: Repository<UserProfile>,
+    private usersRepository: UsersRepository,
+    private profilesRepository: UserProfileRepository,
   ) {}
 
   async getProfile(userId: string) {
-    const user = await this.usersRepository.findOne({
-      where: { id: userId },
-    });
+    const user = await this.usersRepository.findById(userId);
 
     if (!user) {
       throw new NotFoundException('User not found');
     }
 
     // Get or create profile
-    let profile = await this.profilesRepository.findOne({
-      where: { userId },
-    });
+    let profile = await this.profilesRepository.findByUserId(userId);
 
     if (!profile) {
       profile = this.profilesRepository.create({
@@ -69,9 +61,7 @@ export class ProfileService {
   }
 
   async updateProfile(userId: string, updateProfileDto: UpdateProfileDto) {
-    const user = await this.usersRepository.findOne({
-      where: { id: userId },
-    });
+    const user = await this.usersRepository.findById(userId);
 
     if (!user) {
       throw new NotFoundException('User not found');
@@ -83,9 +73,7 @@ export class ProfileService {
     await this.usersRepository.save(user);
 
     // Get or create profile
-    let profile = await this.profilesRepository.findOne({
-      where: { userId },
-    });
+    let profile = await this.profilesRepository.findByUserId(userId);
 
     if (!profile) {
       profile = this.profilesRepository.create({ userId });
@@ -99,10 +87,12 @@ export class ProfileService {
       'city',
       'country',
       'bio',
-    ];
+    ] as const;
+
     for (const field of profileFields) {
-      if (updateProfileDto[field] !== undefined) {
-        profile[field] = updateProfileDto[field];
+      const value = updateProfileDto[field];
+      if (value !== undefined) {
+        profile[field] = value;
       }
     }
 
@@ -112,9 +102,7 @@ export class ProfileService {
   }
 
   async changePassword(userId: string, changePasswordDto: ChangePasswordDto) {
-    const user = await this.usersRepository.findOne({
-      where: { id: userId },
-    });
+    const user = await this.usersRepository.findById(userId);
 
     if (!user) {
       throw new NotFoundException('User not found');
@@ -148,9 +136,7 @@ export class ProfileService {
     userId: string,
     updatePreferencesDto: UpdatePreferencesDto,
   ) {
-    let profile = await this.profilesRepository.findOne({
-      where: { userId },
-    });
+    let profile = await this.profilesRepository.findByUserId(userId);
 
     if (!profile) {
       profile = this.profilesRepository.create({ userId });
@@ -162,7 +148,7 @@ export class ProfileService {
       profile.notificationPreferences = {
         ...profile.notificationPreferences,
         ...updatePreferencesDto.notificationPreferences,
-      };
+      } as typeof profile.notificationPreferences;
     }
 
     // Merge appearance settings

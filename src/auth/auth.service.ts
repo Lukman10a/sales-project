@@ -3,12 +3,11 @@ import {
   BadRequestException,
   UnauthorizedException,
 } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
-import { User } from '../entities/user.entity';
+import type { User } from '../entities/user.entity';
+import { UsersRepository } from './users.repository';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { JwtPayload } from './interfaces/jwt-payload.interface';
@@ -17,8 +16,7 @@ import { ALL_PERMISSIONS } from '../common/constants/permissions';
 @Injectable()
 export class AuthService {
   constructor(
-    @InjectRepository(User)
-    private usersRepository: Repository<User>,
+    private usersRepository: UsersRepository,
     private jwtService: JwtService,
     private configService: ConfigService,
   ) {}
@@ -27,9 +25,7 @@ export class AuthService {
     const { email, password, firstName, lastName, businessName } = registerDto;
 
     // Check if user already exists
-    const existingUser = await this.usersRepository.findOne({
-      where: { email },
-    });
+    const existingUser = await this.usersRepository.findByEmail(email);
     if (existingUser) {
       throw new BadRequestException('Email already registered');
     }
@@ -76,7 +72,7 @@ export class AuthService {
     const { email, password } = loginDto;
 
     // Find user
-    const user = await this.usersRepository.findOne({ where: { email } });
+    const user = await this.usersRepository.findByEmail(email);
     if (!user) {
       throw new UnauthorizedException('Invalid credentials');
     }
@@ -111,14 +107,13 @@ export class AuthService {
   async refreshToken(refreshToken: string) {
     try {
       const refreshSecret =
-        this.configService.get<string>('JWT_REFRESH_SECRET');
-      const payload = this.jwtService.verify(refreshToken, {
+        this.configService.get<string>('JWT_REFRESH_SECRET') ||
+        'default-refresh-secret';
+      const payload = this.jwtService.verify<JwtPayload>(refreshToken, {
         secret: refreshSecret,
       });
 
-      const user = await this.usersRepository.findOne({
-        where: { id: payload.sub },
-      });
+      const user = await this.usersRepository.findById(payload.sub);
 
       if (!user) {
         throw new UnauthorizedException('User not found');
@@ -138,12 +133,12 @@ export class AuthService {
         },
         ...tokens,
       };
-    } catch (error) {
+    } catch {
       throw new UnauthorizedException('Invalid refresh token');
     }
   }
 
-  async logout() {
+  logout() {
     return { message: 'Logged out successfully' };
   }
 
@@ -161,7 +156,9 @@ export class AuthService {
       expiresIn: '15m',
     });
 
-    const refreshSecret = this.configService.get<string>('JWT_REFRESH_SECRET');
+    const refreshSecret =
+      this.configService.get<string>('JWT_REFRESH_SECRET') ||
+      'default-refresh-secret';
     const refreshToken = await this.jwtService.signAsync(payload, {
       secret: refreshSecret,
       expiresIn: '7d',

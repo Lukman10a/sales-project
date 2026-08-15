@@ -11,16 +11,16 @@ import { User } from './user.entity';
 @Entity('inventory_items')
 export class InventoryItem {
   @PrimaryGeneratedColumn('uuid')
-  id: string;
+  id!: string;
 
   @Column({ type: 'uuid' })
-  businessId: string;
+  businessId!: string;
 
   @Column()
-  name: string;
+  name!: string;
 
   @Column({ type: 'text', array: true, default: () => "'{}'" })
-  category: string[];
+  category!: string[];
 
   @Column({ nullable: true })
   sku?: string;
@@ -32,13 +32,13 @@ export class InventoryItem {
   description?: string;
 
   @Column({ type: 'decimal', precision: 10, scale: 2 })
-  wholesalePrice: number;
+  wholesalePrice!: number;
 
   @Column({ type: 'decimal', precision: 10, scale: 2 })
-  sellingPrice: number;
+  sellingPrice!: number;
 
   @Column({ type: 'int', default: 0 })
-  quantity: number;
+  quantity!: number;
 
   @Column({ type: 'int', nullable: true })
   reorderPoint?: number;
@@ -59,28 +59,28 @@ export class InventoryItem {
   bundlePrice?: number;
 
   @Column({ type: 'int', default: 0 })
-  sold: number;
+  sold!: number;
 
   @Column({
     type: 'enum',
     enum: ['in-stock', 'low-stock', 'out-of-stock'],
     default: 'in-stock',
   })
-  status: 'in-stock' | 'low-stock' | 'out-of-stock';
+  status!: 'in-stock' | 'low-stock' | 'out-of-stock';
 
   @Column({ default: false })
-  confirmedByApprentice: boolean;
+  confirmedByApprentice!: boolean;
 
   @CreateDateColumn()
-  createdAt: Date;
+  createdAt!: Date;
 
   @UpdateDateColumn()
-  updatedAt: Date;
+  updatedAt!: Date;
 
   @Column({ type: 'uuid' })
-  createdBy: string;
+  createdBy!: string;
 
   // Relations
   @ManyToOne(() => User, (user) => user.inventory)
-  owner: User;
+  owner!: User;
 }

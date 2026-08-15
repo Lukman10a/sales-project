@@ -26,10 +26,47 @@ export default tseslint.config(
   },
   {
     rules: {
-      '@typescript-eslint/no-explicit-any': 'off',
-      '@typescript-eslint/no-floating-promises': 'warn',
-      '@typescript-eslint/no-unsafe-argument': 'warn',
-      "prettier/prettier": ["error", { endOfLine: "auto" }],
+      '@typescript-eslint/no-explicit-any': 'error',
+      '@typescript-eslint/no-floating-promises': 'error',
+      '@typescript-eslint/no-unsafe-argument': 'error',
+      '@typescript-eslint/no-unsafe-assignment': 'error',
+      '@typescript-eslint/no-unsafe-call': 'error',
+      '@typescript-eslint/no-unsafe-member-access': 'error',
+      '@typescript-eslint/no-unsafe-return': 'error',
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
+      ],
+      'prettier/prettier': ['error', { endOfLine: 'auto' }],
+    },
+  },
+  {
+    files: ['**/*.controller.ts', '**/*.service.ts'],
+    rules: {
+      '@typescript-eslint/no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            {
+              name: 'typeorm',
+              message:
+                'Controllers and services must use the colocated repository layer; import TypeORM only in *.repository.ts files.',
+            },
+            {
+              name: '@nestjs/typeorm',
+              message:
+                'Controllers and services must use the colocated repository layer; import TypeORM only in *.repository.ts files.',
+            },
+          ],
+          patterns: [
+            {
+              group: ['typeorm/*'],
+              message:
+                'Controllers and services must use the colocated repository layer; import TypeORM only in *.repository.ts files.',
+            },
+          ],
+        },
+      ],
     },
   },
 );

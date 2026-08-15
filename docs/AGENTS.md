@@ -12,10 +12,12 @@ All technical specifications, guidelines, and execution plans reside in the `doc
 sales-backend/
 └── docs/
     ├── AGENTS.md                              # This file (Agent rules & protocols)
+    ├── TDD_WORKFLOW.md                        # TDD red-green-refactor guide & check suite
     ├── specifications/                        # Source of truth requirements
     │   └── SPEC-001-sales-backend-spec.md     # Master backend technical spec
     └── plans/                                 # Phased execution plans
         ├── PLAN-000-foundational-guardrails.md# Step 0: Shared infrastructure & guards
+        ├── PLAN-001-development-guardrails.md # Dev guardrails, strictness & checks
         ├── PLAN-002-phase-2-profile-module.md # Phase 2: User profile & preferences
         ├── PLAN-003-phase-3-inventory-module.md# Phase 3: Inventory & bulk CSV imports
         ├── PLAN-004-phase-4-sales-module.md   # Phase 4: Sales transactions & refunds
@@ -42,6 +44,7 @@ flowchart LR
 2. **Review the Phase Plan**: Open the corresponding `docs/plans/PLAN-XXX-*.md` file. Confirm the files to modify/create and testing criteria.
 3. **Execute Incrementally**: Write clean, modular NestJS code following project conventions (Controller $\rightarrow$ Service $\rightarrow$ DTOs $\rightarrow$ Module).
 4. **Validate Thoroughly**:
+   - Run the full gate: `npm run check` (lint, typecheck, architecture, test parity, unit tests, e2e, build)
    - Run unit tests: `npm run test`
    - Run integration tests: `npm run test:e2e`
    - Run build check: `npm run build`
@@ -104,6 +107,8 @@ flowchart LR
 
 ## 4. Code Quality & Style Rules
 1. **Strong Typing**: Use TypeScript strict types. Avoid `any` wherever possible.
-2. **DTO Validation**: Every incoming request body and query parameter must be validated with `class-validator` and `class-transformer` decorators (`@IsString()`, `@IsNumber()`, `@IsOptional()`, `@Type(() => Number)`).
-3. **Repository Pattern**: Inject TypeORM repositories via `@InjectRepository(Entity)` into dedicated Services. Controllers should only delegate to Services.
-4. **Documentation Preservation**: Preserve existing docstrings, entity configurations, and phase tracking structures.
+2. **DTO Validation**: Every incoming request body and query parameter must be validated with **Zod** schemas applied through the reusable `ZodValidationPipe` (`@Body(new ZodValidationPipe(Schema))`). `class-validator` and `class-transformer` are **not** used.
+3. **Repository Pattern**: Domain queries live in colocated repository classes (`src/auth/users.repository.ts`, `src/profile/user-profiles.repository.ts`) extending `Repository<Entity>`. Services inject these repositories — never TypeORM `Repository`/`@InjectRepository` directly. Controllers only delegate to Services.
+4. **Layer Separation**: Enforced by `dependency-cruiser` (`.dependency-cruiser.cjs`) and ESLint `no-restricted-imports`. Controllers/services must not import `typeorm`/`@nestjs/typeorm`; repositories must not contain business logic.
+5. **Test Parity**: Every `*.service.ts`, `*.controller.ts`, `*.repository.ts`, `*.guard.ts`, `*.strategy.ts`, and `*.pipe.ts` **MUST** have a colocated `*.spec.ts` (enforced by `scripts/require-tests.mjs` / `npm run check:tdd`).
+6. **Documentation Preservation**: Preserve existing docstrings, entity configurations, and phase tracking structures.

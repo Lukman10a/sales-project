@@ -1,32 +1,18 @@
-import {
-  IsEmail,
-  IsStrongPassword,
-  MinLength,
-  MaxLength,
-} from 'class-validator';
+import { z } from 'zod';
 
-export class RegisterDto {
-  @IsEmail()
-  email: string;
-
-  @IsStrongPassword({
-    minLength: 8,
-    minLowercase: 1,
-    minUppercase: 1,
-    minNumbers: 1,
-    minSymbols: 0,
+export const RegisterDtoSchema = z
+  .object({
+    email: z.email(),
+    password: z
+      .string()
+      .min(8)
+      .regex(/[a-z]/, 'Password must contain at least 1 lowercase letter')
+      .regex(/[A-Z]/, 'Password must contain at least 1 uppercase letter')
+      .regex(/[0-9]/, 'Password must contain at least 1 number'),
+    firstName: z.string().min(2).max(50),
+    lastName: z.string().min(2).max(50),
+    businessName: z.string().min(2).max(100),
   })
-  password: string;
+  .strict();
 
-  @MinLength(2)
-  @MaxLength(50)
-  firstName: string;
-
-  @MinLength(2)
-  @MaxLength(50)
-  lastName: string;
-
-  @MinLength(2)
-  @MaxLength(100)
-  businessName: string;
-}
+export type RegisterDto = z.infer<typeof RegisterDtoSchema>;

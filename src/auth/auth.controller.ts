@@ -7,9 +7,13 @@ import {
   HttpCode,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
-import { RegisterDto } from './dto/register.dto';
-import { LoginDto } from './dto/login.dto';
-import { JwtAuthGuard, CurrentUser } from '../common';
+import { RegisterDtoSchema } from './dto/register.dto';
+import { LoginDtoSchema } from './dto/login.dto';
+import { RefreshTokenDtoSchema } from './dto/refresh-token.dto';
+import type { RegisterDto } from './dto/register.dto';
+import type { LoginDto } from './dto/login.dto';
+import type { RefreshTokenDto } from './dto/refresh-token.dto';
+import { JwtAuthGuard, CurrentUser, ZodValidationPipe } from '../common';
 import type { CurrentUserPayload } from '../common';
 
 @Controller('auth')
@@ -30,7 +34,9 @@ export class AuthController {
    */
   @Post('register')
   @HttpCode(201)
-  async register(@Body() registerDto: RegisterDto) {
+  async register(
+    @Body(new ZodValidationPipe(RegisterDtoSchema)) registerDto: RegisterDto,
+  ) {
     return this.authService.register(registerDto);
   }
 
@@ -47,7 +53,7 @@ export class AuthController {
    */
   @Post('login')
   @HttpCode(200)
-  async login(@Body() loginDto: LoginDto) {
+  async login(@Body(new ZodValidationPipe(LoginDtoSchema)) loginDto: LoginDto) {
     return this.authService.login(loginDto);
   }
 
@@ -64,7 +70,10 @@ export class AuthController {
    */
   @Post('refresh')
   @HttpCode(200)
-  async refresh(@Body() body: { refreshToken: string }) {
+  async refresh(
+    @Body(new ZodValidationPipe(RefreshTokenDtoSchema))
+    body: RefreshTokenDto,
+  ) {
     return this.authService.refreshToken(body.refreshToken);
   }
 
@@ -79,7 +88,7 @@ export class AuthController {
   @Post('logout')
   @UseGuards(JwtAuthGuard)
   @HttpCode(200)
-  async logout() {
+  logout() {
     return this.authService.logout();
   }
 

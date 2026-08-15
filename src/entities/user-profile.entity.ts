@@ -12,14 +12,14 @@ import { User } from './user.entity';
 @Entity('user_profiles')
 export class UserProfile {
   @PrimaryGeneratedColumn('uuid')
-  id: string;
+  id!: string;
 
   @Column({ type: 'uuid', unique: true })
-  userId: string;
+  userId!: string;
 
   @OneToOne(() => User)
   @JoinColumn({ name: 'userId' })
-  user: User;
+  user!: User;
 
   @Column({ nullable: true })
   phone?: string;
@@ -52,7 +52,7 @@ export class UserProfile {
       aiInsights: true,
     },
   })
-  notificationPreferences: {
+  notificationPreferences!: {
     email: boolean;
     push: boolean;
     lowStock: boolean;
@@ -74,7 +74,7 @@ export class UserProfile {
       compactMode: false,
     },
   })
-  appearanceSettings: {
+  appearanceSettings!: {
     theme: 'light' | 'dark' | 'system';
     language: string;
     currency: string;
@@ -84,8 +84,8 @@ export class UserProfile {
   };
 
   @CreateDateColumn()
-  createdAt: Date;
+  createdAt!: Date;
 
   @UpdateDateColumn()
-  updatedAt: Date;
+  updatedAt!: Date;
 }

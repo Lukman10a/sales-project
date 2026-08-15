@@ -1,4 +1,5 @@
-import { ExecutionContext, Reflector } from '@nestjs/core';
+import { ExecutionContext } from '@nestjs/common';
+import { Reflector } from '@nestjs/core';
 import { PermissionsGuard } from './permissions.guard';
 
 describe('PermissionsGuard', () => {
@@ -14,8 +15,8 @@ describe('PermissionsGuard', () => {
     user: { role: string; permissions?: string[] } | undefined,
   ): ExecutionContext =>
     ({
-      getHandler: () => ({}),
-      getClass: () => ({}),
+      getHandler: jest.fn(),
+      getClass: jest.fn(),
       switchToHttp: () => ({
         getRequest: () => ({ user }),
       }),
