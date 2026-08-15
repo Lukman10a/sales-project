@@ -15,7 +15,7 @@ import { fileURLToPath } from 'node:url';
 const root = fileURLToPath(new URL('../', import.meta.url));
 const srcDir = join(root, 'src');
 
-const UNIT_PATTERN = /\.(service|controller|repository|guard|strategy|pipe)\.ts$/;
+const UNIT_PATTERN = /\.(service|controller|repository|guard|strategy|pipe|listener)\.ts$/;
 
 /** Recursively collect all `.ts` files (non-spec) that require a spec. */
 function collectUnits(dir) {

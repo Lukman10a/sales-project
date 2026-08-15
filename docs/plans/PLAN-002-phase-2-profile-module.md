@@ -2,16 +2,17 @@
 
 - **Module**: User Profile & Settings
 - **Specification Reference**: [`SPEC-001 Section 4.1: Phase 2 User Profile Module`](file:///C:/Users/Abdulrauf%20Lukman/Desktop/LUXA/sales-backend/docs/specifications/SPEC-001-sales-backend-spec.md#41-phase-2-user-profile-module)
-- **Status**: ⏳ Pending Implementation
+- **Status**: 🚧 In Progress — core implemented under PLAN-001; `uploadAvatar` outstanding
+- **Conventions**: This plan follows the guardrails from [`PLAN-001`](./PLAN-001-development-guardrails.md) and [`TDD_WORKFLOW.md`](../TDD_WORKFLOW.md). Every DTO is a **Zod schema + inferred type** applied via `ZodValidationPipe`; domain queries live in **colocated repositories**; every logic unit has a **colocated `*.spec.ts`**; the full gate is **`npm run check`**.
 
 ---
 
 ## 1. Objectives
 
-1. Audit existing `src/profile/` implementation against `SPEC-001`.
+1. Audit existing `src/profile/` implementation against `SPEC-001` (partially complete under PLAN-001).
 2. Implement `POST /api/profile/avatar` for avatar image uploads (multipart file / base64).
 3. Ensure profile and user settings (notification preferences, appearance settings) are properly isolated by `userId`.
-4. Create comprehensive unit tests (`profile.service.spec.ts`) validating all profile operations.
+4. Create comprehensive unit tests (`profile.service.spec.ts`, `profile.controller.spec.ts`, `user-profiles.repository.spec.ts`) validating all profile operations.
 5. Update documentation and progress trackers (`PHASES.md`).
 
 ---
@@ -22,13 +23,48 @@
 src/
 └── profile/
     ├── dto/
-    │   ├── update-profile.dto.ts                    # [AUDIT/MODIFY]
-    │   ├── change-password.dto.ts                   # [AUDIT]
-    │   └── update-preferences.dto.ts                # [AUDIT]
+    │   ├── update-profile.dto.ts                    # [IMPLEMENTED] Zod schema + inferred type
+    │   ├── change-password.dto.ts                   # [IMPLEMENTED] Zod schema + inferred type
+    │   └── update-preferences.dto.ts                # [IMPLEMENTED] Zod schema + inferred type
+    ├── user-profiles.repository.ts                  # [IMPLEMENTED] Colocated repository
     ├── profile.controller.ts                        # [MODIFY] Add avatar upload endpoint
     ├── profile.service.ts                           # [MODIFY] Add uploadAvatar() method
-    ├── profile.module.ts                            # [AUDIT]
-    └── profile.service.spec.ts                      # [NEW] Unit test suite
+    ├── profile.module.ts                            # [IMPLEMENTED] imports AuthModule + TypeOrmModule
+    ├── profile.controller.spec.ts                   # [IMPLEMENTED] Unit test suite
+    ├── profile.service.spec.ts                      # [IMPLEMENTED] Unit test suite
+    └── user-profiles.repository.spec.ts             # [IMPLEMENTED] Unit test suite
+```
+
+**DTO pattern** (Zod, strict — no class-validator/class-transformer):
+
+```typescript
+import { z } from 'zod';
+
+export const UpdateProfileDtoSchema = z.object({
+  firstName: z.string().min(1).optional(),
+  lastName: z.string().min(1).optional(),
+  bio: z.string().optional(),
+  phone: z.string().optional(),
+  address: z.string().optional(),
+}).strict();
+
+export type UpdateProfileDto = z.infer<typeof UpdateProfileDtoSchema>;
+```
+
+Applied in the controller: `@Body(new ZodValidationPipe(UpdateProfileDtoSchema))`.
+
+**Repository pattern** (colocated, extends `Repository<Entity>`):
+
+```typescript
+@Injectable()
+export class UserProfileRepository extends Repository<UserProfile> {
+  constructor(@InjectDataSource() dataSource: DataSource) {
+    super(UserProfile, dataSource.createEntityManager());
+  }
+  async findByUserId(userId: string): Promise<UserProfile | null> {
+    return this.findOne({ where: { userId } });
+  }
+}
 ```
 
 ---
@@ -48,17 +84,15 @@ src/
 ## 4. Implementation Steps
 
 1. **Avatar Upload Endpoint**:
-   - Add `POST('avatar')` in `ProfileController` using `@UseInterceptors(FileInterceptor('file'))`.
-   - In `ProfileService.uploadAvatar(userId, file)`, convert/save avatar to a data URL or local static path, update `User.avatar`, and return the updated avatar URL.
+   - Add `POST('avatar')` in `ProfileController` using `@UseInterceptors(FileInterceptor('file'))` (or a base64 field validated with a Zod schema).
+   - In `ProfileService.uploadAvatar(userId, file)`, convert/save avatar to a data URL or local static path, update `User.avatar` via `UsersRepository` (injected from the imported `AuthModule`), and return the updated avatar URL.
 2. **Password Validation**:
-   - Verify `currentPassword` matches using `bcrypt.compare`.
+   - Verify `currentPassword` matches using `bcrypt.compare` (mocked in tests via `jest.mock('bcrypt', ...)`).
    - Ensure `newPassword` differs from `currentPassword` and meets strength requirements (min 8 chars, 1 uppercase, 1 number).
-3. **Unit Tests (`profile.service.spec.ts`)**:
-   - Test `getProfile` (returns profile, creates default if absent).
-   - Test `updateProfile` (updates firstName/lastName in User and bio/phone/address in Profile).
-   - Test `changePassword` (success case, invalid old password rejection, same password rejection).
-   - Test `updatePreferences` (deep merge of notification preferences and appearance settings).
-   - Test `uploadAvatar` (saves avatar URL properly).
+3. **Unit Tests (parity — one spec per logic unit)**:
+   - `profile.service.spec.ts`: `getProfile` (returns profile, creates default if absent), `updateProfile` (updates firstName/lastName in User and bio/phone/address in Profile), `changePassword` (success, invalid old password, same password), `updatePreferences` (deep merge of notification + appearance), `uploadAvatar` (saves avatar URL properly).
+   - `profile.controller.spec.ts`: delegates to service with `@CurrentUser()` context and `ZodValidationPipe` schemas.
+   - `user-profiles.repository.spec.ts`: `findByUserId` behavior.
 
 ---
 
@@ -68,4 +102,5 @@ src/
 - [ ] `PATCH /api/profile` updates both `User` and `UserProfile` records.
 - [ ] `POST /api/profile/change-password` verifies current password and securely re-hashes.
 - [ ] `POST /api/profile/avatar` accepts file upload and updates user avatar.
-- [ ] `npm test profile.service.spec.ts` passes with 100% assertions.
+- [ ] Test parity holds: `npm run check:tdd` reports 0 missing specs.
+- [ ] Full gate passes: `npm run check` (lint, typecheck, arch, parity, unit, e2e, build).

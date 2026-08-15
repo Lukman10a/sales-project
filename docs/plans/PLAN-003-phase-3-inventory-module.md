@@ -3,6 +3,7 @@
 - **Module**: Inventory Management
 - **Specification Reference**: [`SPEC-001 Section 4.2: Phase 3 Inventory Module`](file:///C:/Users/Abdulrauf%20Lukman/Desktop/LUXA/sales-backend/docs/specifications/SPEC-001-sales-backend-spec.md#42-phase-3-inventory-module)
 - **Status**: ⏳ Pending Implementation
+- **Conventions**: This plan follows the guardrails from [`PLAN-001`](./PLAN-001-development-guardrails.md) and [`TDD_WORKFLOW.md`](../TDD_WORKFLOW.md). Every DTO is a **Zod schema + inferred type** applied via `ZodValidationPipe`; domain queries live in **colocated repositories** (`src/inventory/inventory.repository.ts`); services never import `typeorm`/`@nestjs/typeorm`; every logic unit has a **colocated `*.spec.ts`**; the full gate is **`npm run check`**.
 
 ---
 
@@ -13,7 +14,7 @@
 3. Support filtering (category, status, search) and multi-field sorting.
 4. Implement atomic stock decrement with `inventory.low-stock` event trigger.
 5. Implement bulk import endpoint parsing multipart CSV and JSON uploads.
-6. Write unit tests for all inventory operations.
+6. Write unit tests for all inventory operations (service, controller, repository).
 
 ---
 
@@ -23,14 +24,17 @@
 src/
 ├── inventory/
 │   ├── dto/
-│   │   ├── create-inventory.dto.ts                  # [NEW] Validation for product creation
-│   │   ├── update-inventory.dto.ts                  # [NEW] Partial update DTO
-│   │   ├── query-inventory.dto.ts                   # [NEW] Filter, sort, and pagination DTO
-│   │   └── decrement-inventory.dto.ts               # [NEW] Quantity decrement DTO
-│   ├── inventory.controller.ts                      # [NEW] Route handlers & guards
-│   ├── inventory.service.ts                         # [NEW] Business logic & DB queries
-│   ├── inventory.module.ts                          # [NEW] Module definition & entity imports
-│   └── inventory.service.spec.ts                    # [NEW] Unit test suite
+│   │   ├── create-inventory.dto.ts                  # [NEW] Zod schema + inferred type
+│   │   ├── update-inventory.dto.ts                  # [NEW] Zod schema + inferred type
+│   │   ├── query-inventory.dto.ts                   # [NEW] Zod schema + inferred type (filter/sort/pagination)
+│   │   └── decrement-inventory.dto.ts               # [NEW] Zod schema + inferred type
+│   ├── inventory.repository.ts                      # [NEW] Colocated repository (extends Repository<InventoryItem>)
+│   ├── inventory.controller.ts                      # [NEW] Route handlers & guards (ZodValidationPipe)
+│   ├── inventory.service.ts                         # [NEW] Business logic (no direct TypeORM)
+│   ├── inventory.module.ts                          # [NEW] Module definition
+│   ├── inventory.controller.spec.ts                 # [NEW] Unit test suite (parity)
+│   ├── inventory.service.spec.ts                    # [NEW] Unit test suite
+│   └── inventory.repository.spec.ts                 # [NEW] Unit test suite (parity)
 └── app.module.ts                                    # [MODIFY] Register InventoryModule
 ```
 
@@ -52,7 +56,7 @@ src/
 
 ## 4. Implementation Details & Formulas
 
-1. **Status Auto-Calculation**:
+1. **Status Auto-Calculation** (pure helper, unit-testable):
    ```typescript
    function calculateStatus(quantity: number, reorderPoint?: number): 'in-stock' | 'low-stock' | 'out-of-stock' {
      if (quantity <= 0) return 'out-of-stock';
@@ -63,32 +67,50 @@ src/
 2. **Filtering & Sorting**:
    - Filter by `category` (matches any category in PostgreSQL text array), `status`, `search` (case-insensitive name or sku ILIKE).
    - Sort options: `name`, `price-asc`, `price-desc`, `quantity`, `sold`.
-3. **Atomic Stock Decrement**:
-   - Execute in TypeORM transaction:
-     ```typescript
-     const item = await repo.findOne({ where: { id, businessId: user.businessId } });
+3. **Atomic Stock Decrement** — the SQL-level decrement lives in the **repository layer**; the service orchestrates and emits events:
+   ```typescript
+   // inventory.repository.ts
+   async decrementStock(id: string, businessId: string, qty: number): Promise<InventoryItem | null> {
+     await this.createQueryBuilder()
+       .update(InventoryItem)
+       .set({
+         quantity: () => 'quantity - :qty',
+         sold: () => 'sold + :qty',
+         status: () => `CASE WHEN quantity - :qty <= 0 THEN 'out-of-stock'
+                        WHEN reorder_point IS NOT NULL AND quantity - :qty <= reorder_point THEN 'low-stock'
+                        ELSE 'in-stock' END`,
+       })
+       .where('id = :id AND businessId = :businessId AND quantity >= :qty', { id, businessId, qty })
+       .execute();
+     return this.findOne({ where: { id, businessId } });
+   }
+   ```
+   ```typescript
+   // inventory.service.ts — orchestrates, emits
+   async decrement(user: CurrentUserPayload, dto: DecrementInventoryDto) {
+     const item = await this.inventoryRepository.decrementStock(dto.id, user.businessId, dto.quantity);
      if (!item) throw new NotFoundException('Product not found');
-     if (item.quantity < qty) throw new BadRequestException('Insufficient stock');
-     item.quantity -= qty;
-     item.sold += qty;
-     item.status = calculateStatus(item.quantity, item.reorderPoint);
-     await repo.save(item);
+     if (item.quantity < dto.quantity) throw new BadRequestException('Insufficient stock');
      if (item.status === 'low-stock') {
        this.eventEmitter.emit('inventory.low-stock', { businessId: item.businessId, item });
      }
-     ```
+     return item;
+   }
+   ```
 4. **Bulk Import**:
    - Use `csv-parse/sync` or stream parser.
    - Map headers: `name,category,sku,wholesalePrice,sellingPrice,quantity,reorderPoint,supplier`.
-   - Validate each row; return `{ imported: count, skipped: count, errors: [] }`.
+   - Validate each row with the Zod row schema; return `{ imported: count, skipped: count, errors: [] }`.
+   - Bulk writes run through `inventory.repository` (optionally inside `inventoryRepository.transaction(fn)` for atomicity).
 
 ---
 
 ## 5. Verification Checklist
 
-- [ ] All queries include `where: { businessId: user.businessId }`.
+- [ ] All queries include `where: { businessId: user.businessId }` (AGENTS.md §3.1).
 - [ ] Product status dynamically changes on creation and quantity update.
-- [ ] Stock decrement prevents negative inventory.
+- [ ] Stock decrement prevents negative inventory (atomic SQL guard).
 - [ ] `inventory.low-stock` event emits when `quantity <= reorderPoint`.
 - [ ] Bulk import handles valid CSVs and rejects malformed rows gracefully.
-- [ ] `npm test inventory.service.spec.ts` passes.
+- [ ] Test parity holds: `npm run check:tdd` reports 0 missing specs.
+- [ ] Full gate passes: `npm run check` (lint, typecheck, arch, parity, unit, e2e, build).

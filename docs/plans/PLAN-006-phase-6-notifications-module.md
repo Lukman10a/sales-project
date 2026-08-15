@@ -3,6 +3,7 @@
 - **Module**: Notifications System
 - **Specification Reference**: [`SPEC-001 Section 4.5: Phase 6 Notifications Module`](file:///C:/Users/Abdulrauf%20Lukman/Desktop/LUXA/sales-backend/docs/specifications/SPEC-001-sales-backend-spec.md#45-phase-6-notifications-module)
 - **Status**: ⏳ Pending Implementation
+- **Conventions**: This plan follows the guardrails from [`PLAN-001`](./PLAN-001-development-guardrails.md) and [`TDD_WORKFLOW.md`](../TDD_WORKFLOW.md). Every DTO is a **Zod schema + inferred type** applied via `ZodValidationPipe`; domain queries live in **colocated repositories**; services never import `typeorm`/`@nestjs/typeorm`; every logic unit — including the `listener` — has a **colocated `*.spec.ts`**; the full gate is **`npm run check`**.
 
 ---
 
@@ -11,7 +12,7 @@
 1. Build notification management endpoints (list with filters, unread count, mark read, delete, mark all read).
 2. Create `NotificationsListener` that asynchronously handles `@OnEvent('inventory.low-stock')` and `@OnEvent('sale.completed')`.
 3. Support notification filtering by `type` (`inventory`, `sale`, `alert`, `ai`, `system`) and `read` status.
-4. Write unit tests for notification operations and event listeners.
+4. Write unit tests for notification operations, event listeners, controller, and repository.
 
 ---
 
@@ -21,12 +22,16 @@
 src/
 ├── notifications/
 │   ├── dto/
-│   │   └── query-notifications.dto.ts               # [NEW] Filter and pagination DTO
-│   ├── notifications.controller.ts                  # [NEW] Route handlers
-│   ├── notifications.service.ts                     # [NEW] Notification CRUD & mark read
-│   ├── notifications.listener.ts                    # [NEW] EventEmitter listeners
+│   │   └── query-notifications.dto.ts               # [NEW] Zod schema + inferred type (filter & pagination)
+│   ├── notifications.repository.ts                  # [NEW] Colocated repository (extends Repository<Notification>)
+│   ├── notifications.controller.ts                  # [NEW] Route handlers (ZodValidationPipe)
+│   ├── notifications.service.ts                     # [NEW] Notification CRUD & mark read (no direct TypeORM)
+│   ├── notifications.listener.ts                    # [NEW] EventEmitter listeners (@OnEvent)
 │   ├── notifications.module.ts                      # [NEW] Module definition
-│   └── notifications.service.spec.ts                # [NEW] Unit test suite
+│   ├── notifications.controller.spec.ts             # [NEW] Unit test suite (parity)
+│   ├── notifications.service.spec.ts                # [NEW] Unit test suite
+│   ├── notifications.repository.spec.ts             # [NEW] Unit test suite (parity)
+│   └── notifications.listener.spec.ts               # [NEW] Unit test suite (parity)
 └── app.module.ts                                    # [MODIFY] Register NotificationsModule
 ```
 
@@ -44,6 +49,8 @@ src/
 ---
 
 ## 4. Event-Driven Listener Implementation
+
+The listener delegates persistence to `NotificationsService` (which uses `NotificationsRepository`); the listener stays thin and is unit-tested with a mocked service. `metadata` is typed `Record<string, unknown>` (per PLAN-001 entity convention):
 
 ```typescript
 @Injectable()
@@ -85,4 +92,6 @@ export class NotificationsListener {
 - [ ] Mark-all-read sets all user notifications to `read: true`.
 - [ ] Emitting `inventory.low-stock` event generates a notification in the database.
 - [ ] Emitting `sale.completed` event generates a notification in the database.
-- [ ] `npm test notifications.service.spec.ts` passes.
+- [ ] All notification queries filtered by `businessId` (and `userId` where applicable).
+- [ ] Test parity holds (service, controller, repository, listener): `npm run check:tdd` reports 0 missing specs.
+- [ ] Full gate passes: `npm run check` (lint, typecheck, arch, parity, unit, e2e, build).
