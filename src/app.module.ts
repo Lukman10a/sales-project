@@ -10,6 +10,7 @@ import { InventoryModule } from './inventory/inventory.module';
 import { SalesModule } from './sales/sales.module';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { NotificationsModule } from './notifications/notifications.module';
+import { TeamModule } from './team/team.module';
 import { getDatabaseConfig } from './database/database.config';
 
 @Module({
@@ -31,6 +32,7 @@ import { getDatabaseConfig } from './database/database.config';
     SalesModule,
     AnalyticsModule,
     NotificationsModule,
+    TeamModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -270,7 +270,7 @@ Status: ⏳ Pending user testing
 
 ---
 
-## Phase 7: Team Module ⏳ pending
+## Phase 7: Team Module ✅ implemented
 
 ### Objectives
 
@@ -290,10 +290,17 @@ Status: ⏳ Pending user testing
 
 ### Status
 
-- [ ] TeamMember entity created
-- [ ] Team service implemented
-- [ ] Invite endpoint tested
-- [ ] Permissions system tested
+- [x] TeamMember entity created
+- [x] Team service implemented
+- [x] Invite endpoint tested
+- [x] Permissions system tested
+- [x] Team repository implemented (colocated, `transaction()` wrapper + manager-based create/save helpers)
+- [x] Invite creates `User` + `TeamMember` atomically inside a transaction; `User.businessId` inherited from the inviter
+- [x] Management endpoints guarded with `owner` | `manager` + `assign-roles` (`RolesGuard` + `PermissionsGuard`); delete is owner-only
+- [x] Granular permissions validated against the 9-permission set via Zod `z.enum` (`TEAM_PERMISSIONS`)
+- [x] Role/status filters on list; businessId isolation in every query
+- [x] Test parity: `team.service.spec.ts`, `team.controller.spec.ts`, `team.repository.spec.ts`
+- [x] `npm run check` passes
 
 ---
 
@@ -345,14 +352,16 @@ Status: ⏳ Pending user testing
   - `NotificationsListener` (thin) creates notifications for `inventory.low-stock` and `sale.completed` events
   - Zod query DTO + `ZodValidationPipe`; `JwtAuthGuard` only; colocated `NotificationsRepository`
   - Test parity: service, controller, repository, listener specs; `npm run check` passes
+- **PLAN-007: Team Management & Granular Permissions Module ✅**
+  - `GET /team` (list with `role`/`status` filters + pagination), `GET /team/:id`, `POST /team` (invite), `PATCH /team/:id`, `PATCH /team/:id/permissions`, `DELETE /team/:id`
+  - Invite creates `User` + `TeamMember` atomically via `TeamRepository.transaction()` (manager-based helpers); `User.businessId` inherited from the inviter
+  - Management endpoints: `owner` | `manager` with `assign-roles` (`RolesGuard` + `PermissionsGuard`); delete is owner-only; detail is authenticated
+  - Permissions validated against the 9-permission set (`TEAM_PERMISSIONS`) via Zod `z.enum`; businessId isolation on all queries
+  - Test parity: service, controller, repository specs; `npm run check` passes
 
 ### In Progress 🔄
 
 - Phase 1 endpoint testing (waiting for database setup)
-
-### Pending ⏳
-
-- Phase 7: Team module
 
 ---
 
