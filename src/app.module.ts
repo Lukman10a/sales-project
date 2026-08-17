@@ -7,6 +7,7 @@ import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
 import { ProfileModule } from './profile/profile.module';
 import { InventoryModule } from './inventory/inventory.module';
+import { SalesModule } from './sales/sales.module';
 import { getDatabaseConfig } from './database/database.config';
 
 @Module({
@@ -25,6 +26,7 @@ import { getDatabaseConfig } from './database/database.config';
     AuthModule,
     ProfileModule,
     InventoryModule,
+    SalesModule,
   ],
   controllers: [AppController],
   providers: [AppService],

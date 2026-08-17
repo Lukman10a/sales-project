@@ -172,7 +172,7 @@ Status: ⏳ Pending user testing
 
 ---
 
-## Phase 4: Sales Module ⏳ pending
+## Phase 4: Sales Module ✅ implemented
 
 ### Objectives
 
@@ -193,11 +193,18 @@ Status: ⏳ Pending user testing
 
 ### Status
 
-- [ ] Sale & SaleItem entities created
-- [ ] HeldTransaction entity created
-- [ ] Sales service implemented
-- [ ] Record sale endpoint tested
-- [ ] Refund processing tested
+- [x] Sale & SaleItem entities created
+- [x] HeldTransaction entity created
+- [x] Sales service implemented
+- [x] Sales repository implemented (colocated, `transaction()` wrapper + manager-aware helpers)
+- [x] Record sale endpoint tested
+- [x] Refund processing tested
+- [x] Sales history list with date/payment/status filters and summary (`totalSales`, `totalTransactions`, `averageTransaction`) tested
+- [x] Held transaction create/list/remove tested (24h expiration filter)
+- [x] `sale.completed` and `inventory.low-stock` events emitted
+- [x] Atomic sale/refund via `salesRepository.transaction()`; businessId isolation; Zod DTOs + `ZodValidationPipe`
+- [x] Test parity: `sales.service.spec.ts`, `sales.controller.spec.ts`, `sales.repository.spec.ts`
+- [x] `npm run check` passes
 
 ---
 

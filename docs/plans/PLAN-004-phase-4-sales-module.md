@@ -2,7 +2,7 @@
 
 - **Module**: Sales Transactions & History
 - **Specification Reference**: [`SPEC-001 Section 4.3: Phase 4 Sales Module`](file:///C:/Users/Abdulrauf%20Lukman/Desktop/LUXA/sales-backend/docs/specifications/SPEC-001-sales-backend-spec.md#43-phase-4-sales-module)
-- **Status**: ⏳ Pending Implementation
+- **Status**: ✅ Implemented
 - **Conventions**: This plan follows the guardrails from [`PLAN-001`](./PLAN-001-development-guardrails.md) and [`TDD_WORKFLOW.md`](../TDD_WORKFLOW.md). Every DTO is a **Zod schema + inferred type** applied via `ZodValidationPipe`; domain queries live in **colocated repositories**; services never import `typeorm`/`@nestjs/typeorm`. **Atomic transactions** (AGENTS.md §3.3) are exposed via a **repository `transaction(fn)` wrapper** — the service calls `salesRepository.transaction(em => ...)` and keeps business logic in the service while all DB access stays in the repository layer. Every logic unit has a **colocated `*.spec.ts`**; the full gate is **`npm run check`**.
 
 ---
@@ -160,12 +160,12 @@ async refund(user: CurrentUserPayload, id: string, refundDto: RefundSaleDto) {
 
 ## 5. Verification Checklist
 
-- [ ] Sale creation fails if any product has insufficient stock (no partial deductions).
-- [ ] Stock decrement and sale item records persist atomically.
-- [ ] Refund restores product inventory counts and recalculates status.
-- [ ] Sales history summary (`totalSales`, `totalTransactions`, `averageTransaction`) calculates correctly.
-- [ ] Held transactions auto-calculate 24-hour expiration.
-- [ ] All queries enforce `where: { businessId: user.businessId }`.
-- [ ] Service imports no `typeorm`/`@nestjs/typeorm`; transactions go through `SalesRepository.transaction()`.
-- [ ] Test parity holds: `npm run check:tdd` reports 0 missing specs.
-- [ ] Full gate passes: `npm run check` (lint, typecheck, arch, parity, unit, e2e, build).
+- [x] Sale creation fails if any product has insufficient stock (no partial deductions).
+- [x] Stock decrement and sale item records persist atomically.
+- [x] Refund restores product inventory counts and recalculates status.
+- [x] Sales history summary (`totalSales`, `totalTransactions`, `averageTransaction`) calculates correctly.
+- [x] Held transactions auto-calculate 24-hour expiration.
+- [x] All queries enforce `where: { businessId: user.businessId }`.
+- [x] Service imports no `typeorm`/`@nestjs/typeorm`; transactions go through `SalesRepository.transaction()`.
+- [x] Test parity holds: `npm run check:tdd` reports 0 missing specs.
+- [x] Full gate passes: `npm run check` (lint, typecheck, arch, parity, unit, e2e, build).
