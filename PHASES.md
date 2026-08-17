@@ -240,7 +240,7 @@ Status: ⏳ Pending user testing
 
 ---
 
-## Phase 6: Notifications Module ⏳ pending
+## Phase 6: Notifications Module ✅ implemented
 
 ### Objectives
 
@@ -258,9 +258,15 @@ Status: ⏳ Pending user testing
 
 ### Status
 
-- [ ] Notification entity created
-- [ ] Notifications service implemented
-- [ ] List with filtering tested
+- [x] Notification entity created
+- [x] Notifications service implemented
+- [x] List with filtering tested
+- [x] List returns `data` + `pagination` + `unreadCount` (global unread badge count)
+- [x] Mark-read / mark-all-read / delete implemented (businessId + userId isolation)
+- [x] `NotificationsListener` handles `inventory.low-stock` and `sale.completed` via `@OnEvent`
+- [x] Zod query DTO + `ZodValidationPipe`; `JwtAuthGuard` on all routes
+- [x] Test parity: `notifications.service.spec.ts`, `notifications.controller.spec.ts`, `notifications.repository.spec.ts`, `notifications.listener.spec.ts`
+- [x] `npm run check` passes
 
 ---
 
@@ -332,6 +338,13 @@ Status: ⏳ Pending user testing
   - `GET /analytics/top-products`: top sellers ranked by revenue & units
   - `AnalyticsRepository` colocated aggregate queries; `AnalyticsService` keeps pure formulas/bucketing
   - Test parity: service, controller, repository specs; `npm run check` passes
+- **PLAN-006: Notifications Module ✅**
+  - `GET /notifications`: list with `type`/`read` filters, pagination, and global `unreadCount`
+  - `PATCH /notifications/:id/read` and `DELETE /notifications/:id` scoped to `businessId` + `userId`
+  - `POST /notifications/mark-all-read`: returns `{ updated }` count
+  - `NotificationsListener` (thin) creates notifications for `inventory.low-stock` and `sale.completed` events
+  - Zod query DTO + `ZodValidationPipe`; `JwtAuthGuard` only; colocated `NotificationsRepository`
+  - Test parity: service, controller, repository, listener specs; `npm run check` passes
 
 ### In Progress 🔄
 
@@ -339,7 +352,7 @@ Status: ⏳ Pending user testing
 
 ### Pending ⏳
 
-- Phase 6-7: Notifications & Team modules
+- Phase 7: Team module
 
 ---
 
