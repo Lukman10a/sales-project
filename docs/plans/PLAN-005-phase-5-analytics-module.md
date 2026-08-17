@@ -2,7 +2,7 @@
 
 - **Module**: Analytics & Dashboard Reporting
 - **Specification Reference**: [`SPEC-001 Section 4.4: Phase 5 Analytics Module`](file:///C:/Users/Abdulrauf%20Lukman/Desktop/LUXA/sales-backend/docs/specifications/SPEC-001-sales-backend-spec.md#44-phase-5-analytics-module)
-- **Status**: ⏳ Pending Implementation
+- **Status**: ✅ Implemented
 - **Conventions**: This plan follows the guardrails from [`PLAN-001`](./PLAN-001-development-guardrails.md) and [`TDD_WORKFLOW.md`](../TDD_WORKFLOW.md). Every DTO is a **Zod schema + inferred type** applied via `ZodValidationPipe`; aggregate queries live in **colocated repositories**; services keep pure formulas/bucketing and never import `typeorm`/`@nestjs/typeorm`; every logic unit has a **colocated `*.spec.ts`**; the full gate is **`npm run check`**.
 
 ---
@@ -24,7 +24,7 @@
 src/
 ├── analytics/
 │   ├── dto/
-│   │   └── analytics-query.dto.ts                   # [NEW] Zod schema + inferred type (period & date filter)
+│   │   └── analytics-query.dto.ts                   # [NEW] Zod schema + inferred type (period filter: today | week | month)
 │   ├── analytics.repository.ts                      # [NEW] Colocated repository (aggregate queries)
 │   ├── analytics.controller.ts                      # [NEW] Dashboard and analytics endpoints (ZodValidationPipe)
 │   ├── analytics.service.ts                         # [NEW] Aggregations and trend calculations (no direct TypeORM)
@@ -54,14 +54,13 @@ src/
 Aggregate queries live in `AnalyticsRepository` (each takes `businessId` and returns typed rows); the service consumes them and applies pure math.
 
 1. **Net Profit**:
-   - Query completed sales and join with `SaleItem` and `InventoryItem`:
-     $$\text{Net Profit} = \sum (\text{item.price} - \text{product.wholesalePrice}) \times \text{item.quantity}$$
+   - Query completed sales and join with `SaleItem` (`si`) and `InventoryItem` (`ii`):
+     $$\text{Net Profit} = \sum (\text{si.price} - \text{ii.wholesalePrice}) \times \text{si.quantity}$$
 2. **Trend Percentage Calculation** (pure, unit-testable):
    ```typescript
    function calculatePercentageChange(current: number, previous: number): number {
      if (previous === 0) return current > 0 ? 100 : 0;
-     const change = ((current - previous) / previous) * 100;
-     return Math.round(change * 10) / 10;
+     return Math.round(((current - previous) / previous) * 100 * 10) / 10;
    }
    ```
 3. **Period Boundaries**:
@@ -77,10 +76,10 @@ Aggregate queries live in `AnalyticsRepository` (each takes `businessId` and ret
 
 ## 5. Verification Checklist
 
-- [ ] All aggregate queries enforce `where: { businessId: user.businessId }`.
-- [ ] Trends calculate properly without division-by-zero runtime exceptions.
-- [ ] Category breakdown aggregates multi-category products accurately.
-- [ ] Top products returns top performers sorted in descending order of revenue/units.
-- [ ] Service imports no `typeorm`/`@nestjs/typeorm`; aggregations delegated to `AnalyticsRepository`.
-- [ ] Test parity holds: `npm run check:tdd` reports 0 missing specs.
-- [ ] Full gate passes: `npm run check` (lint, typecheck, arch, parity, unit, e2e, build).
+- [x] All aggregate queries enforce `where: { businessId: user.businessId }`.
+- [x] Trends calculate properly without division-by-zero runtime exceptions.
+- [x] Category breakdown aggregates multi-category products accurately.
+- [x] Top products returns top performers sorted in descending order of revenue/units.
+- [x] Service imports no `typeorm`/`@nestjs/typeorm`; aggregations delegated to `AnalyticsRepository`.
+- [x] Test parity holds: `npm run check:tdd` reports 0 missing specs.
+- [x] Full gate passes: `npm run check` (lint, typecheck, arch, parity, unit, e2e, build).

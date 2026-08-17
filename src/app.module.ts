@@ -8,6 +8,7 @@ import { AuthModule } from './auth/auth.module';
 import { ProfileModule } from './profile/profile.module';
 import { InventoryModule } from './inventory/inventory.module';
 import { SalesModule } from './sales/sales.module';
+import { AnalyticsModule } from './analytics/analytics.module';
 import { getDatabaseConfig } from './database/database.config';
 
 @Module({
@@ -27,6 +28,7 @@ import { getDatabaseConfig } from './database/database.config';
     ProfileModule,
     InventoryModule,
     SalesModule,
+    AnalyticsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

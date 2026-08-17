@@ -208,7 +208,7 @@ Status: ⏳ Pending user testing
 
 ---
 
-## Phase 5: Analytics Module ⏳ pending
+## Phase 5: Analytics Module ✅ implemented
 
 ### Objectives
 
@@ -227,9 +227,16 @@ Status: ⏳ Pending user testing
 
 ### Status
 
-- [ ] Analytics service implemented
-- [ ] Summary calculations tested
-- [ ] Chart data generation tested
+- [x] Analytics service implemented
+- [x] Summary calculations tested (net profit formula, trend percentages, division-by-zero safe)
+- [x] Chart data generation tested (hourly/daily/weekly bucketing, zero-filled series)
+- [x] Dashboard endpoint tested (metrics, inventory breakdown, low-stock alerts, top products, recent sales)
+- [x] Category breakdown tested (multi-category products via `unnest`)
+- [x] Top products ranking tested (revenue/units)
+- [x] All endpoints guarded with `owner` | `manager` roles; Zod DTO + `ZodValidationPipe`
+- [x] Period boundaries (today/week/30-day month) and businessId isolation in all aggregate queries
+- [x] Test parity: `analytics.service.spec.ts`, `analytics.repository.spec.ts`, `analytics.controller.spec.ts`
+- [x] `npm run check` passes
 
 ---
 
@@ -317,6 +324,14 @@ Status: ⏳ Pending user testing
   - 1:1 test parity validator `scripts/require-tests.mjs` (`npm run check:tdd`)
   - 13 unit suites / 57 tests; `npm run check` pipeline wired; Husky `pre-commit` (lint-staged) + `pre-push` (check)
   - E2E runs against a dummy database (`DB_MANUAL_INIT=true`)
+- **PLAN-005: Analytics & Dashboard Module ✅**
+  - `GET /dashboard`: overview metrics, inventory breakdown + low-stock alerts, top products, recent sales
+  - `GET /analytics/summary`: revenue/orders/netProfit with `today`/`week`/`month` periods and trend percentages
+  - `GET /analytics/sales-chart`: hourly (today), daily (week), weekly (month) zero-filled series
+  - `GET /analytics/category-breakdown`: revenue & units per category via `unnest`
+  - `GET /analytics/top-products`: top sellers ranked by revenue & units
+  - `AnalyticsRepository` colocated aggregate queries; `AnalyticsService` keeps pure formulas/bucketing
+  - Test parity: service, controller, repository specs; `npm run check` passes
 
 ### In Progress 🔄
 
@@ -324,7 +339,7 @@ Status: ⏳ Pending user testing
 
 ### Pending ⏳
 
-- Phase 2-7: All remaining modules
+- Phase 6-7: Notifications & Team modules
 
 ---
 
