@@ -1,6 +1,29 @@
-# Sub-projects are separately versioned git repos
-sales-backend/
-sales-frontend/
+# Dependencies
+node_modules
+.pnp
+.pnp.*
+
+# Build outputs
+dist
+.next
+out
+build
+coverage
+*.tsbuildinfo
+
+# Turborepo
+.turbo
+
+# Environment (per-app .gitignore files also guard apps/backend and apps/web)
+.env
+.env.*
+!.env.example
+!.env.original
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
 
 # Editor / OS
 .DS_Store
