@@ -1,0 +1,3 @@
+# Preserve per-app git histories in a monorepo via git subtree
+
+The two apps (`sales-backend`, `sales-frontend`) were independent git repositories before being merged into this monorepo. We grafted their full histories into `apps/backend` and `apps/web` with `git subtree add` (no squash) rather than starting fresh, so `git log` on any file still tells the real story. Rejected alternative: a fresh root history — cheaper to build but loses all commit context, and rewriting history is effectively irreversible once others rely on it. The old GitHub repos (`Lukman10a/sales-backend`, `Lukman10a/sales`) remain as read-only archives.

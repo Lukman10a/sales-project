@@ -63,7 +63,7 @@ describe('InventoryRepository', () => {
       const reloaded = { id: 'i1', quantity: 5, status: 'in-stock' } as never;
       const findOne = jest
         .spyOn(repository, 'findOne')
-        .mockResolvedValue(reloaded as InventoryItem);
+        .mockResolvedValue(reloaded);
 
       const result = await repository.decrementStock('i1', 'b1', 2);
 

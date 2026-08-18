@@ -11,6 +11,10 @@ build
 coverage
 *.tsbuildinfo
 
+# Temporary pre-merge source repos (cut after first green CI run)
+sales-backend/
+sales-frontend/
+
 # Turborepo
 .turbo
 
@@ -18,7 +22,6 @@ coverage
 .env
 .env.*
 !.env.example
-!.env.original
 
 # Logs
 *.log

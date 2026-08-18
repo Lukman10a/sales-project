@@ -162,7 +162,7 @@ export class ProfileService {
       profile.notificationPreferences = {
         ...profile.notificationPreferences,
         ...updatePreferencesDto.notificationPreferences,
-      } as typeof profile.notificationPreferences;
+      };
     }
 
     // Merge appearance settings
@@ -170,7 +170,7 @@ export class ProfileService {
       profile.appearanceSettings = {
         ...profile.appearanceSettings,
         ...updatePreferencesDto.appearanceSettings,
-      } as typeof profile.appearanceSettings;
+      };
     }
 
     await this.profilesRepository.save(profile);

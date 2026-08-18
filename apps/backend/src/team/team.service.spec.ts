@@ -119,7 +119,7 @@ describe('TeamService', () => {
     it('throws BadRequestException when a user with the email already exists', async () => {
       usersRepository.findByEmail.mockResolvedValue({
         id: 'existing',
-      } as unknown as User);
+      });
 
       await expect(service.inviteMember(ownerUser, dto)).rejects.toBeInstanceOf(
         BadRequestException,
@@ -191,16 +191,16 @@ describe('TeamService', () => {
       usersRepository.findByEmail.mockResolvedValue(null);
       teamRepository.createUser.mockReturnValue({
         id: 'u2',
-      } as unknown as User);
+      });
       teamRepository.saveUser.mockResolvedValue({
         id: 'u2',
-      } as unknown as User);
+      });
       teamRepository.createMember.mockReturnValue({
         id: 'm1',
-      } as unknown as TeamMember);
+      });
       teamRepository.saveMember.mockResolvedValue({
         id: 'm1',
-      } as unknown as TeamMember);
+      });
       teamRepository.transaction.mockImplementation(
         async (fn: (manager: never) => Promise<unknown>) => fn({} as never),
       );
@@ -217,16 +217,16 @@ describe('TeamService', () => {
       usersRepository.findByEmail.mockResolvedValue(null);
       teamRepository.createUser.mockReturnValue({
         id: 'u2',
-      } as unknown as User);
+      });
       teamRepository.saveUser.mockResolvedValue({
         id: 'u2',
-      } as unknown as User);
+      });
       teamRepository.createMember.mockReturnValue({
         id: 'm1',
-      } as unknown as TeamMember);
+      });
       teamRepository.saveMember.mockResolvedValue({
         id: 'm1',
-      } as unknown as TeamMember);
+      });
       teamRepository.transaction.mockImplementation(
         async (fn: (manager: never) => Promise<unknown>) => fn({} as never),
       );

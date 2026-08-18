@@ -1,12 +1,13 @@
 {
-  "name": "luxa-sales",
+  "name": "@luxa/web",
   "private": true,
   "version": "0.0.0",
   "scripts": {
     "dev": "next dev --turbo",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "check": "lint && build"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

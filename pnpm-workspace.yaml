@@ -1,0 +1,7 @@
+packages:
+  - "apps/*"
+
+onlyBuiltDependencies:
+  - bcrypt
+  - sharp
+  - unrs-resolver

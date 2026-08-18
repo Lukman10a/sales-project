@@ -125,9 +125,9 @@ describe('InventoryService', () => {
         quantity: 2,
         reorderPoint: 5,
       };
-      repository.create.mockReturnValue({} as InventoryItem);
+      repository.create.mockReturnValue({});
       repository.save.mockImplementation((e: InventoryItem) =>
-        Promise.resolve({ ...e, id: 'i1' } as InventoryItem),
+        Promise.resolve({ ...e, id: 'i1' }),
       );
 
       const result = await service.create(user, dto);

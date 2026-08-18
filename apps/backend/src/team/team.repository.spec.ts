@@ -223,7 +223,7 @@ describe('TeamRepository', () => {
       const saved = {
         ...member,
         permissions: ['view-products'],
-      } as TeamMember;
+      };
       managerMock.save.mockResolvedValue(saved);
 
       const result = await repository.updatePermissions(member, [
