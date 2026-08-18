@@ -101,7 +101,7 @@ flowchart LR
   }
   ```
 - **Error Handling**: Use NestJS standard exceptions (`NotFoundException`, `BadRequestException`, `ForbiddenException`, `UnauthorizedException`, `ConflictException`).
-- **Global Route Prefix**: All routes are prefixed with `/api` configured in `main.ts`.
+- **Global Route Prefix**: none — routes are served at the root (no `/api` prefix in `main.ts`).
 
 ---
 

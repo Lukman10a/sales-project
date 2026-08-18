@@ -33,8 +33,8 @@ JWT_SECRET=dev_jwt_secret_key_12345678901234567890123456789012
 JWT_REFRESH_SECRET=dev_refresh_secret_key_12345678901234567890123456789012
 JWT_EXPIRATION=15m
 JWT_REFRESH_EXPIRATION=7d
-PORT=3001
-FRONTEND_URL=http://localhost:5173
+PORT=4000
+FRONTEND_URL=http://localhost:3000
 ```
 
 ### 3. Start the Server
@@ -47,7 +47,7 @@ npm run start:dev
 You should see:
 
 ```
-🚀 Server running on http://localhost:3001/api
+🚀 Server running on http://localhost:4000
 ```
 
 ---
@@ -56,7 +56,7 @@ You should see:
 
 ### Test 1.1: Register New User ✅
 
-**Endpoint:** `POST /api/auth/register`
+**Endpoint:** `POST /auth/register`
 
 **Request Body:**
 
@@ -73,7 +73,7 @@ You should see:
 **cURL Command:**
 
 ```bash
-curl -X POST http://localhost:3001/api/auth/register \
+curl -X POST http://localhost:4000/auth/register \
   -H "Content-Type: application/json" \
   -d '{"email":"john@primebusiness.com","password":"Password123!","firstName":"John","lastName":"Doe","businessName":"Prime Store"}'
 ```
@@ -108,17 +108,17 @@ curl -X POST http://localhost:3001/api/auth/register \
 
 ```bash
 # Test duplicate email (should return 400)
-curl -X POST http://localhost:3001/api/auth/register \
+curl -X POST http://localhost:4000/auth/register \
   -H "Content-Type: application/json" \
   -d '{"email":"john@primebusiness.com","password":"Password123!","firstName":"Jane","lastName":"Smith","businessName":"Another Store"}'
 
 # Test weak password (should return 400)
-curl -X POST http://localhost:3001/api/auth/register \
+curl -X POST http://localhost:4000/auth/register \
   -H "Content-Type: application/json" \
   -d '{"email":"test@test.com","password":"weak","firstName":"Test","lastName":"User","businessName":"Test Store"}'
 
 # Test invalid email (should return 400)
-curl -X POST http://localhost:3001/api/auth/register \
+curl -X POST http://localhost:4000/auth/register \
   -H "Content-Type: application/json" \
   -d '{"email":"not-an-email","password":"Password123!","firstName":"Test","lastName":"User","businessName":"Test Store"}'
 ```
@@ -135,7 +135,7 @@ export REFRESH_TOKEN="your_refresh_token_here"
 
 ### Test 1.2: Login with Credentials ✅
 
-**Endpoint:** `POST /api/auth/login`
+**Endpoint:** `POST /auth/login`
 
 **Request Body:**
 
@@ -149,7 +149,7 @@ export REFRESH_TOKEN="your_refresh_token_here"
 **cURL Command:**
 
 ```bash
-curl -X POST http://localhost:3001/api/auth/login \
+curl -X POST http://localhost:4000/auth/login \
   -H "Content-Type: application/json" \
   -d '{"email":"john@primebusiness.com","password":"Password123!"}'
 ```
@@ -182,12 +182,12 @@ curl -X POST http://localhost:3001/api/auth/login \
 
 ```bash
 # Test wrong password (should return 401)
-curl -X POST http://localhost:3001/api/auth/login \
+curl -X POST http://localhost:4000/auth/login \
   -H "Content-Type: application/json" \
   -d '{"email":"john@primebusiness.com","password":"WrongPassword123!"}'
 
 # Test non-existent email (should return 401)
-curl -X POST http://localhost:3001/api/auth/login \
+curl -X POST http://localhost:4000/auth/login \
   -H "Content-Type: application/json" \
   -d '{"email":"nonexistent@email.com","password":"Password123!"}'
 ```
@@ -196,7 +196,7 @@ curl -X POST http://localhost:3001/api/auth/login \
 
 ### Test 1.3: Get Current User (Protected Route) ✅
 
-**Endpoint:** `GET /api/auth/me`
+**Endpoint:** `GET /auth/me`
 
 **Headers Required:**
 
@@ -207,7 +207,7 @@ Authorization: Bearer {access_token}
 **cURL Command:**
 
 ```bash
-curl -X GET http://localhost:3001/api/auth/me \
+curl -X GET http://localhost:4000/auth/me \
   -H "Authorization: Bearer $ACCESS_TOKEN"
 ```
 
@@ -232,10 +232,10 @@ curl -X GET http://localhost:3001/api/auth/me \
 
 ```bash
 # Test without token (should return 401)
-curl -X GET http://localhost:3001/api/auth/me
+curl -X GET http://localhost:4000/auth/me
 
 # Test with invalid token (should return 401)
-curl -X GET http://localhost:3001/api/auth/me \
+curl -X GET http://localhost:4000/auth/me \
   -H "Authorization: Bearer invalid_token_here"
 ```
 
@@ -243,7 +243,7 @@ curl -X GET http://localhost:3001/api/auth/me \
 
 ### Test 1.4: Refresh Access Token ✅
 
-**Endpoint:** `POST /api/auth/refresh`
+**Endpoint:** `POST /auth/refresh`
 
 **Request Body:**
 
@@ -256,7 +256,7 @@ curl -X GET http://localhost:3001/api/auth/me \
 **cURL Command:**
 
 ```bash
-curl -X POST http://localhost:3001/api/auth/refresh \
+curl -X POST http://localhost:4000/auth/refresh \
   -H "Content-Type: application/json" \
   -d "{\"refreshToken\":\"$REFRESH_TOKEN\"}"
 ```
@@ -288,7 +288,7 @@ curl -X POST http://localhost:3001/api/auth/refresh \
 
 ```bash
 # Test with invalid refresh token (should return 401)
-curl -X POST http://localhost:3001/api/auth/refresh \
+curl -X POST http://localhost:4000/auth/refresh \
   -H "Content-Type: application/json" \
   -d '{"refreshToken":"invalid_refresh_token"}'
 
@@ -300,7 +300,7 @@ curl -X POST http://localhost:3001/api/auth/refresh \
 
 ### Test 1.5: Logout ✅
 
-**Endpoint:** `POST /api/auth/logout`
+**Endpoint:** `POST /auth/logout`
 
 **Headers Required:**
 
@@ -311,7 +311,7 @@ Authorization: Bearer {access_token}
 **cURL Command:**
 
 ```bash
-curl -X POST http://localhost:3001/api/auth/logout \
+curl -X POST http://localhost:4000/auth/logout \
   -H "Authorization: Bearer $ACCESS_TOKEN"
 ```
 
@@ -347,7 +347,7 @@ If you prefer Postman, import this collection:
       "request": {
         "method": "POST",
         "header": [{ "key": "Content-Type", "value": "application/json" }],
-        "url": "http://localhost:3001/api/auth/register",
+        "url": "http://localhost:4000/auth/register",
         "body": {
           "mode": "raw",
           "raw": "{\n  \"email\": \"john@primebusiness.com\",\n  \"password\": \"Password123!\",\n  \"firstName\": \"John\",\n  \"lastName\": \"Doe\",\n  \"businessName\": \"Prime Store\"\n}"
@@ -359,7 +359,7 @@ If you prefer Postman, import this collection:
       "request": {
         "method": "POST",
         "header": [{ "key": "Content-Type", "value": "application/json" }],
-        "url": "http://localhost:3001/api/auth/login",
+        "url": "http://localhost:4000/auth/login",
         "body": {
           "mode": "raw",
           "raw": "{\n  \"email\": \"john@primebusiness.com\",\n  \"password\": \"Password123!\"\n}"
@@ -373,7 +373,7 @@ If you prefer Postman, import this collection:
         "header": [
           { "key": "Authorization", "value": "Bearer {{access_token}}" }
         ],
-        "url": "http://localhost:3001/api/auth/me"
+        "url": "http://localhost:4000/auth/me"
       }
     },
     {
@@ -381,7 +381,7 @@ If you prefer Postman, import this collection:
       "request": {
         "method": "POST",
         "header": [{ "key": "Content-Type", "value": "application/json" }],
-        "url": "http://localhost:3001/api/auth/refresh",
+        "url": "http://localhost:4000/auth/refresh",
         "body": {
           "mode": "raw",
           "raw": "{\n  \"refreshToken\": \"{{refresh_token}}\"\n}"
@@ -395,7 +395,7 @@ If you prefer Postman, import this collection:
         "header": [
           { "key": "Authorization", "value": "Bearer {{access_token}}" }
         ],
-        "url": "http://localhost:3001/api/auth/logout"
+        "url": "http://localhost:4000/auth/logout"
       }
     }
   ]
@@ -422,9 +422,9 @@ psql -U postgres -d luxa_sales -c "SELECT 1"
 ### Port Already in Use
 
 ```bash
-# Kill process on port 3001
+# Kill process on port 4000
 # Windows PowerShell:
-Get-Process -Id (Get-NetTCPConnection -LocalPort 3001).OwningProcess | Stop-Process
+Get-Process -Id (Get-NetTCPConnection -LocalPort 4000).OwningProcess | Stop-Process
 
 # Or change PORT in .env file
 PORT=3002
@@ -444,7 +444,7 @@ npm install
 
 Before moving to Phase 2, verify:
 
-- [ ] ✅ Server starts successfully on port 3001
+- [ ] ✅ Server starts successfully on port 4000
 - [ ] ✅ Database tables created (users table exists)
 - [ ] ✅ Register endpoint creates new users
 - [ ] ✅ Login endpoint authenticates successfully

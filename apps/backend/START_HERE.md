@@ -28,11 +28,11 @@ backend/
 
 ### 2. Authentication Endpoints (Phase 1)
 
-- ✅ `POST /api/auth/register` - Create new business account
-- ✅ `POST /api/auth/login` - Authenticate user
-- ✅ `POST /api/auth/refresh` - Refresh access token
-- ✅ `POST /api/auth/logout` - Logout user
-- ✅ `GET /api/auth/me` - Get current user
+- ✅ `POST /auth/register` - Create new business account
+- ✅ `POST /auth/login` - Authenticate user
+- ✅ `POST /auth/refresh` - Refresh access token
+- ✅ `POST /auth/logout` - Logout user
+- ✅ `GET /auth/me` - Get current user
 
 ### 3. Security Features
 
@@ -96,7 +96,7 @@ npm run start:dev
 **Expected Output:**
 
 ```
-🚀 Server running on http://localhost:3001/api
+🚀 Server running on http://localhost:4000
 ```
 
 ### Step 4: Test the Authentication Endpoints
@@ -104,7 +104,7 @@ npm run start:dev
 **Quick Test - Register a User:**
 
 ```bash
-curl -X POST http://localhost:3001/api/auth/register \
+curl -X POST http://localhost:4000/auth/register \
   -H "Content-Type: application/json" \
   -d '{"email":"test@business.com","password":"Password123!","firstName":"John","lastName":"Doe","businessName":"Test Store"}'
 ```
@@ -185,7 +185,7 @@ docker ps | grep luxa-postgres
 docker start luxa-postgres
 ```
 
-### Issue: "Port 3001 already in use"
+### Issue: "Port 4000 already in use"
 
 **Solution:** Change port in `.env`
 
@@ -233,7 +233,7 @@ cd backend
 npm run start:dev
 
 # Test register endpoint
-curl -X POST http://localhost:3001/api/auth/register \
+curl -X POST http://localhost:4000/auth/register \
   -H "Content-Type: application/json" \
   -d '{"email":"test@business.com","password":"Password123!","firstName":"John","lastName":"Doe","businessName":"Test Store"}'
 

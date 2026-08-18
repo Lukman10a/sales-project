@@ -37,7 +37,7 @@ export class TeamController {
 
   /**
    * List all team members for the current business
-   * GET /api/team?page=1&limit=20&role=manager&status=active
+   * GET /team?page=1&limit=20&role=manager&status=active
    * Requires: owner | manager with assign-roles
    */
   @Get()
@@ -53,7 +53,7 @@ export class TeamController {
 
   /**
    * Get a single team member's details
-   * GET /api/team/:id
+   * GET /team/:id
    * Requires: authenticated
    */
   @Get(':id')
@@ -67,7 +67,7 @@ export class TeamController {
 
   /**
    * Invite a new member (creates User + TeamMember atomically)
-   * POST /api/team
+   * POST /team
    * Requires: owner | manager with assign-roles
    */
   @Post()
@@ -85,7 +85,7 @@ export class TeamController {
 
   /**
    * Update a member's role, status, or department
-   * PATCH /api/team/:id
+   * PATCH /team/:id
    * Requires: owner | manager with assign-roles
    */
   @Patch(':id')
@@ -103,7 +103,7 @@ export class TeamController {
 
   /**
    * Update a member's granular permissions array
-   * PATCH /api/team/:id/permissions
+   * PATCH /team/:id/permissions
    * Requires: owner | manager with assign-roles
    */
   @Patch(':id/permissions')
@@ -121,7 +121,7 @@ export class TeamController {
 
   /**
    * Remove a team member
-   * DELETE /api/team/:id
+   * DELETE /team/:id
    * Requires: owner only
    */
   @Delete(':id')

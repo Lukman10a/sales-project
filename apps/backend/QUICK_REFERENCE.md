@@ -16,7 +16,7 @@ docker run -d --name luxa-postgres -e POSTGRES_PASSWORD=password -e POSTGRES_DB=
 cd backend && npm run start:dev
 
 # 3. Test Registration
-curl -X POST http://localhost:3001/api/auth/register -H "Content-Type: application/json" -d '{"email":"test@business.com","password":"Password123!","firstName":"John","lastName":"Doe","businessName":"Test Store"}'
+curl -X POST http://localhost:4000/auth/register -H "Content-Type: application/json" -d '{"email":"test@business.com","password":"Password123!","firstName":"John","lastName":"Doe","businessName":"Test Store"}'
 ```
 
 ---
@@ -38,11 +38,11 @@ backend/
 
 | Method | Endpoint             | Purpose          | Auth Required |
 | ------ | -------------------- | ---------------- | ------------- |
-| POST   | `/api/auth/register` | Create account   | ❌            |
-| POST   | `/api/auth/login`    | Get JWT tokens   | ❌            |
-| POST   | `/api/auth/refresh`  | Refresh token    | ❌            |
-| POST   | `/api/auth/logout`   | Logout           | ✅            |
-| GET    | `/api/auth/me`       | Get current user | ✅            |
+| POST   | `/auth/register` | Create account   | ❌            |
+| POST   | `/auth/login`    | Get JWT tokens   | ❌            |
+| POST   | `/auth/refresh`  | Refresh token    | ❌            |
+| POST   | `/auth/logout`   | Logout           | ✅            |
+| GET    | `/auth/me`       | Get current user | ✅            |
 
 ---
 
@@ -61,7 +61,7 @@ backend/
 ## 📋 Completion Checklist
 
 - [ ] PostgreSQL running
-- [ ] Server starts on port 3001
+- [ ] Server starts on port 4000
 - [ ] Register endpoint creates users
 - [ ] Login returns JWT tokens
 - [ ] Protected routes require auth
@@ -122,7 +122,7 @@ npm run test
 docker start luxa-postgres
 ```
 
-**Port 3001 in use?**
+**Port 4000 in use?**
 
 ```env
 # Change in backend/.env
@@ -155,7 +155,7 @@ npm install
 **Backend:** `backend/.env`
 
 ```env
-PORT=3001
+PORT=4000
 JWT_SECRET=dev_jwt_secret_key...
 DATABASE_URL=postgresql://...
 ```
@@ -187,6 +187,6 @@ DATABASE_URL=postgresql://...
 
 ---
 
-**Server URL:** http://localhost:3001/api  
+**Server URL:** http://localhost:4000  
 **Database:** postgresql://localhost:5432/luxa_sales  
 **Status:** ✅ Ready for Testing!

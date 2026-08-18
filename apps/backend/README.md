@@ -86,8 +86,8 @@ Edit `.env` with your database credentials:
 DATABASE_URL=postgresql://postgres:password@localhost:5432/luxa_sales
 JWT_SECRET=your_super_secret_jwt_key_change_this_in_production
 JWT_REFRESH_SECRET=your_super_secret_refresh_key_change_this_in_production
-PORT=3001
-FRONTEND_URL=http://localhost:5173
+PORT=4000
+FRONTEND_URL=http://localhost:3000
 ```
 
 ### 5. Run Development Server
@@ -96,7 +96,7 @@ FRONTEND_URL=http://localhost:5173
 npm run start:dev
 ```
 
-Server will start at: **http://localhost:3001/api**
+Server will start at: **http://localhost:4000**
 
 ## Development Phases
 
@@ -106,11 +106,11 @@ The backend is developed in incremental phases with comprehensive testing betwee
 
 **Endpoints:**
 
-- `POST /api/auth/register` - Register new business account
-- `POST /api/auth/login` - Authenticate user
-- `POST /api/auth/refresh` - Refresh access token
-- `POST /api/auth/logout` - Logout user
-- `GET /api/auth/me` - Get current user
+- `POST /auth/register` - Register new business account
+- `POST /auth/login` - Authenticate user
+- `POST /auth/refresh` - Refresh access token
+- `POST /auth/logout` - Logout user
+- `GET /auth/me` - Get current user
 
 **Testing Guide:** See [PHASE1_TESTING.md](./PHASE1_TESTING.md)
 
@@ -181,17 +181,17 @@ npm run format             # Format with Prettier
 
 ```bash
 # Register a new user
-curl -X POST http://localhost:3001/api/auth/register \
+curl -X POST http://localhost:4000/auth/register \
   -H "Content-Type: application/json" \
   -d '{"email":"john@business.com","password":"Password123!","firstName":"John","lastName":"Doe","businessName":"Prime Store"}'
 
 # Login
-curl -X POST http://localhost:3001/api/auth/login \
+curl -X POST http://localhost:4000/auth/login \
   -H "Content-Type: application/json" \
   -d '{"email":"john@business.com","password":"Password123!"}'
 
 # Get current user (requires token)
-curl -X GET http://localhost:3001/api/auth/me \
+curl -X GET http://localhost:4000/auth/me \
   -H "Authorization: Bearer YOUR_ACCESS_TOKEN_HERE"
 ```
 
@@ -232,9 +232,9 @@ Import the Postman collection from [PHASE1_TESTING.md](./PHASE1_TESTING.md)
 | `JWT_REFRESH_SECRET`     | JWT refresh token secret (min 32 chars) | -                     |
 | `JWT_EXPIRATION`         | Access token expiration                 | 15m                   |
 | `JWT_REFRESH_EXPIRATION` | Refresh token expiration                | 7d                    |
-| `PORT`                   | Server port                             | 3001                  |
+| `PORT`                   | Server port                             | 4000                  |
 | `NODE_ENV`               | Environment mode                        | development           |
-| `FRONTEND_URL`           | Frontend URL for CORS                   | http://localhost:5173 |
+| `FRONTEND_URL`           | Frontend URL for CORS                   | http://localhost:3000 |
 | `LOG_LEVEL`              | Logging level                           | debug                 |
 
 ## Security Features
@@ -308,8 +308,8 @@ psql -U postgres -d luxa_sales -h localhost -p 5432
 # Change port in .env
 PORT=3002
 
-# Or kill process on port 3001 (Windows PowerShell)
-Get-Process -Id (Get-NetTCPConnection -LocalPort 3001).OwningProcess | Stop-Process
+# Or kill process on port 4000 (Windows PowerShell)
+Get-Process -Id (Get-NetTCPConnection -LocalPort 4000).OwningProcess | Stop-Process
 ```
 
 ### Module Not Found

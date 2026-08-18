@@ -38,7 +38,7 @@ export class InventoryController {
 
   /**
    * List inventory with pagination, category/status/search filter, and sort
-   * GET /api/inventory
+   * GET /inventory
    * Requires: view-inventory OR view-products
    */
   @Get()
@@ -54,7 +54,7 @@ export class InventoryController {
 
   /**
    * Get single product by ID (must match businessId)
-   * GET /api/inventory/:id
+   * GET /inventory/:id
    * Requires: Bearer token
    */
   @Get(':id')
@@ -68,7 +68,7 @@ export class InventoryController {
 
   /**
    * Create product (auto-calculates initial status)
-   * POST /api/inventory
+   * POST /inventory
    * Requires: edit-inventory OR edit-products
    */
   @Post()
@@ -85,7 +85,7 @@ export class InventoryController {
 
   /**
    * Update product & recalculate status
-   * PATCH /api/inventory/:id
+   * PATCH /inventory/:id
    * Requires: edit-inventory OR edit-products
    */
   @Patch(':id')
@@ -102,7 +102,7 @@ export class InventoryController {
 
   /**
    * Delete product
-   * DELETE /api/inventory/:id
+   * DELETE /inventory/:id
    * Requires: delete-products
    */
   @Delete(':id')
@@ -117,7 +117,7 @@ export class InventoryController {
 
   /**
    * Reduce stock; emits inventory.low-stock if low
-   * POST /api/inventory/:id/decrement
+   * POST /inventory/:id/decrement
    * Requires: record-sales
    */
   @Post(':id/decrement')
@@ -135,7 +135,7 @@ export class InventoryController {
 
   /**
    * Parse CSV/JSON file and batch create/update items
-   * POST /api/inventory/bulk-import
+   * POST /inventory/bulk-import
    * Requires: edit-inventory OR owner
    */
   @Post('bulk-import')

@@ -21,7 +21,7 @@ export class NotificationsController {
 
   /**
    * List the current user's notifications with type/read filters and unread count
-   * GET /api/notifications?type=inventory&read=false&page=1&limit=20
+   * GET /notifications?type=inventory&read=false&page=1&limit=20
    * Requires: authenticated
    */
   @Get()
@@ -36,7 +36,7 @@ export class NotificationsController {
 
   /**
    * Mark a single notification as read
-   * PATCH /api/notifications/:id/read
+   * PATCH /notifications/:id/read
    * Requires: authenticated
    */
   @Patch(':id/read')
@@ -50,7 +50,7 @@ export class NotificationsController {
 
   /**
    * Delete a notification
-   * DELETE /api/notifications/:id
+   * DELETE /notifications/:id
    * Requires: authenticated
    */
   @Delete(':id')
@@ -64,7 +64,7 @@ export class NotificationsController {
 
   /**
    * Mark all of the current user's notifications as read
-   * POST /api/notifications/mark-all-read
+   * POST /notifications/mark-all-read
    * Requires: authenticated
    */
   @Post('mark-all-read')

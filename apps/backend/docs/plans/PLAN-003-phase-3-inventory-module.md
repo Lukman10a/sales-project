@@ -44,13 +44,13 @@ src/
 
 | Method | Endpoint | Permissions / Roles | Description |
 | :--- | :--- | :--- | :--- |
-| `GET` | `/api/inventory` | `view-inventory` \| `view-products` | List products with pagination, category/status/search, sort |
-| `GET` | `/api/inventory/:id`| Authenticated | Get single product by ID (must match `businessId`) |
-| `POST` | `/api/inventory` | `edit-inventory` \| `edit-products` | Create product (auto status calculate) |
-| `PATCH` | `/api/inventory/:id`| `edit-inventory` \| `edit-products` | Update product details & recalculate status |
-| `DELETE`| `/api/inventory/:id`| `delete-products` | Delete product |
-| `POST` | `/api/inventory/:id/decrement` | `record-sales` | Reduce stock; emit `inventory.low-stock` if low |
-| `POST` | `/api/inventory/bulk-import` | `edit-inventory` \| `owner` | Parse CSV/JSON and bulk create/update items |
+| `GET` | `/inventory` | `view-inventory` \| `view-products` | List products with pagination, category/status/search, sort |
+| `GET` | `/inventory/:id`| Authenticated | Get single product by ID (must match `businessId`) |
+| `POST` | `/inventory` | `edit-inventory` \| `edit-products` | Create product (auto status calculate) |
+| `PATCH` | `/inventory/:id`| `edit-inventory` \| `edit-products` | Update product details & recalculate status |
+| `DELETE`| `/inventory/:id`| `delete-products` | Delete product |
+| `POST` | `/inventory/:id/decrement` | `record-sales` | Reduce stock; emit `inventory.low-stock` if low |
+| `POST` | `/inventory/bulk-import` | `edit-inventory` \| `owner` | Parse CSV/JSON and bulk create/update items |
 
 ---
 

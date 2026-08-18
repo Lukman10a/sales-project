@@ -57,11 +57,11 @@ LUXA/
 
 **5 Endpoints:**
 
-1. `POST /api/auth/register` - Create new business account
-2. `POST /api/auth/login` - Authenticate with email/password
-3. `POST /api/auth/refresh` - Get new access token
-4. `POST /api/auth/logout` - Invalidate session
-5. `GET /api/auth/me` - Get current authenticated user
+1. `POST /auth/register` - Create new business account
+2. `POST /auth/login` - Authenticate with email/password
+3. `POST /auth/refresh` - Get new access token
+4. `POST /auth/logout` - Invalidate session
+5. `GET /auth/me` - Get current authenticated user
 
 **Security Features:**
 
@@ -124,7 +124,7 @@ npm run start:dev
 **Expected Output:**
 
 ```
-🚀 Server running on http://localhost:3001/api
+🚀 Server running on http://localhost:4000
 ```
 
 ### 3. Test the Endpoints
@@ -132,7 +132,7 @@ npm run start:dev
 **Quick Test - Register a User:**
 
 ```bash
-curl -X POST http://localhost:3001/api/auth/register \
+curl -X POST http://localhost:4000/auth/register \
   -H "Content-Type: application/json" \
   -d '{"email":"test@business.com","password":"Password123!","firstName":"John","lastName":"Doe","businessName":"Test Store"}'
 ```
@@ -171,7 +171,7 @@ See [PHASE1_TESTING.md](./PHASE1_TESTING.md) for comprehensive testing instructi
 Before moving to Phase 2, verify:
 
 - [ ] ✅ PostgreSQL database is running
-- [ ] ✅ Backend server starts on port 3001
+- [ ] ✅ Backend server starts on port 4000
 - [ ] ✅ Users table created in database
 - [ ] ✅ Register endpoint creates users successfully
 - [ ] ✅ Login returns valid JWT tokens
@@ -203,9 +203,9 @@ JWT_SECRET=dev_jwt_secret_key_12345678901234567890123456789012
 JWT_REFRESH_SECRET=dev_refresh_secret_key_12345678901234567890123456789012
 JWT_EXPIRATION=15m
 JWT_REFRESH_EXPIRATION=7d
-PORT=3001
+PORT=4000
 NODE_ENV=development
-FRONTEND_URL=http://localhost:5173
+FRONTEND_URL=http://localhost:3000
 ```
 
 ### .gitignore (Git Exclusions)
@@ -242,7 +242,7 @@ FRONTEND_URL=http://localhost:5173
 
 ## Common Issues & Solutions
 
-### Issue: "Port 3001 already in use"
+### Issue: "Port 4000 already in use"
 
 **Solution:**
 
@@ -308,10 +308,10 @@ docker run -d --name luxa-postgres -e POSTGRES_PASSWORD=password -e POSTGRES_DB=
 cd backend && npm run start:dev
 
 # Test register endpoint
-curl -X POST http://localhost:3001/api/auth/register -H "Content-Type: application/json" -d '{"email":"test@business.com","password":"Password123!","firstName":"John","lastName":"Doe","businessName":"Test Store"}'
+curl -X POST http://localhost:4000/auth/register -H "Content-Type: application/json" -d '{"email":"test@business.com","password":"Password123!","firstName":"John","lastName":"Doe","businessName":"Test Store"}'
 
 # Test login endpoint
-curl -X POST http://localhost:3001/api/auth/login -H "Content-Type: application/json" -d '{"email":"test@business.com","password":"Password123!"}'
+curl -X POST http://localhost:4000/auth/login -H "Content-Type: application/json" -d '{"email":"test@business.com","password":"Password123!"}'
 
 # Check database
 psql -U postgres -d luxa_sales -c "SELECT * FROM users"

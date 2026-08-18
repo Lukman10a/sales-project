@@ -72,12 +72,12 @@ export type UpdatePermissionsDto = z.infer<typeof UpdatePermissionsDtoSchema>;
 
 | Method | Endpoint | Permissions / Roles | Description |
 | :--- | :--- | :--- | :--- |
-| `GET` | `/api/team` | `owner` \| `manager` (`assign-roles`) | List all team members for current business |
-| `GET` | `/api/team/:id` | Authenticated | Get single team member details |
-| `POST` | `/api/team` | `owner` \| `manager` (`assign-roles`) | Invite new member (creates User + TeamMember) |
-| `PATCH`| `/api/team/:id` | `owner` \| `manager` (`assign-roles`) | Update member role, status, or department |
-| `DELETE`| `/api/team/:id` | `owner` only | Remove team member |
-| `PATCH`| `/api/team/:id/permissions` | `owner` \| `manager` (`assign-roles`) | Update granular permissions array |
+| `GET` | `/team` | `owner` \| `manager` (`assign-roles`) | List all team members for current business |
+| `GET` | `/team/:id` | Authenticated | Get single team member details |
+| `POST` | `/team` | `owner` \| `manager` (`assign-roles`) | Invite new member (creates User + TeamMember) |
+| `PATCH`| `/team/:id` | `owner` \| `manager` (`assign-roles`) | Update member role, status, or department |
+| `DELETE`| `/team/:id` | `owner` only | Remove team member |
+| `PATCH`| `/team/:id/permissions` | `owner` \| `manager` (`assign-roles`) | Update granular permissions array |
 
 ---
 
@@ -140,7 +140,7 @@ async inviteMember(user: CurrentUserPayload, inviteDto: InviteMemberDto) {
 
 ## 5. Verification Checklist
 
-- [x] Non-owners and unauthorized staff cannot access `/api/team` management endpoints.
+- [x] Non-owners and unauthorized staff cannot access `/team` management endpoints.
 - [x] Inviting a member creates both a `User` entity (with `businessId`) and a `TeamMember` entity atomically.
 - [x] Member deletion is strictly restricted to `owner`.
 - [x] Permissions array updates take effect immediately in the database.

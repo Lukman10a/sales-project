@@ -10,7 +10,7 @@
 ## 1. Objectives
 
 1. Audit existing `src/profile/` implementation against `SPEC-001` (partially complete under PLAN-001).
-2. Implement `POST /api/profile/avatar` for avatar image uploads (multipart file / base64).
+2. Implement `POST /profile/avatar` for avatar image uploads (multipart file / base64).
 3. Ensure profile and user settings (notification preferences, appearance settings) are properly isolated by `userId`.
 4. Create comprehensive unit tests (`profile.service.spec.ts`, `profile.controller.spec.ts`, `user-profiles.repository.spec.ts`) validating all profile operations.
 5. Update documentation and progress trackers (`PHASES.md`).
@@ -74,11 +74,11 @@ export class UserProfileRepository extends Repository<UserProfile> {
 
 | Method | Endpoint | Guard | Description |
 | :--- | :--- | :--- | :--- |
-| `GET` | `/api/profile` | `JwtAuthGuard` | Fetch authenticated user profile & preferences |
-| `PATCH` | `/api/profile` | `JwtAuthGuard` | Update user names and profile details |
-| `POST` | `/api/profile/change-password` | `JwtAuthGuard` | Validate old password and update bcrypt hash |
-| `PATCH` | `/api/profile/preferences` | `JwtAuthGuard` | Update JSON notification & appearance settings |
-| `POST` | `/api/profile/avatar` | `JwtAuthGuard` | Upload and persist avatar image |
+| `GET` | `/profile` | `JwtAuthGuard` | Fetch authenticated user profile & preferences |
+| `PATCH` | `/profile` | `JwtAuthGuard` | Update user names and profile details |
+| `POST` | `/profile/change-password` | `JwtAuthGuard` | Validate old password and update bcrypt hash |
+| `PATCH` | `/profile/preferences` | `JwtAuthGuard` | Update JSON notification & appearance settings |
+| `POST` | `/profile/avatar` | `JwtAuthGuard` | Upload and persist avatar image |
 
 ---
 
@@ -100,9 +100,9 @@ export class UserProfileRepository extends Repository<UserProfile> {
 
 ## 5. Verification Checklist
 
-- [x] `GET /api/profile` returns full user profile and settings.
-- [x] `PATCH /api/profile` updates both `User` and `UserProfile` records.
-- [x] `POST /api/profile/change-password` verifies current password and securely re-hashes.
-- [x] `POST /api/profile/avatar` accepts a base64 image data URL and updates user avatar.
+- [x] `GET /profile` returns full user profile and settings.
+- [x] `PATCH /profile` updates both `User` and `UserProfile` records.
+- [x] `POST /profile/change-password` verifies current password and securely re-hashes.
+- [x] `POST /profile/avatar` accepts a base64 image data URL and updates user avatar.
 - [x] Test parity holds: `npm run check:tdd` reports 0 missing specs.
 - [x] Full gate passes: `npm run check` (lint, typecheck, arch, parity, unit, e2e, build).

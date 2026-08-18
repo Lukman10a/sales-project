@@ -17,7 +17,7 @@ export class AnalyticsController {
 
   /**
    * Summary metrics with period filtering and period-over-period trends
-   * GET /api/analytics/summary?period=today|week|month
+   * GET /analytics/summary?period=today|week|month
    * Requires: owner | manager
    */
   @Get('summary')
@@ -33,7 +33,7 @@ export class AnalyticsController {
 
   /**
    * Time-bucketed sales series for chart visualizations
-   * GET /api/analytics/sales-chart?period=today|week|month
+   * GET /analytics/sales-chart?period=today|week|month
    * Requires: owner | manager
    */
   @Get('sales-chart')
@@ -49,7 +49,7 @@ export class AnalyticsController {
 
   /**
    * Revenue & units grouped by product category
-   * GET /api/analytics/category-breakdown?period=today|week|month
+   * GET /analytics/category-breakdown?period=today|week|month
    * Requires: owner | manager
    */
   @Get('category-breakdown')
@@ -65,7 +65,7 @@ export class AnalyticsController {
 
   /**
    * Top selling products ranked by revenue & units
-   * GET /api/analytics/top-products?period=today|week|month
+   * GET /analytics/top-products?period=today|week|month
    * Requires: owner | manager
    */
   @Get('top-products')
@@ -86,7 +86,7 @@ export class DashboardController {
 
   /**
    * Complete dashboard overview: metrics, inventory breakdown, top products, recent sales
-   * GET /api/dashboard
+   * GET /dashboard
    * Requires: owner | manager
    */
   @Get()

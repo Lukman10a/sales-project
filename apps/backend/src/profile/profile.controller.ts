@@ -26,7 +26,7 @@ export class ProfileController {
 
   /**
    * Get current user profile
-   * GET /api/profile
+   * GET /profile
    * Requires: Bearer token
    */
   @Get()
@@ -36,7 +36,7 @@ export class ProfileController {
 
   /**
    * Update current user profile
-   * PATCH /api/profile
+   * PATCH /profile
    * Requires: Bearer token
    */
   @Patch()
@@ -50,7 +50,7 @@ export class ProfileController {
 
   /**
    * Change user password
-   * POST /api/profile/change-password
+   * POST /profile/change-password
    * Requires: Bearer token
    */
   @Post('change-password')
@@ -65,7 +65,7 @@ export class ProfileController {
 
   /**
    * Update notification and appearance preferences
-   * PATCH /api/profile/preferences
+   * PATCH /profile/preferences
    * Requires: Bearer token
    */
   @Patch('preferences')
@@ -79,7 +79,7 @@ export class ProfileController {
 
   /**
    * Upload current user avatar
-   * POST /api/profile/avatar
+   * POST /profile/avatar
    * Requires: Bearer token
    */
   @Post('avatar')

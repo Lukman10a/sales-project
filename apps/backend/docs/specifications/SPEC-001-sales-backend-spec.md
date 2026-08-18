@@ -2,7 +2,7 @@
 
 - **System:** LUXA Sales Backend
 - **Framework:** NestJS with TypeORM + PostgreSQL
-- **API Prefix:** `/api`
+- **API Prefix:** none — routes are served at the root (e.g. `/auth/register`)
 - **Specification Version:** 1.0.0
 - **Status:** Active / Source of Truth
 

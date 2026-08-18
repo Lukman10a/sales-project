@@ -41,10 +41,10 @@ src/
 
 | Method | Endpoint | Permissions / Roles | Description |
 | :--- | :--- | :--- | :--- |
-| `GET` | `/api/notifications` | Authenticated | List notifications, filter by type/read, unread count |
-| `PATCH`| `/api/notifications/:id/read` | Authenticated | Mark individual notification as read |
-| `DELETE`| `/api/notifications/:id` | Authenticated | Delete notification |
-| `POST` | `/api/notifications/mark-all-read` | Authenticated | Mark all notifications as read for current user |
+| `GET` | `/notifications` | Authenticated | List notifications, filter by type/read, unread count |
+| `PATCH`| `/notifications/:id/read` | Authenticated | Mark individual notification as read |
+| `DELETE`| `/notifications/:id` | Authenticated | Delete notification |
+| `POST` | `/notifications/mark-all-read` | Authenticated | Mark all notifications as read for current user |
 
 ---
 

@@ -9,9 +9,9 @@
 
 ## 1. Objectives
 
-1. Record sales transactions atomically (`POST /api/sales`) with multi-item stock validation, automatic inventory decrement, and total calculations.
+1. Record sales transactions atomically (`POST /sales`) with multi-item stock validation, automatic inventory decrement, and total calculations.
 2. List sales history with date range filtering (`dateFrom`, `dateTo`), payment method filter, status filter, and summary calculations (`totalSales`, `totalTransactions`, `averageTransaction`).
-3. Implement refund processing (`PATCH /api/sales/:id/refund`) that restores inventory quantities inside an atomic transaction.
+3. Implement refund processing (`PATCH /sales/:id/refund`) that restores inventory quantities inside an atomic transaction.
 4. Implement held/paused transactions (`HeldTransaction`) with 24-hour expiration lifecycles.
 5. Emit `sale.completed` and `inventory.low-stock` events.
 6. Write unit tests for all sales operations (service, controller, repository).
@@ -44,13 +44,13 @@ src/
 
 | Method | Endpoint | Permissions / Roles | Description |
 | :--- | :--- | :--- | :--- |
-| `POST` | `/api/sales` | `record-sales` | Record new sale, decrement stock atomically, emit events |
-| `GET` | `/api/sales` | `view-sales-history` | List sales history, pagination, summary totals |
-| `GET` | `/api/sales/:id` | `view-sales-history` | Get sale details with line items |
-| `PATCH`| `/api/sales/:id/refund` | `owner` \| `manager` | Process refund and restore stock quantities |
-| `POST` | `/api/sales/held` | `record-sales` | Create paused/held transaction (24h lifespan) |
-| `GET` | `/api/sales/held` | `record-sales` | List active held transactions |
-| `DELETE`| `/api/sales/held/:id`| `record-sales` | Remove/resolve held transaction |
+| `POST` | `/sales` | `record-sales` | Record new sale, decrement stock atomically, emit events |
+| `GET` | `/sales` | `view-sales-history` | List sales history, pagination, summary totals |
+| `GET` | `/sales/:id` | `view-sales-history` | Get sale details with line items |
+| `PATCH`| `/sales/:id/refund` | `owner` \| `manager` | Process refund and restore stock quantities |
+| `POST` | `/sales/held` | `record-sales` | Create paused/held transaction (24h lifespan) |
+| `GET` | `/sales/held` | `record-sales` | List active held transactions |
+| `DELETE`| `/sales/held/:id`| `record-sales` | Remove/resolve held transaction |
 
 ---
 
@@ -71,7 +71,7 @@ export class SalesRepository extends Repository<Sale> {
 }
 ```
 
-### 4.1 `POST /api/sales`
+### 4.1 `POST /sales`
 The service runs business logic inside the repository transaction wrapper:
 
 ```typescript
@@ -124,7 +124,7 @@ async create(user: CurrentUserPayload, createSaleDto: CreateSaleDto) {
 }
 ```
 
-### 4.2 `PATCH /api/sales/:id/refund`
+### 4.2 `PATCH /sales/:id/refund`
 ```typescript
 async refund(user: CurrentUserPayload, id: string, refundDto: RefundSaleDto) {
   return this.salesRepository.transaction(async (manager) => {

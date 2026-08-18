@@ -37,7 +37,7 @@ export class SalesController {
 
   /**
    * Record a new sale atomically, decrementing stock
-   * POST /api/sales
+   * POST /sales
    * Requires: record-sales
    */
   @Post()
@@ -54,7 +54,7 @@ export class SalesController {
 
   /**
    * List sales history with date/payment/status filters and summary
-   * GET /api/sales
+   * GET /sales
    * Requires: view-sales-history
    */
   @Get()
@@ -69,7 +69,7 @@ export class SalesController {
 
   /**
    * List active held transactions
-   * GET /api/sales/held
+   * GET /sales/held
    * Requires: record-sales
    */
   @Get('held')
@@ -81,7 +81,7 @@ export class SalesController {
 
   /**
    * Create a held/paused transaction (24h lifespan)
-   * POST /api/sales/held
+   * POST /sales/held
    * Requires: record-sales
    */
   @Post('held')
@@ -98,7 +98,7 @@ export class SalesController {
 
   /**
    * Remove/resolve a held transaction
-   * DELETE /api/sales/held/:id
+   * DELETE /sales/held/:id
    * Requires: record-sales
    */
   @Delete('held/:id')
@@ -113,7 +113,7 @@ export class SalesController {
 
   /**
    * Get a single sale with its line items
-   * GET /api/sales/:id
+   * GET /sales/:id
    * Requires: view-sales-history
    */
   @Get(':id')
@@ -128,7 +128,7 @@ export class SalesController {
 
   /**
    * Process a refund and restore inventory atomically
-   * PATCH /api/sales/:id/refund
+   * PATCH /sales/:id/refund
    * Requires: owner or manager
    */
   @Patch(':id/refund')
