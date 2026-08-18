@@ -1,0 +1,647 @@
+{
+  "project": "LUXA Sales Backend - NestJS Implementation",
+  "version": "1.0",
+  "date": "2026-02-09",
+  "status": "Ready for Development",
+  
+  "modules": {
+    "auth": {
+      "description": "User authentication and token management",
+      "endpoints": [
+        {
+          "id": "auth-1",
+          "method": "POST",
+          "path": "/auth/register",
+          "description": "Create new business account",
+          "access": "Public",
+          "testOrder": 1,
+          "request": {
+            "email": "owner@business.com",
+            "password": "SecurePass123!",
+            "firstName": "John",
+            "lastName": "Doe",
+            "businessName": "Prime Store"
+          },
+          "expectedResponse": {
+            "statusCode": 201,
+            "hasToken": true,
+            "hasRefreshToken": true
+          }
+        },
+        {
+          "id": "auth-2",
+          "method": "POST",
+          "path": "/auth/login",
+          "description": "Authenticate user",
+          "access": "Public",
+          "testOrder": 2,
+          "request": {
+            "email": "owner@business.com",
+            "password": "SecurePass123!"
+          },
+          "expectedResponse": {
+            "statusCode": 200,
+            "hasToken": true
+          }
+        },
+        {
+          "id": "auth-3",
+          "method": "POST",
+          "path": "/auth/refresh",
+          "description": "Get new access token",
+          "access": "Public",
+          "testOrder": 3,
+          "request": {
+            "refreshToken": "refresh_token_value"
+          },
+          "expectedResponse": {
+            "statusCode": 200,
+            "hasToken": true
+          }
+        },
+        {
+          "id": "auth-4",
+          "method": "POST",
+          "path": "/auth/logout",
+          "description": "Invalidate tokens",
+          "access": "Authenticated",
+          "testOrder": 100
+        }
+      ]
+    },
+    "profile": {
+      "description": "User profile and settings management",
+      "endpoints": [
+        {
+          "id": "prof-1",
+          "method": "GET",
+          "path": "/profile",
+          "description": "Get current user profile",
+          "access": "Authenticated",
+          "testOrder": 4
+        },
+        {
+          "id": "prof-2",
+          "method": "PATCH",
+          "path": "/profile",
+          "description": "Update current user profile",
+          "access": "Authenticated",
+          "testOrder": 5,
+          "request": {
+            "firstName": "John",
+            "phone": "+234-xxx-xxx",
+            "address": "123 Main St"
+          }
+        },
+        {
+          "id": "prof-3",
+          "method": "PATCH",
+          "path": "/profile/preferences",
+          "description": "Update notification preferences",
+          "access": "Authenticated",
+          "testOrder": 25
+        },
+        {
+          "id": "prof-4",
+          "method": "POST",
+          "path": "/profile/change-password",
+          "description": "Change user password",
+          "access": "Authenticated",
+          "testOrder": 26
+        }
+      ]
+    },
+    "inventory": {
+      "description": "Product and inventory management",
+      "endpoints": [
+        {
+          "id": "inv-1",
+          "method": "GET",
+          "path": "/inventory",
+          "description": "List all products with pagination/filtering",
+          "access": "Authenticated",
+          "testOrder": 7,
+          "queryParams": {
+            "page": "number (default: 1)",
+            "limit": "number (default: 20)",
+            "category": "string (optional filter)",
+            "status": "in-stock | low-stock | out-of-stock",
+            "search": "string (search by name/sku)",
+            "sort": "name | price-asc | price-desc | quantity | sold"
+          }
+        },
+        {
+          "id": "inv-2",
+          "method": "GET",
+          "path": "/inventory/:id",
+          "description": "Get single product details",
+          "access": "Authenticated",
+          "testOrder": 8
+        },
+        {
+          "id": "inv-3",
+          "method": "POST",
+          "path": "/inventory",
+          "description": "Create new product",
+          "access": "Authenticated (edit-products permission)",
+          "testOrder": 6,
+          "request": {
+            "name": "iPhone 15",
+            "category": ["Electronics", "Phones"],
+            "sku": "IPH-15-128GB",
+            "wholesalePrice": 400000,
+            "sellingPrice": 550000,
+            "quantity": 10,
+            "reorderPoint": 5
+          }
+        },
+        {
+          "id": "inv-4",
+          "method": "PATCH",
+          "path": "/inventory/:id",
+          "description": "Update product",
+          "access": "Authenticated (edit-products permission)",
+          "testOrder": 9,
+          "request": {
+            "quantity": 15,
+            "sellingPrice": 575000
+          }
+        },
+        {
+          "id": "inv-5",
+          "method": "DELETE",
+          "path": "/inventory/:id",
+          "description": "Delete product",
+          "access": "Authenticated (delete-products permission)",
+          "testOrder": 27,
+          "expectedResponse": {
+            "statusCode": 204
+          }
+        },
+        {
+          "id": "inv-6",
+          "method": "POST",
+          "path": "/inventory/:id/decrement",
+          "description": "Reduce stock quantity (on sale)",
+          "access": "Authenticated (record-sales permission)",
+          "testOrder": 10,
+          "request": {
+            "quantity": 2
+          }
+        },
+        {
+          "id": "inv-7",
+          "method": "POST",
+          "path": "/inventory/bulk-import",
+          "description": "Bulk import products via CSV/JSON",
+          "access": "Authenticated (owner/manager)",
+          "testOrder": 28,
+          "request": {
+            "format": "CSV or JSON file upload",
+            "contentType": "multipart/form-data"
+          }
+        }
+      ]
+    },
+    "sales": {
+      "description": "Sales recording, history, and refunds",
+      "endpoints": [
+        {
+          "id": "sal-1",
+          "method": "GET",
+          "path": "/sales",
+          "description": "List all sales transactions",
+          "access": "Authenticated (view-sales-history permission)",
+          "testOrder": 12,
+          "queryParams": {
+            "page": "number",
+            "limit": "number",
+            "dateFrom": "ISO date",
+            "dateTo": "ISO date",
+            "status": "completed | pending | refunded | partial-refund",
+            "paymentMethod": "cash | card | transfer | split | account",
+            "sort": "date-desc | amount-desc | by-staff"
+          }
+        },
+        {
+          "id": "sal-2",
+          "method": "GET",
+          "path": "/sales/:id",
+          "description": "Get single sale details",
+          "access": "Authenticated",
+          "testOrder": 13
+        },
+        {
+          "id": "sal-3",
+          "method": "POST",
+          "path": "/sales",
+          "description": "Record a new sale (complete transaction)",
+          "access": "Authenticated (record-sales permission)",
+          "testOrder": 11,
+          "request": {
+            "items": [
+              {
+                "productId": "uuid",
+                "quantity": 1,
+                "price": 550000
+              }
+            ],
+            "discountPercent": 5,
+            "paymentMethod": "cash",
+            "customerId": "optional-uuid",
+            "customerName": "Ahmed Hassan",
+            "saleDate": "2026-02-09"
+          }
+        },
+        {
+          "id": "sal-4",
+          "method": "PATCH",
+          "path": "/sales/:id/refund",
+          "description": "Process refund for a sale",
+          "access": "Authenticated (owner/manager)",
+          "testOrder": 14,
+          "request": {
+            "refundAmount": 522500,
+            "refundReason": "Customer changed mind"
+          }
+        },
+        {
+          "id": "sal-5",
+          "method": "POST",
+          "path": "/sales/held",
+          "description": "Hold a transaction (paused sale)",
+          "access": "Authenticated (record-sales permission)",
+          "testOrder": 15,
+          "request": {
+            "customerName": "Ahmed Hassan",
+            "items": [],
+            "discountPercent": 5,
+            "paymentMethod": "cash"
+          }
+        },
+        {
+          "id": "sal-6",
+          "method": "GET",
+          "path": "/sales/held",
+          "description": "List all held transactions",
+          "access": "Authenticated",
+          "testOrder": 16
+        },
+        {
+          "id": "sal-7",
+          "method": "DELETE",
+          "path": "/sales/held/:id",
+          "description": "Remove a held transaction",
+          "access": "Authenticated",
+          "testOrder": 17,
+          "expectedResponse": {
+            "statusCode": 204
+          }
+        }
+      ]
+    },
+    "analytics": {
+      "description": "Sales analytics and business insights",
+      "endpoints": [
+        {
+          "id": "ana-1",
+          "method": "GET",
+          "path": "/dashboard",
+          "description": "Get complete dashboard data",
+          "access": "Authenticated (owner/manager)",
+          "testOrder": 20,
+          "queryParams": {
+            "period": "today | week | month"
+          }
+        },
+        {
+          "id": "ana-2",
+          "method": "GET",
+          "path": "/analytics/summary",
+          "description": "Get dashboard summary metrics",
+          "access": "Authenticated (owner/manager)",
+          "testOrder": 19,
+          "queryParams": {
+            "dateFrom": "ISO date (optional)",
+            "dateTo": "ISO date (optional)",
+            "period": "today | week | month"
+          }
+        },
+        {
+          "id": "ana-3",
+          "method": "GET",
+          "path": "/analytics/sales-chart",
+          "description": "Get sales trend data for charts",
+          "access": "Authenticated (owner/manager)",
+          "testOrder": 21,
+          "queryParams": {
+            "period": "today-hourly | week-daily | month-weekly"
+          }
+        },
+        {
+          "id": "ana-4",
+          "method": "GET",
+          "path": "/analytics/category-breakdown",
+          "description": "Get sales by category",
+          "access": "Authenticated (owner/manager)",
+          "testOrder": 22
+        },
+        {
+          "id": "ana-5",
+          "method": "GET",
+          "path": "/analytics/top-products",
+          "description": "Get top performing products",
+          "access": "Authenticated (owner/manager)",
+          "testOrder": 23,
+          "queryParams": {
+            "limit": "number (default: 5)",
+            "period": "week | month | year"
+          }
+        }
+      ]
+    },
+    "notifications": {
+      "description": "Notification system and alerts",
+      "endpoints": [
+        {
+          "id": "not-1",
+          "method": "GET",
+          "path": "/notifications",
+          "description": "List user notifications",
+          "access": "Authenticated",
+          "testOrder": 18,
+          "queryParams": {
+            "read": "true | false | null (all)",
+            "type": "inventory | sale | alert | ai | system",
+            "limit": "number (default: 20)"
+          }
+        },
+        {
+          "id": "not-2",
+          "method": "PATCH",
+          "path": "/notifications/:id/read",
+          "description": "Mark notification as read",
+          "access": "Authenticated",
+          "testOrder": 24
+        },
+        {
+          "id": "not-3",
+          "method": "DELETE",
+          "path": "/notifications/:id",
+          "description": "Delete a notification",
+          "access": "Authenticated",
+          "testOrder": 29
+        },
+        {
+          "id": "not-4",
+          "method": "POST",
+          "path": "/notifications/mark-all-read",
+          "description": "Mark all notifications as read",
+          "access": "Authenticated",
+          "testOrder": 30
+        }
+      ]
+    },
+    "team": {
+      "description": "Team management and permissions",
+      "endpoints": [
+        {
+          "id": "tea-1",
+          "method": "GET",
+          "path": "/team",
+          "description": "List all team members",
+          "access": "Authenticated (assign-roles permission)",
+          "testOrder": 31,
+          "queryParams": {
+            "status": "active | inactive | invited",
+            "role": "owner | manager | sales-assistant | checkout | inventory"
+          }
+        },
+        {
+          "id": "tea-2",
+          "method": "GET",
+          "path": "/team/:id",
+          "description": "Get team member details",
+          "access": "Authenticated",
+          "testOrder": 32
+        },
+        {
+          "id": "tea-3",
+          "method": "POST",
+          "path": "/team",
+          "description": "Invite new team member",
+          "access": "Authenticated (assign-roles permission)",
+          "testOrder": 33,
+          "request": {
+            "email": "newstaff@business.com",
+            "name": "New Staff",
+            "role": "sales-assistant",
+            "permissions": ["view-products", "record-sales"],
+            "department": "Sales"
+          }
+        },
+        {
+          "id": "tea-4",
+          "method": "PATCH",
+          "path": "/team/:id",
+          "description": "Update team member",
+          "access": "Authenticated (assign-roles permission)",
+          "testOrder": 34,
+          "request": {
+            "name": "Updated Name",
+            "phone": "+234-new-phone"
+          }
+        },
+        {
+          "id": "tea-5",
+          "method": "DELETE",
+          "path": "/team/:id",
+          "description": "Remove team member",
+          "access": "Authenticated (owner only)",
+          "testOrder": 35,
+          "expectedResponse": {
+            "statusCode": 204
+          }
+        },
+        {
+          "id": "tea-6",
+          "method": "PATCH",
+          "path": "/team/:id/permissions",
+          "description": "Update member permissions",
+          "access": "Authenticated (assign-roles permission)",
+          "testOrder": 36,
+          "request": {
+            "permissions": [
+              "view-products",
+              "edit-products",
+              "record-sales",
+              "view-sales-history"
+            ]
+          }
+        }
+      ]
+    }
+  },
+
+  "testingSequence": {
+    "title": "Incremental Testing Guide",
+    "instruction": "Follow this order to test endpoints. Each phase depends on previous phases.",
+    "phases": [
+      {
+        "phase": 1,
+        "name": "Authentication Foundation",
+        "endpoints": ["auth-1", "auth-2", "auth-3"],
+        "notes": "Setup user account and test token generation. Save tokens for subsequent tests."
+      },
+      {
+        "phase": 2,
+        "name": "User Profile",
+        "endpoints": ["prof-1", "prof-2"],
+        "notes": "Verify profile management works with authenticated user."
+      },
+      {
+        "phase": 3,
+        "name": "Inventory Creation",
+        "endpoints": ["inv-1", "inv-2", "inv-3"],
+        "notes": "Create test products. Save product IDs for sales tests."
+      },
+      {
+        "phase": 4,
+        "name": "Inventory Operations",
+        "endpoints": ["inv-4", "inv-6"],
+        "notes": "Update and decrement inventory to simulate sales."
+      },
+      {
+        "phase": 5,
+        "name": "Sales Recording",
+        "endpoints": ["sal-3", "sal-1", "sal-2"],
+        "notes": "Record and list sales transactions. Verify inventory decrements."
+      },
+      {
+        "phase": 6,
+        "name": "Refunds & Holds",
+        "endpoints": ["sal-4", "sal-5", "sal-6", "sal-7"],
+        "notes": "Test refund processing and transaction holds."
+      },
+      {
+        "phase": 7,
+        "name": "Notifications",
+        "endpoints": ["not-1", "not-2"],
+        "notes": "Verify notification system works."
+      },
+      {
+        "phase": 8,
+        "name": "Analytics",
+        "endpoints": ["ana-2", "ana-3", "ana-4", "ana-5", "ana-1"],
+        "notes": "Test analytics endpoints with recorded sales data."
+      },
+      {
+        "phase": 9,
+        "name": "Team Management",
+        "endpoints": ["tea-1", "tea-3", "tea-4", "tea-6"],
+        "notes": "Manage team members and permissions."
+      }
+    ]
+  },
+
+  "verificationChecklist": [
+    "All endpoints return correct HTTP status codes",
+    "JWT authentication works on protected routes",
+    "Business data isolation enforced (users can't see others' data)",
+    "Pagination works correctly with page and limit",
+    "Filtering and sorting function as specified",
+    "Inventory properly decrements/increments on sales/refunds",
+    "Error messages are clear and descriptive",
+    "Database transactions are atomic",
+    "Timestamps in ISO-8601 format",
+    "Soft deletes don't permanently remove data",
+    "Audit logs track who did what and when"
+  ],
+
+  "databaseEntities": [
+    {
+      "name": "User",
+      "fields": ["id (UUID)", "email (unique)", "password (hashed)", "firstName", "lastName", "businessName", "role", "createdAt", "updatedAt"],
+      "relationships": ["1:Many with Sales", "1:Many with InventoryItem", "1:Many with TeamMember"]
+    },
+    {
+      "name": "InventoryItem",
+      "fields": ["id (UUID)", "businessId (FK)", "name", "category (array)", "sku", "wholesalePrice", "sellingPrice", "quantity", "status", "createdAt"],
+      "relationships": ["1:Many with SaleItem"],
+      "indexes": ["businessId", "name", "sku"]
+    },
+    {
+      "name": "Sale",
+      "fields": ["id (UUID)", "businessId (FK)", "items (relation)", "total", "paymentMethod", "status", "saleDate", "soldBy (FK)", "createdAt"],
+      "relationships": ["1:Many with SaleItem"],
+      "indexes": ["businessId", "saleDate", "status"]
+    },
+    {
+      "name": "SaleItem",
+      "fields": ["id (UUID)", "saleId (FK)", "productId (FK)", "quantity", "price", "createdAt"],
+      "relationships": ["N:1 with Sale", "N:1 with InventoryItem"],
+      "cascadeDelete": true
+    },
+    {
+      "name": "Notification",
+      "fields": ["id (UUID)", "businessId (FK)", "userId (FK)", "type", "title", "message", "read", "createdAt"],
+      "indexes": ["userId", "read"],
+      "ttl": "Auto-delete after 30 days"
+    },
+    {
+      "name": "TeamMember",
+      "fields": ["id (UUID)", "businessId (FK)", "userId (FK)", "name", "role", "permissions (array)", "joinedDate", "createdAt"],
+      "relationships": ["N:1 with User"],
+      "indexes": ["businessId"]
+    },
+    {
+      "name": "HeldTransaction",
+      "fields": ["id (UUID)", "businessId (FK)", "customerName", "items (array)", "heldBy (FK)", "createdAt", "expiresAt"],
+      "ttl": "Auto-delete after 24 hours"
+    }
+  ],
+
+  "securityRequirements": {
+    "passwordHashing": "bcrypt with 10+ salt rounds",
+    "passwordMinLength": 8,
+    "passwordRequirements": "1 uppercase + 1 number + 1 special character",
+    "jwtAccessTokenExpiry": "15 minutes",
+    "jwtRefreshTokenExpiry": "7 days",
+    "jwtMinSecretLength": 32,
+    "corsOrigin": "Configurable from .env",
+    "rateLimiting": "Recommended on auth endpoints",
+    "businessIsolation": "Required - users can only access their businessId's data",
+    "roleBasedAccess": "RBAC guards on protected routes"
+  },
+
+  "environment": {
+    "required": [
+      "DATABASE_URL",
+      "JWT_SECRET",
+      "JWT_REFRESH_SECRET",
+      "PORT",
+      "FRONTEND_URL"
+    ],
+    "optional": [
+      "NODE_ENV (default: development)",
+      "CORS_ORIGIN",
+      "LOG_LEVEL",
+      "SMTP_HOST (for email notifications)"
+    ]
+  },
+
+  "implementationOrder": [
+    "1. Setup NestJS project with TypeORM + PostgreSQL",
+    "2. Create AuthModule (register, login, refresh, JWT strategy)",
+    "3. Create UserModule (profile, settings, password change)",
+    "4. Create InventoryModule (CRUD, list, filter, decrement)",
+    "5. Create SalesModule (record, list, refund, held transactions)",
+    "6. Create AnalyticsModule (summary, charts, top products)",
+    "7. Create NotificationModule (list, mark read, delete)",
+    "8. Create TeamModule (list members, invite, update permissions)",
+    "9. Add global exception filter and response formatting",
+    "10. Add Swagger documentation to all endpoints",
+    "11. Write integration tests for each module",
+    "12. Setup Docker + database seeding for development"
+  ]
+}
