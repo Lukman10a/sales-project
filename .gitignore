@@ -1,0 +1,7 @@
+# Sub-projects are separately versioned git repos
+sales-backend/
+sales-frontend/
+
+# Editor / OS
+.DS_Store
+Thumbs.db
