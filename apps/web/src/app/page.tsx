@@ -6,6 +6,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { landingPathFor } from "@/lib/auth";
 import { motion } from "framer-motion";
 import { Moon, Sun, Globe, Sparkles, Package, ChevronRight, BarChart3, ShieldCheck } from "lucide-react";
 
@@ -17,11 +18,7 @@ export default function LandingPage() {
 
   useEffect(() => {
     if (!isLoading && isAuthenticated) {
-      if (user?.role === "investor") {
-        router.replace("/investor-dashboard");
-      } else {
-        router.replace("/dashboard");
-      }
+      router.replace(user ? landingPathFor(user) : "/dashboard");
     }
   }, [isAuthenticated, isLoading, user, router]);
 

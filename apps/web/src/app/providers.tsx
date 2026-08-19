@@ -15,7 +15,20 @@ export default function ClientProviders({
 }: {
   children: React.ReactNode;
 }) {
-  const [queryClient] = useState(() => new QueryClient());
+  const [queryClient] = useState(
+    () =>
+      new QueryClient({
+        defaultOptions: {
+          queries: {
+            retry: false,
+            refetchOnWindowFocus: false,
+          },
+          mutations: {
+            retry: false,
+          },
+        },
+      }),
+  );
 
   return (
     <QueryClientProvider client={queryClient}>

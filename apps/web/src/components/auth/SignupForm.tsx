@@ -46,7 +46,7 @@ export function SignupForm() {
         firstName,
         lastName,
         role,
-        businessName: businessName || "Prime Store",
+        businessName,
       });
     } catch (err) {
       const fallback = t("Signup failed. Please try again.");
@@ -132,6 +132,7 @@ export function SignupForm() {
             value={businessName}
             onChange={(e) => setBusinessName(e.target.value)}
             className="h-11"
+            required
           />
         </div>
 
@@ -163,6 +164,11 @@ export function SignupForm() {
               className="h-11"
               required
             />
+            <p className="text-xs text-muted-foreground">
+              {t(
+                "Password must be at least 8 characters with upper, lower and a number",
+              )}
+            </p>
           </div>
           <div className="space-y-2">
             <Label htmlFor="confirm" className="text-sm">

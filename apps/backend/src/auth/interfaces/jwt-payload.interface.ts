@@ -4,5 +4,6 @@ export interface JwtPayload {
   role: string;
   businessId: string;
   businessName: string;
+  staffRole?: string;
   permissions?: string[];
 }

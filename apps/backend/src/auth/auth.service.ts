@@ -3,7 +3,7 @@ import {
   BadRequestException,
   UnauthorizedException,
 } from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
+import { JwtService, type JwtSignOptions } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
 import type { User } from '../entities/user.entity';
@@ -55,15 +55,7 @@ export class AuthService {
 
     return {
       message: 'User registered successfully',
-      user: {
-        id: user.id,
-        email: user.email,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        businessName: user.businessName,
-        businessId: user.businessId,
-        role: user.role,
-      },
+      user: this.toUserResponse(user),
       ...tokens,
     };
   }
@@ -91,15 +83,7 @@ export class AuthService {
     const tokens = await this.generateTokens(user);
 
     return {
-      user: {
-        id: user.id,
-        email: user.email,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        businessName: user.businessName,
-        businessId: user.businessId ?? user.id,
-        role: user.role,
-      },
+      user: this.toUserResponse(user),
       ...tokens,
     };
   }
@@ -113,24 +97,12 @@ export class AuthService {
         secret: refreshSecret,
       });
 
-      const user = await this.usersRepository.findById(payload.sub);
-
-      if (!user) {
-        throw new UnauthorizedException('User not found');
-      }
+      const user = await this.findUserOrThrow(payload.sub);
 
       const tokens = await this.generateTokens(user);
 
       return {
-        user: {
-          id: user.id,
-          email: user.email,
-          firstName: user.firstName,
-          lastName: user.lastName,
-          businessName: user.businessName,
-          businessId: user.businessId ?? user.id,
-          role: user.role,
-        },
+        user: this.toUserResponse(user),
         ...tokens,
       };
     } catch {
@@ -138,8 +110,24 @@ export class AuthService {
     }
   }
 
+  async me(userId: string) {
+    const user = await this.findUserOrThrow(userId);
+
+    return this.toUserResponse(user);
+  }
+
   logout() {
     return { message: 'Logged out successfully' };
+  }
+
+  private async findUserOrThrow(userId: string): Promise<User> {
+    const user = await this.usersRepository.findById(userId);
+
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
+
+    return user;
   }
 
   private async generateTokens(user: User) {
@@ -149,11 +137,19 @@ export class AuthService {
       role: user.role,
       businessName: user.businessName,
       businessId: user.businessId ?? user.id,
+      staffRole: user.staffRole,
       permissions: user.role === 'owner' ? [...ALL_PERMISSIONS] : [],
     };
 
+    const accessExpiresIn: JwtSignOptions['expiresIn'] =
+      (this.configService.get<string>('JWT_EXPIRES_IN') ||
+        '15m') as JwtSignOptions['expiresIn'];
+    const refreshExpiresIn: JwtSignOptions['expiresIn'] =
+      (this.configService.get<string>('JWT_REFRESH_EXPIRATION') ||
+        '7d') as JwtSignOptions['expiresIn'];
+
     const accessToken = await this.jwtService.signAsync(payload, {
-      expiresIn: '15m',
+      expiresIn: accessExpiresIn,
     });
 
     const refreshSecret =
@@ -161,9 +157,23 @@ export class AuthService {
       'default-refresh-secret';
     const refreshToken = await this.jwtService.signAsync(payload, {
       secret: refreshSecret,
-      expiresIn: '7d',
+      expiresIn: refreshExpiresIn,
     });
 
     return { access_token: accessToken, refresh_token: refreshToken };
+  }
+
+  private toUserResponse(user: User) {
+    return {
+      id: user.id,
+      email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      businessName: user.businessName,
+      businessId: user.businessId ?? user.id,
+      role: user.role,
+      avatar: user.avatar,
+      staffRole: user.staffRole,
+    };
   }
 }

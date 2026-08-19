@@ -50,7 +50,10 @@ describe('AuthService', () => {
       verify: jest.fn(),
     };
     configService = {
-      get: jest.fn((_key: string) => 'secret'),
+      get: jest.fn((key: string) => {
+        if (key === 'JWT_REFRESH_SECRET') return 'secret';
+        return undefined;
+      }),
     };
 
     (bcrypt.hash as jest.Mock).mockResolvedValue('hashed-password');
@@ -210,6 +213,84 @@ describe('AuthService', () => {
         expect.objectContaining({ sub: 'u1' }),
         expect.objectContaining({ expiresIn: '7d', secret: 'secret' }),
       );
+    });
+
+    it('uses the configured JWT_EXPIRES_IN when set', async () => {
+      configService.get = jest.fn((key: string) =>
+        key === 'JWT_EXPIRES_IN' ? '1m' : undefined,
+      );
+
+      await (
+        service as unknown as {
+          generateTokens: (u: User) => Promise<{
+            access_token: string;
+            refresh_token: string;
+          }>;
+        }
+      ).generateTokens(baseUser);
+
+      expect(jwtService.signAsync).toHaveBeenNthCalledWith(
+        1,
+        expect.objectContaining({ sub: 'u1' }),
+        expect.objectContaining({ expiresIn: '1m' }),
+      );
+    });
+
+    it('includes staffRole in the access token payload for staff users', async () => {
+      const staffUser = {
+        ...baseUser,
+        role: 'apprentice',
+        staffRole: 'manager',
+      } as unknown as User;
+
+      await (
+        service as unknown as {
+          generateTokens: (u: User) => Promise<{
+            access_token: string;
+            refresh_token: string;
+          }>;
+        }
+      ).generateTokens(staffUser);
+
+      expect(jwtService.signAsync).toHaveBeenNthCalledWith(
+        1,
+        expect.objectContaining({ staffRole: 'manager' }),
+        expect.anything(),
+      );
+    });
+  });
+
+  describe('me', () => {
+    it('throws UnauthorizedException when the user does not exist', async () => {
+      usersRepository.findById.mockResolvedValue(null);
+
+      await expect(service.me('nope')).rejects.toBeInstanceOf(
+        UnauthorizedException,
+      );
+    });
+
+    it('returns the full user shape including avatar and staffRole', async () => {
+      const staffUser = {
+        ...baseUser,
+        role: 'apprentice',
+        staffRole: 'manager',
+        avatar: 'data:image/png;base64,abc',
+      } as unknown as User;
+      usersRepository.findById.mockResolvedValue(staffUser);
+
+      const result = await service.me('u1');
+
+      expect(result).toEqual({
+        id: 'u1',
+        email: 'owner@luxa.com',
+        firstName: 'Ada',
+        lastName: 'Lovelace',
+        businessName: 'LUXA',
+        businessId: 'u1',
+        role: 'apprentice',
+        avatar: 'data:image/png;base64,abc',
+        staffRole: 'manager',
+      });
     });
   });
 });

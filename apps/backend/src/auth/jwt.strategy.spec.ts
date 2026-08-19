@@ -50,4 +50,24 @@ describe('JwtStrategy', () => {
     const result = strategy.validate(payload);
     expect(result.permissions).toEqual(['record-sales', 'view-inventory']);
   });
+
+  it('maps staffRole through to the current-user shape', () => {
+    const payload = {
+      sub: 'u2',
+      email: 'staff@luxa.com',
+      role: 'apprentice',
+      businessName: 'LUXA',
+      businessId: 'u1',
+      staffRole: 'manager',
+    };
+
+    expect(strategy.validate(payload)).toEqual({
+      id: 'u2',
+      email: 'staff@luxa.com',
+      role: 'apprentice',
+      businessName: 'LUXA',
+      businessId: 'u1',
+      staffRole: 'manager',
+    });
+  });
 });

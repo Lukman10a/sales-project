@@ -1,14 +1,21 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect } from "react";
-import { AuthService, User, LoginCredentials } from "@/lib/auth";
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useCallback,
+} from "react";
+import { AuthService, landingPathFor, User, LoginCredentials } from "@/lib/auth";
+import type { SignupData } from "@/lib/auth";
 import { useRouter } from "next/navigation";
 
 interface AuthContextType {
   user: User | null;
   login: (credentials: LoginCredentials) => Promise<void>;
-  register: (data: import("@/lib/auth").SignupData) => Promise<void>;
-  logout: () => void;
+  register: (data: SignupData) => Promise<void>;
+  logout: () => Promise<void>;
   updateUser: (updates: Partial<User>) => void;
   isAuthenticated: boolean;
   isLoading: boolean;
@@ -21,76 +28,50 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
 
-  // Check for existing session on mount and load avatar from profile storage
   useEffect(() => {
-    const currentUser = AuthService.getUser();
-    if (currentUser) {
-      // Load avatar from profile storage based on role
-      let profileKey = "luxa_profile";
-      if (currentUser.role === "apprentice") {
-        profileKey = "luxa_staff_profile";
-      } else if (currentUser.role === "investor") {
-        profileKey = "luxa_investor_profile";
-      }
-
-      const profileData = localStorage.getItem(profileKey);
-      if (profileData) {
-        try {
-          const profile = JSON.parse(profileData);
-          if (profile.avatar) {
-            currentUser.avatar = profile.avatar;
-          }
-        } catch (e) {
-          console.error("Failed to load avatar from profile:", e);
-        }
-      }
-    }
-    setUser(currentUser);
-    setIsLoading(false);
+    let active = true;
+    AuthService.getCurrentUser()
+      .then((currentUser) => {
+        if (!active) return;
+        setUser(currentUser);
+      })
+      .finally(() => {
+        if (active) setIsLoading(false);
+      });
+    return () => {
+      active = false;
+    };
   }, []);
 
-  const login = async (credentials: LoginCredentials) => {
-    const user = await AuthService.login(credentials);
-    setUser(user);
+  const login = useCallback(
+    async (credentials: LoginCredentials) => {
+      const loggedInUser = await AuthService.login(credentials);
+      setUser(loggedInUser);
+      AuthService.setLastRole(credentials.role);
+      router.push(landingPathFor(loggedInUser));
+    },
+    [router],
+  );
 
-    // Redirect based on user role
-    if (user.role === "investor") {
-      router.push("/investor-dashboard");
-    } else {
-      router.push("/dashboard");
-    }
-  };
+  const register = useCallback(
+    async (data: SignupData) => {
+      const newUser = await AuthService.register(data);
+      setUser(newUser);
+      AuthService.setLastRole(data.role);
+      router.push(landingPathFor(newUser));
+    },
+    [router],
+  );
 
-  const register = async (data: import("@/lib/auth").SignupData) => {
-    const user = await AuthService.register(data);
-    setUser(user);
-    // Redirect based on user role
-    if (user.role === "investor") {
-      router.push("/investor-dashboard");
-    } else {
-      router.push("/dashboard");
-    }
-  };
-
-  const logout = () => {
-    AuthService.logout();
+  const logout = useCallback(async () => {
+    await AuthService.logout();
     setUser(null);
     router.push("/auth/login");
-  };
+  }, [router]);
 
-  const updateUser = (updates: Partial<User>) => {
-    try {
-      // For avatar updates, only update state without localStorage
-      if (updates.avatar && user) {
-        setUser({ ...user, ...updates });
-      } else {
-        const updatedUser = AuthService.updateUser(updates);
-        setUser(updatedUser);
-      }
-    } catch (error) {
-      console.error("Failed to update user:", error);
-    }
-  };
+  const updateUser = useCallback((updates: Partial<User>) => {
+    setUser((prev) => (prev ? { ...prev, ...updates } : prev));
+  }, []);
 
   const value = React.useMemo(
     () => ({
@@ -102,8 +83,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       isAuthenticated: !!user,
       isLoading,
     }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [user, isLoading],
+    [user, login, logout, register, updateUser, isLoading],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
@@ -116,5 +96,3 @@ export function useAuth() {
   }
   return context;
 }
-
-

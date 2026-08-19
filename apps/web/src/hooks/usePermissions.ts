@@ -18,9 +18,6 @@ export const usePermissions = () => {
     // Owners have all permissions
     if (user.role === "owner") return true;
 
-    // Investors have no staff permissions
-    if (user.role === "investor") return false;
-
     // Check staff permissions based on their role
     if (user.role === "apprentice" && user.staffRole) {
       const permissions = rolePermissions[user.staffRole];

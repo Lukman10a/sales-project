@@ -53,11 +53,13 @@ export function RoleToggle({ value, onChange }: RoleToggleProps) {
         <button
           type="button"
           onClick={() => onChange("investor")}
+          disabled
+          title={t("Investor portal is coming soon")}
           className={cn(
-            "flex items-center justify-center gap-2 py-3 px-2 rounded-lg transition-all border shadow-sm font-medium text-sm",
+            "flex items-center justify-center gap-2 py-3 px-2 rounded-lg transition-all border shadow-sm font-medium text-sm opacity-50 cursor-not-allowed",
             value === "investor"
               ? "border-primary bg-primary/10 text-primary"
-              : "border-muted bg-muted/50 text-muted-foreground hover:border-primary/50",
+              : "border-muted bg-muted/50 text-muted-foreground",
           )}
         >
           <TrendingUp className="w-4 h-4" />

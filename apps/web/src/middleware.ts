@@ -1,25 +1,14 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { shouldAllow, AUTH_COOKIE_NAME } from "@/lib/middleware-guard";
 
 export function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl;
-
-  // Public routes that don't require authentication
-  const publicRoutes = ["/auth/login", "/auth/register", "/auth/forgot-password"];
-  const isPublicRoute = publicRoutes.some((route) => pathname.startsWith(route));
-
-  // Check for auth token in localStorage (will be checked on client side)
-  // For SSR, we'll use a cookie approach in production
-  const authCookie = request.cookies.get("luxa_auth");
-
-  // Allow access to public routes
-  if (isPublicRoute) {
+  if (
+    shouldAllow(request.nextUrl.pathname, request.cookies.has(AUTH_COOKIE_NAME))
+  ) {
     return NextResponse.next();
   }
-
-  // For now, we'll handle auth check on client side
-  // In production, implement proper server-side auth check
-  return NextResponse.next();
+  return NextResponse.redirect(new URL("/auth/login", request.url));
 }
 
 export const config = {

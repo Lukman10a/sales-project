@@ -17,9 +17,11 @@ export function LoginForm() {
   const { login } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState<"owner" | "apprentice" | "investor">(
-    AuthService.getLastRole(),
-  );
+  const [role, setRole] = useState<"owner" | "apprentice" | "investor">(() => {
+    const lastRole = AuthService.getLastRole();
+    // Investor login is blocked; never restore it as the active selection.
+    return lastRole === "investor" ? "owner" : lastRole;
+  });
   const [rememberMe, setRememberMe] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
@@ -221,27 +223,6 @@ export function LoginForm() {
           </a>
         </p>
       </motion.form>
-
-      {/* Demo Credentials */}
-      <div className="mt-6 p-4 bg-muted/50 rounded-xl border border-border">
-        <p className="text-xs font-medium text-muted-foreground mb-2">
-          {t("Demo Credentials:")}
-        </p>
-        <div className="space-y-1 text-xs text-muted-foreground">
-          <p>
-            <span className="font-medium">{t("Owner:")}</span> ahmed@luxa.com /
-            admin123
-          </p>
-          <p>
-            <span className="font-medium">{t("Admin:")}</span> ibrahim@luxa.com
-            / staff123
-          </p>
-          <p>
-            <span className="font-medium">{t("Investor:")}</span>{" "}
-            fatima@investor.com / investor123
-          </p>
-        </div>
-      </div>
     </div>
   );
 }

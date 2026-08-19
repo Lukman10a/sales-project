@@ -10,6 +10,7 @@ describe('AuthController', () => {
     login: jest.Mock;
     refreshToken: jest.Mock;
     logout: jest.Mock;
+    me: jest.Mock;
   };
 
   const currentUser = {
@@ -27,6 +28,7 @@ describe('AuthController', () => {
       login: jest.fn(),
       refreshToken: jest.fn(),
       logout: jest.fn(),
+      me: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -80,7 +82,22 @@ describe('AuthController', () => {
     expect(authService.logout).toHaveBeenCalled();
   });
 
-  it('returns the current user', () => {
-    expect(controller.getCurrentUser(currentUser)).toEqual(currentUser);
+  it('returns the full current user via the service', async () => {
+    authService.me.mockResolvedValue({
+      ...currentUser,
+      firstName: 'Ada',
+      lastName: 'Lovelace',
+      avatar: '',
+      staffRole: undefined,
+    });
+
+    await expect(controller.getCurrentUser(currentUser)).resolves.toEqual({
+      ...currentUser,
+      firstName: 'Ada',
+      lastName: 'Lovelace',
+      avatar: '',
+      staffRole: undefined,
+    });
+    expect(authService.me).toHaveBeenCalledWith('u1');
   });
 });

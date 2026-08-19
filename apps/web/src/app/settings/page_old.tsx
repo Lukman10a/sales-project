@@ -240,54 +240,7 @@ export default function Settings() {
                 </div>
                 <Separator />
                 <div className="space-y-6">
-                  {userRole === "investor" ? (
-                    <>
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="font-medium text-foreground">
-                            {t("Profit Updates")}
-                          </p>
-                          <p className="text-sm text-muted-foreground">
-                            {t("Get notified about your monthly earnings")}
-                          </p>
-                        </div>
-                        <Switch defaultChecked />
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="font-medium text-foreground">
-                            {t("Withdrawal Status")}
-                          </p>
-                          <p className="text-sm text-muted-foreground">
-                            {t("Updates on your withdrawal requests")}
-                          </p>
-                        </div>
-                        <Switch defaultChecked />
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="font-medium text-foreground">
-                            {t("AI Insights")}
-                          </p>
-                          <p className="text-sm text-muted-foreground">
-                            {t("Investment recommendations and analysis")}
-                          </p>
-                        </div>
-                        <Switch defaultChecked />
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="font-medium text-foreground">
-                            {t("Business Updates")}
-                          </p>
-                          <p className="text-sm text-muted-foreground">
-                            {t("Important business announcements")}
-                          </p>
-                        </div>
-                        <Switch />
-                      </div>
-                    </>
-                  ) : userRole === "apprentice" ? (
+                  {userRole === "apprentice" ? (
                     <>
                       <div className="flex items-center justify-between">
                         <div>

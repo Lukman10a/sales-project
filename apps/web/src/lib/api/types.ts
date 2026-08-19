@@ -51,12 +51,6 @@ export interface RefreshResponse {
   refresh_token: string;
 }
 
-// GET /auth/me returns the JWT payload (CurrentUserPayload)
-export interface MeResponse {
-  id: string;
-  email: string;
-  role: string;
-  businessName: string;
-  businessId: string;
-  permissions?: string[];
-}
+// GET /auth/me returns the full user shape (id, email, firstName, lastName,
+// businessName, businessId, role, avatar, staffRole)
+export type MeResponse = AuthUser;

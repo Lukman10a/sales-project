@@ -68,11 +68,6 @@ export default function Dashboard() {
     if (!isLoading && !isAuthenticated) {
       router.replace("/auth/login");
     }
-
-    // Redirect investors to their dashboard
-    if (!isLoading && isAuthenticated && user?.role === "investor") {
-      router.replace("/investor-dashboard");
-    }
   }, [isAuthenticated, isLoading, user, router]);
 
   // Restrict dashboard to owners only (contains business figures)

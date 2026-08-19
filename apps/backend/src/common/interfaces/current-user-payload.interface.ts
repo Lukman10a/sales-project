@@ -4,5 +4,6 @@ export interface CurrentUserPayload {
   role: string;
   businessName: string;
   businessId: string;
+  staffRole?: string;
   permissions?: string[];
 }
