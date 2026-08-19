@@ -1,11 +1,14 @@
 import { describe, it, expect } from "vitest";
 import {
   toInventoryPayload,
+  toPreferencesUpdate,
+  toProfileUpdate,
   toSalePayload,
   toTeamPermissions,
 } from "./payloads";
 import type { InventoryItem } from "@/types/inventoryTypes";
 import type { SaleRecord } from "@/types/salesTypes";
+import type { UserProfile } from "@/types/profileTypes";
 
 describe("toTeamPermissions", () => {
   it("keeps backend-valid permission names", () => {
@@ -117,6 +120,123 @@ describe("toSalePayload", () => {
   });
 });
 
+
+describe("toProfileUpdate", () => {
+  it("splits name into firstName and lastName", () => {
+    expect(
+      toProfileUpdate({ name: "Ada Lovelace", phone: "+234" }),
+    ).toEqual({ firstName: "Ada", lastName: "Lovelace", phone: "+234" });
+  });
+
+  it("sends a single-word name as firstName only", () => {
+    expect(toProfileUpdate({ name: "Ada" })).toEqual({ firstName: "Ada" });
+  });
+
+  it("handles multi-word last names", () => {
+    expect(toProfileUpdate({ name: "Grace Hopper Okafor" })).toEqual({
+      firstName: "Grace",
+      lastName: "Hopper Okafor",
+    });
+  });
+
+  it("drops unknown UI keys (id, name, email, avatar, role, joinedDate)", () => {
+    const input: UserProfile = {
+      id: "u1",
+      name: "Ada Lovelace",
+      email: "ada@luxa.com",
+      avatar: "img.png",
+      role: "owner",
+      joinedDate: "2026-01-15",
+      bio: "Builder",
+    };
+
+    const payload = toProfileUpdate(input);
+
+    expect(payload).toEqual({ firstName: "Ada", lastName: "Lovelace", bio: "Builder" });
+    expect(payload).not.toHaveProperty("id");
+    expect(payload).not.toHaveProperty("name");
+    expect(payload).not.toHaveProperty("email");
+    expect(payload).not.toHaveProperty("avatar");
+    expect(payload).not.toHaveProperty("role");
+    expect(payload).not.toHaveProperty("joinedDate");
+  });
+
+  it("emits profile fields when present", () => {
+    const payload = toProfileUpdate({
+      name: "Ada Lovelace",
+      phone: "+234",
+      company: "LUXA",
+      address: "Lagos",
+      city: "Lagos",
+      country: "NG",
+      bio: "Founder",
+    });
+
+    expect(payload).toEqual({
+      firstName: "Ada",
+      lastName: "Lovelace",
+      phone: "+234",
+      company: "LUXA",
+      address: "Lagos",
+      city: "Lagos",
+      country: "NG",
+      bio: "Founder",
+    });
+  });
+
+  it("omits empty profile fields", () => {
+    const payload = toProfileUpdate({ name: "Ada", phone: "", city: "" });
+
+    expect(payload).toEqual({ firstName: "Ada" });
+  });
+});
+
+describe("toPreferencesUpdate", () => {
+  it("strips sms from the notification preferences patch", () => {
+    const payload = toPreferencesUpdate({
+      notificationPreferences: {
+        email: true,
+        push: false,
+        sms: true,
+        lowStock: true,
+        newSales: true,
+        reports: false,
+        teamActivity: true,
+        aiInsights: false,
+      },
+    });
+
+    expect(payload.notificationPreferences).toEqual({
+      email: true,
+      push: false,
+      lowStock: true,
+      newSales: true,
+      reports: false,
+      teamActivity: true,
+      aiInsights: false,
+    });
+    expect(payload.notificationPreferences).not.toHaveProperty("sms");
+  });
+
+  it("passes appearanceSettings through unchanged", () => {
+    const appearanceSettings = {
+      theme: "dark" as const,
+      language: "en",
+      currency: "NGN",
+      dateFormat: "DD/MM/YYYY",
+      timeFormat: "24h" as const,
+      compactMode: false,
+    };
+
+    const payload = toPreferencesUpdate({ appearanceSettings });
+
+    expect(payload.appearanceSettings).toEqual(appearanceSettings);
+  });
+
+  it("returns an empty patch when no preferences are supplied", () => {
+    expect(toPreferencesUpdate({})).toEqual({});
+  });
+});
 
 describe("toInventoryPayload", () => {
   it("passes image, lastRestocked, and confirmedByApprentice through", () => {

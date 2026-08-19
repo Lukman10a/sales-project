@@ -1,6 +1,4 @@
 import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
 import {
   Card,
   CardContent,
@@ -10,6 +8,7 @@ import {
 } from "@/components/ui/card";
 import { Save } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { NotificationToggle } from "@/components/notifications/NotificationToggle";
 
 interface ProfileNotificationSettingsProps {
   notifications: {
@@ -24,34 +23,6 @@ interface ProfileNotificationSettingsProps {
   };
   onNotificationsChange: (notifications: any) => void;
   onSave: () => void;
-}
-
-interface NotificationToggleProps {
-  id: string;
-  label: string;
-  description: string;
-  checked: boolean;
-  onCheckedChange: (checked: boolean) => void;
-}
-
-function NotificationToggle({
-  id,
-  label,
-  description,
-  checked,
-  onCheckedChange,
-}: NotificationToggleProps) {
-  const { t } = useLanguage();
-
-  return (
-    <div className="flex items-center justify-between">
-      <div className="space-y-0.5">
-        <Label htmlFor={id}>{t(label)}</Label>
-        <p className="text-sm text-muted-foreground">{t(description)}</p>
-      </div>
-      <Switch id={id} checked={checked} onCheckedChange={onCheckedChange} />
-    </div>
-  );
 }
 
 export default function ProfileNotificationSettings({

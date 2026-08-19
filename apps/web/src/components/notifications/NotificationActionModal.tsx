@@ -37,12 +37,13 @@ import { toast } from "@/components/ui/sonner";
 import { useInventoryData } from "@/contexts/InventoryDataContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { InventoryItem } from "@/types/inventoryTypes";
+import type { NotificationType } from "@/types/notificationTypes";
 import { cn } from "@/lib/utils";
 
 interface NotificationActionModalProps {
   notification: {
     id: string;
-    type: "inventory" | "sale" | "alert" | "ai";
+    type: NotificationType;
     title: string;
     message: string;
     time: string;

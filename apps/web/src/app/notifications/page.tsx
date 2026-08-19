@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import dynamic from "next/dynamic";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
@@ -17,16 +17,19 @@ import {
   ShoppingCart,
   AlertTriangle,
   Sparkles,
+  Info,
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { getNotificationsByRole } from "@/data/roleNotifications";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { useAuth } from "@/contexts/AuthContext";
 import { useNotifications } from "@/contexts/NotificationContext";
-import { Notification } from "@/types/notificationTypes";
+import type { NotificationType } from "@/types/notificationTypes";
+import type { Notification } from "@/types/notificationTypes";
 
-const typeConfig = {
+const typeConfig: Record<
+  NotificationType,
+  { icon: typeof Package; bgClass: string; iconClass: string }
+> = {
   inventory: {
     icon: Package,
     bgClass: "bg-primary/10",
@@ -47,45 +50,37 @@ const typeConfig = {
     bgClass: "bg-accent/10",
     iconClass: "text-accent",
   },
+  system: {
+    icon: Info,
+    bgClass: "bg-muted/40",
+    iconClass: "text-muted-foreground",
+  },
 };
 
+function configFor(type: NotificationType) {
+  return typeConfig[type] ?? typeConfig.system;
+}
+
 export default function Notifications() {
-  const { user } = useAuth();
-  const userRole = user?.role || "owner";
-  const { notifications: dynamicNotifs, removeNotification } =
-    useNotifications();
-  const staticNotifs = getNotificationsByRole(userRole);
-  const [notifs, setNotifs] = useState(getNotificationsByRole(userRole));
+  const {
+    notifications,
+    unreadCount,
+    isLoading,
+    isError,
+    markAsRead,
+    markAllAsRead,
+    removeNotification,
+  } = useNotifications();
   const [filter, setFilter] = useState<"all" | "unread">("all");
   const [activeNotification, setActiveNotification] =
     useState<Notification | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const { t } = useLanguage();
 
-  useEffect(() => {
-    // Combine static and dynamic notifications
-    const combined = [...dynamicNotifs, ...staticNotifs];
-    setNotifs(combined);
-  }, [userRole, dynamicNotifs]);
-
-  const unreadCount = notifs.filter((n) => !n.read).length;
   const filteredNotifs =
-    filter === "unread" ? notifs.filter((n) => !n.read) : notifs;
-
-  const markAsRead = (id: string) => {
-    setNotifs(notifs.map((n) => (n.id === id ? { ...n, read: true } : n)));
-  };
-
-  const markAllAsRead = () => {
-    setNotifs(notifs.map((n) => ({ ...n, read: true })));
-  };
-
-  const dismissNotif = (id: string) => {
-    setNotifs(notifs.filter((n) => n.id !== id));
-    if (id.startsWith("notif-")) {
-      removeNotification(id);
-    }
-  };
+    filter === "unread"
+      ? notifications.filter((n) => !n.read)
+      : notifications;
 
   const handleTakeAction = (notif: Notification) => {
     setActiveNotification(notif);
@@ -155,7 +150,29 @@ export default function Notifications() {
         </div>
 
         <div className="space-y-3">
-          {filteredNotifs.length === 0 ? (
+          {isLoading ? (
+            <div className="space-y-3">
+              {[0, 1, 2].map((i) => (
+                <div
+                  key={i}
+                  className="bg-card rounded-xl border shadow-sm p-4 animate-pulse"
+                >
+                  <div className="h-4 bg-muted rounded w-1/3" />
+                  <div className="mt-3 h-3 bg-muted/70 rounded w-3/4" />
+                </div>
+              ))}
+            </div>
+          ) : isError ? (
+            <div className="bg-card rounded-xl border shadow-sm p-12 text-center">
+              <Bell className="w-12 h-12 text-destructive/40 mx-auto mb-4" />
+              <h3 className="font-display font-semibold text-lg text-foreground mb-2">
+                {t("Failed to load notifications")}
+              </h3>
+              <p className="text-muted-foreground">
+                {t("Something went wrong while fetching your notifications.")}
+              </p>
+            </div>
+          ) : filteredNotifs.length === 0 ? (
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -173,7 +190,7 @@ export default function Notifications() {
             </motion.div>
           ) : (
             filteredNotifs.map((notif, index) => {
-              const config = typeConfig[notif.type];
+              const config = configFor(notif.type);
               const Icon = config.icon;
               return (
                 <motion.div
@@ -196,7 +213,7 @@ export default function Notifications() {
                           {t(notif.title)}
                         </h3>
                         <button
-                          onClick={() => dismissNotif(notif.id)}
+                          onClick={() => removeNotification(notif.id)}
                           className="text-muted-foreground hover:text-foreground transition-colors"
                         >
                           <X className="w-4 h-4" />
@@ -253,5 +270,3 @@ export default function Notifications() {
     </>
   );
 }
-
-

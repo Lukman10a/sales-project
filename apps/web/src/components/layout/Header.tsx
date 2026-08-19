@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUI } from "@/contexts/UIContext";
+import { useNotifications } from "@/contexts/NotificationContext";
 
 interface HeaderProps {
   userRole: "owner" | "apprentice" | "investor";
@@ -20,6 +21,7 @@ interface HeaderProps {
 const Header = ({ userRole, sidebarWidth }: HeaderProps) => {
   const { t, language, toggleLanguage, isRTL } = useLanguage();
   const { user } = useAuth();
+  const { unreadCount } = useNotifications();
   const { mobileMenuOpen, setMobileMenuOpen } = useUI();
   const [isLargeScreen, setIsLargeScreen] = useState(false);
   const [isClickable, setIsClickable] = useState(true);
@@ -114,9 +116,11 @@ const Header = ({ userRole, sidebarWidth }: HeaderProps) => {
         {/* Notifications */}
         <Button variant="ghost" size="icon" className="relative">
           <Bell className="w-5 h-5 text-muted-foreground" />
-          <span className="absolute -top-1 -right-1 w-4 h-4 bg-destructive text-destructive-foreground text-[10px] font-bold rounded-full flex items-center justify-center">
-            3
-          </span>
+          {unreadCount > 0 && (
+            <span className="absolute -top-1 -right-1 w-4 h-4 bg-destructive text-destructive-foreground text-[10px] font-bold rounded-full flex items-center justify-center">
+              {unreadCount > 9 ? "9+" : unreadCount}
+            </span>
+          )}
         </Button>
 
         {/* Profile */}

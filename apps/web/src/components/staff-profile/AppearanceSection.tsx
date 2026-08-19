@@ -13,17 +13,12 @@ import { Switch } from "@/components/ui/switch";
 import { Save } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useLanguage } from "@/contexts/LanguageContext";
-
-interface AppearanceData {
-  theme: string;
-  language: "en" | "ar";
-  compactMode: boolean;
-}
+import type { AppearanceSettings } from "@/types/profileTypes";
 
 interface AppearanceSectionProps {
-  appearance: AppearanceData;
-  onAppearanceChange: (appearance: AppearanceData) => void;
-  onThemeChange: (theme: string) => void;
+  appearance: AppearanceSettings;
+  onAppearanceChange: (appearance: AppearanceSettings) => void;
+  onThemeChange: (theme: AppearanceSettings["theme"]) => void;
   onLanguageChange: (language: "en" | "ar") => void;
   onSave: () => void;
 }
@@ -37,7 +32,7 @@ export default function AppearanceSection({
 }: AppearanceSectionProps) {
   const { t, setLanguage } = useLanguage();
 
-  const handleThemeClick = (theme: string) => {
+  const handleThemeClick = (theme: AppearanceSettings["theme"]) => {
     onAppearanceChange({ ...appearance, theme });
     onThemeChange(theme);
   };

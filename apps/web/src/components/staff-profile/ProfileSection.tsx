@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import {
   Card,
   CardContent,
@@ -14,56 +13,30 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Camera, Save } from "lucide-react";
-import { toast } from "@/components/ui/sonner";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { useAuth } from "@/contexts/AuthContext";
 
 interface ProfileData {
   name: string;
   email: string;
-  phone: string;
-  avatar: string;
-  bio: string;
+  phone?: string;
+  avatar?: string;
+  bio?: string;
 }
 
 interface ProfileSectionProps {
   profile: ProfileData;
   onProfileChange: (profile: ProfileData) => void;
+  onAvatarUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onSave: () => void;
 }
 
 export default function ProfileSection({
   profile,
   onProfileChange,
+  onAvatarUpload,
   onSave,
 }: ProfileSectionProps) {
   const { t } = useLanguage();
-  const { updateUser } = useAuth();
-
-  const handleAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    if (file.size > 2 * 1024 * 1024) {
-      toast(t("Image size must be less than 2MB"));
-      return;
-    }
-
-    if (!file.type.startsWith("image/")) {
-      toast(t("Please select an image file"));
-      return;
-    }
-
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const imageData = event.target?.result as string;
-      const updated = { ...profile, avatar: imageData };
-      onProfileChange(updated);
-      updateUser({ avatar: imageData });
-      toast(t("Profile picture updated"));
-    };
-    reader.readAsDataURL(file);
-  };
 
   return (
     <Card className="shadow-sm">
@@ -88,7 +61,7 @@ export default function ProfileSection({
               id="avatar-upload-staff"
               accept="image/*"
               className="hidden"
-              onChange={handleAvatarUpload}
+              onChange={onAvatarUpload}
             />
             <Button
               variant="outline"
@@ -136,7 +109,7 @@ export default function ProfileSection({
             <Label htmlFor="phone">{t("Phone")}</Label>
             <Input
               id="phone"
-              value={profile.phone}
+              value={profile.phone || ""}
               onChange={(e) =>
                 onProfileChange({ ...profile, phone: e.target.value })
               }
@@ -148,7 +121,7 @@ export default function ProfileSection({
             <Textarea
               id="bio"
               rows={4}
-              value={profile.bio}
+              value={profile.bio || ""}
               onChange={(e) =>
                 onProfileChange({ ...profile, bio: e.target.value })
               }

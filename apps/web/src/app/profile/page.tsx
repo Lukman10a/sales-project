@@ -1,41 +1,39 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/contexts/AuthContext";
+import { useProfile } from "@/hooks/useProfile";
+import { toProfileUpdate } from "@/lib/api/payloads";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { User, Bell, Shield, Palette, Database } from "lucide-react";
 import { toast } from "@/components/ui/sonner";
-import {
-  userProfile,
-  notificationPreferences,
-  securitySettings,
-  appearanceSettings,
-} from "@/data/profile";
+import { securitySettings } from "@/data/profile";
 import ProfileInfoForm from "@/components/profile/ProfileInfoForm";
 import ProfileNotificationSettings from "@/components/profile/ProfileNotificationSettings";
 import SecuritySettings from "@/components/profile/SecuritySettings";
+import ChangePasswordForm from "@/components/profile/ChangePasswordForm";
 import ProfileAppearanceSettings from "@/components/profile/ProfileAppearanceSettings";
 import DataManagement from "@/components/profile/DataManagement";
 
 export default function Profile() {
   const { t, setLanguage } = useLanguage();
-  const { user, updateUser } = useAuth();
-  const [profile, setProfile] = useState(userProfile);
-  const [notifications, setNotifications] = useState(notificationPreferences);
-  const [appearance, setAppearance] = useState(appearanceSettings);
-
-  // Load appearance settings from localStorage and apply theme
-  useEffect(() => {
-    const saved = localStorage.getItem("luxa_appearance");
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      setAppearance(parsed);
-      applyTheme(parsed.theme);
-    } else {
-      applyTheme(appearance.theme);
-    }
-  }, [appearance.theme]);
+  const { updateUser } = useAuth();
+  const {
+    profile,
+    notificationPreferences,
+    appearanceSettings,
+    isLoading,
+    isError,
+    setProfile,
+    setNotificationPreferences,
+    setAppearanceSettings,
+    saveProfile,
+    saveNotificationPreferences,
+    saveAppearanceSettings,
+    uploadAvatar,
+    changePassword,
+  } = useProfile();
 
   const applyTheme = (theme: string) => {
     if (theme === "dark") {
@@ -54,47 +52,110 @@ export default function Profile() {
     }
   };
 
+  // Apply the loaded backend appearance once the profile has been fetched
+  useEffect(() => {
+    if (!isLoading) {
+      applyTheme(appearanceSettings.theme);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoading]);
+
   const handleAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (file.size > 2 * 1024 * 1024) {
-      toast(t("Image size must be less than 2MB"));
+    const ACCEPTED_TYPES = [
+      "image/jpeg",
+      "image/png",
+      "image/webp",
+      "image/gif",
+      "image/svg+xml",
+    ];
+
+    if (!ACCEPTED_TYPES.includes(file.type)) {
+      toast(t("Please select a JPG, PNG, WebP, GIF, or SVG image"));
       return;
     }
 
-    if (!file.type.startsWith("image/")) {
-      toast(t("Please select an image file"));
+    if (file.size > 5 * 1024 * 1024) {
+      toast(t("Image size must be less than 5MB"));
       return;
     }
 
     const reader = new FileReader();
-    reader.onload = (event) => {
+    reader.onload = async (event) => {
       const imageData = event.target?.result as string;
-      const updatedProfile = { ...profile, avatar: imageData };
-      setProfile(updatedProfile);
-      localStorage.setItem("luxa_profile", JSON.stringify(updatedProfile));
-      updateUser({ avatar: imageData });
-      toast(t("Profile picture updated"));
+      try {
+        await uploadAvatar(imageData);
+        updateUser({ avatar: imageData });
+        toast(t("Profile picture updated"));
+      } catch {
+        toast(t("Failed to update profile picture"));
+      }
     };
     reader.readAsDataURL(file);
   };
 
-  const handleSaveProfile = () => {
-    localStorage.setItem("luxa_profile", JSON.stringify(profile));
-    toast(t("Profile updated successfully"));
+  const handleSaveProfile = async () => {
+    if (!profile) return;
+    try {
+      await saveProfile();
+      const payload = toProfileUpdate(profile);
+      updateUser({
+        ...(payload.firstName ? { firstName: payload.firstName } : {}),
+        ...(payload.lastName ? { lastName: payload.lastName } : {}),
+      });
+      toast(t("Profile updated successfully"));
+    } catch {
+      toast(t("Failed to update profile"));
+    }
   };
 
-  const handleSaveNotifications = () => {
-    localStorage.setItem("luxa_notifications", JSON.stringify(notifications));
-    toast(t("Notification preferences saved"));
+  const handleSaveNotifications = async () => {
+    try {
+      await saveNotificationPreferences();
+      toast(t("Notification preferences saved"));
+    } catch {
+      toast(t("Failed to save notification preferences"));
+    }
   };
 
-  const handleSaveAppearance = () => {
-    localStorage.setItem("luxa_appearance", JSON.stringify(appearance));
-    applyTheme(appearance.theme);
-    toast(t("Appearance settings saved"));
+  const handleSaveAppearance = async () => {
+    try {
+      await saveAppearanceSettings();
+      localStorage.setItem("luxa_appearance", JSON.stringify(appearanceSettings));
+      applyTheme(appearanceSettings.theme);
+      toast(t("Appearance settings saved"));
+    } catch {
+      toast(t("Failed to save appearance settings"));
+    }
   };
+
+  if (isLoading) {
+    return (
+      <div className="max-w-5xl mx-auto space-y-4 sm:space-y-6">
+        <div className="h-8 bg-muted rounded w-1/3 animate-pulse" />
+        <div className="bg-card rounded-xl border shadow-sm p-6 space-y-4 animate-pulse">
+          <div className="h-16 bg-muted rounded w-2/3" />
+          <div className="h-4 bg-muted/70 rounded w-3/4" />
+          <div className="h-4 bg-muted/70 rounded w-1/2" />
+        </div>
+      </div>
+    );
+  }
+
+  if (isError || !profile) {
+    return (
+      <div className="max-w-5xl mx-auto text-center py-16">
+        <h1 className="font-display text-2xl font-bold text-foreground mb-2">
+          {t("Profile Settings")}
+        </h1>
+        <p className="text-muted-foreground">
+          {t("Failed to load profile")}
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-5xl mx-auto space-y-4 sm:space-y-6">
@@ -147,8 +208,8 @@ export default function Profile() {
         {/* Notifications Tab */}
         <TabsContent value="notifications" className="space-y-4">
           <ProfileNotificationSettings
-            notifications={notifications}
-            onNotificationsChange={setNotifications}
+            notifications={notificationPreferences}
+            onNotificationsChange={setNotificationPreferences}
             onSave={handleSaveNotifications}
           />
         </TabsContent>
@@ -156,15 +217,16 @@ export default function Profile() {
         {/* Security Tab */}
         <TabsContent value="security" className="space-y-4">
           <SecuritySettings settings={securitySettings} />
+          <ChangePasswordForm onChangePassword={changePassword} />
         </TabsContent>
 
         {/* Appearance Tab */}
         <TabsContent value="appearance" className="space-y-4">
           <ProfileAppearanceSettings
-            appearance={appearance}
-            onAppearanceChange={setAppearance}
+            appearance={appearanceSettings}
+            onAppearanceChange={setAppearanceSettings}
             onThemeChange={applyTheme}
-            onLanguageChange={() => {}}
+            onLanguageChange={(lang) => setLanguage(lang as "en" | "ar")}
             onSave={handleSaveAppearance}
           />
         </TabsContent>
@@ -177,5 +239,3 @@ export default function Profile() {
     </div>
   );
 }
-
-

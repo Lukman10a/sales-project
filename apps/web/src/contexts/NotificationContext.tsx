@@ -4,17 +4,29 @@ import React, {
   createContext,
   useCallback,
   useContext,
-  useState,
-  useEffect,
+  useMemo,
 } from "react";
-import { Notification } from "@/types/notificationTypes";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { api } from "@/lib/api/client";
+import type { ApiEnvelope } from "@/lib/api/types";
+import {
+  BackendNotification,
+  toNotification,
+} from "@/lib/adapters/notification.adapter";
+import type { Notification } from "@/types/notificationTypes";
+
+interface NotificationsListResponse extends ApiEnvelope<BackendNotification[]> {
+  unreadCount: number;
+}
 
 interface NotificationContextType {
   notifications: Notification[];
-  addNotification: (notification: Omit<Notification, "id">) => void;
-  removeNotification: (id: string) => void;
+  unreadCount: number;
+  isLoading: boolean;
+  isError: boolean;
   markAsRead: (id: string) => void;
   markAllAsRead: () => void;
+  removeNotification: (id: string) => void;
 }
 
 const NotificationContext = createContext<NotificationContextType | undefined>(
@@ -26,88 +38,80 @@ export function NotificationProvider({
 }: {
   children: React.ReactNode;
 }) {
-  const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [isHydrated, setIsHydrated] = useState(false);
+  const queryClient = useQueryClient();
 
-  // Load notifications from localStorage on mount
-  useEffect(() => {
-    const stored = localStorage.getItem("luxa_notifications");
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored) as Notification[];
-        setNotifications(parsed);
-      } catch (error) {
-        console.error("Failed to load notifications:", error);
-      }
-    }
-    setIsHydrated(true);
+  const invalidate = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: ["notifications"] });
+  }, [queryClient]);
 
-    // Listen for storage changes from other tabs/windows
-    const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === "luxa_notifications" && e.newValue) {
-        try {
-          const parsed = JSON.parse(e.newValue) as Notification[];
-          setNotifications(parsed);
-        } catch (error) {
-          console.error("Failed to sync notifications:", error);
-        }
-      }
-    };
+  const notificationsQuery = useQuery({
+    queryKey: ["notifications"],
+    queryFn: () => api.get<NotificationsListResponse>("/notifications"),
+  });
 
-    window.addEventListener("storage", handleStorageChange);
-    return () => window.removeEventListener("storage", handleStorageChange);
-  }, []);
-
-  // Save notifications to localStorage whenever they change
-  useEffect(() => {
-    if (isHydrated) {
-      try {
-        localStorage.setItem(
-          "luxa_notifications",
-          JSON.stringify(notifications),
-        );
-      } catch (error) {
-        console.error("Failed to save notifications:", error);
-      }
-    }
-  }, [notifications, isHydrated]);
-
-  const addNotification = useCallback(
-    (notification: Omit<Notification, "id">) => {
-      const id = `notif-${Date.now()}`;
-      const fullNotification: Notification = {
-        ...notification,
-        id,
-      };
-      setNotifications((prev) => [fullNotification, ...prev]);
-    },
-    [],
+  const notifications = useMemo(
+    () => (notificationsQuery.data?.data ?? []).map(toNotification),
+    [notificationsQuery.data],
   );
 
-  const removeNotification = useCallback((id: string) => {
-    setNotifications((prev) => prev.filter((n) => n.id !== id));
-  }, []);
+  const unreadCount = notificationsQuery.data?.unreadCount ?? 0;
 
-  const markAsRead = useCallback((id: string) => {
-    setNotifications((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, read: true } : n)),
-    );
-  }, []);
+  const markAsReadMutation = useMutation({
+    mutationFn: (id: string) =>
+      api.patch<BackendNotification>(`/notifications/${id}/read`),
+    onSuccess: invalidate,
+  });
 
-  const markAllAsRead = useCallback(() => {
-    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
-  }, []);
+  const markAllAsReadMutation = useMutation({
+    mutationFn: () =>
+      api.post<{ updated: number }>("/notifications/mark-all-read"),
+    onSuccess: invalidate,
+  });
+
+  const removeMutation = useMutation({
+    mutationFn: (id: string) =>
+      api.delete<{ message: string }>(`/notifications/${id}`),
+    onSuccess: invalidate,
+  });
+
+  const markAsRead = useCallback(
+    (id: string) => markAsReadMutation.mutate(id),
+    [markAsReadMutation],
+  );
+
+  const markAllAsRead = useCallback(
+    () => markAllAsReadMutation.mutate(),
+    [markAllAsReadMutation],
+  );
+
+  const removeNotification = useCallback(
+    (id: string) => removeMutation.mutate(id),
+    [removeMutation],
+  );
+
+  const value = useMemo(
+    () => ({
+      notifications,
+      unreadCount,
+      isLoading: notificationsQuery.isLoading,
+      isError: notificationsQuery.isError,
+      markAsRead,
+      markAllAsRead,
+      removeNotification,
+    }),
+    [
+      notifications,
+      unreadCount,
+      notificationsQuery.isLoading,
+      notificationsQuery.isError,
+      markAsRead,
+      markAllAsRead,
+      removeNotification,
+    ],
+  );
 
   return (
-    <NotificationContext.Provider
-      value={{
-        notifications,
-        addNotification,
-        removeNotification,
-        markAsRead,
-        markAllAsRead,
-      }}
-    >
+    <NotificationContext.Provider value={value}>
       {children}
     </NotificationContext.Provider>
   );
@@ -122,5 +126,3 @@ export function useNotifications() {
   }
   return context;
 }
-
-

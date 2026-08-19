@@ -29,7 +29,6 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useUI } from "@/contexts/UIContext";
 import { useNotifications } from "@/contexts/NotificationContext";
-import { getNotificationsByRole } from "@/data/roleNotifications";
 
 interface SidebarProps {
   userRole?: "owner" | "apprentice" | "investor";
@@ -109,7 +108,7 @@ const Sidebar = ({ userRole: propUserRole, onRoleChange }: SidebarProps) => {
   const pathname = usePathname();
   const { user, logout } = useAuth();
   const { t, isRTL } = useLanguage();
-  const { notifications: dynamicNotifs } = useNotifications();
+  const { unreadCount: unreadNotificationCount } = useNotifications();
   const {
     sidebarCollapsed,
     setSidebarCollapsed,
@@ -171,14 +170,6 @@ const Sidebar = ({ userRole: propUserRole, onRoleChange }: SidebarProps) => {
     () => getNavigation(userRole, staffRole),
     [userRole, staffRole],
   );
-
-  const unreadNotificationCount = React.useMemo(() => {
-    const staticUnread = getNotificationsByRole(userRole).filter(
-      (n) => !n.read,
-    ).length;
-    const dynamicUnread = dynamicNotifs.filter((n) => !n.read).length;
-    return staticUnread + dynamicUnread;
-  }, [userRole, dynamicNotifs]);
 
   return (
     <>

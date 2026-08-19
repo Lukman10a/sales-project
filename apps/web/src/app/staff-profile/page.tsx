@@ -1,9 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 import { motion } from "framer-motion";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/contexts/AuthContext";
+import { useProfile } from "@/hooks/useProfile";
+import { toProfileUpdate } from "@/lib/api/payloads";
+import type { AppearanceSettings } from "@/types/profileTypes";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { User, Bell, Palette } from "lucide-react";
@@ -13,70 +16,23 @@ import ProfileSection from "@/components/staff-profile/ProfileSection";
 import NotificationsSection from "@/components/staff-profile/NotificationsSection";
 import AppearanceSection from "@/components/staff-profile/AppearanceSection";
 
-interface ProfileData {
-  name: string;
-  email: string;
-  phone: string;
-  avatar: string;
-  bio: string;
-}
-
-interface NotificationsData {
-  email: boolean;
-  push: boolean;
-  sms: boolean;
-  stockAlerts: boolean;
-  newProducts: boolean;
-  priceUpdates: boolean;
-}
-
-interface AppearanceData {
-  theme: string;
-  language: "en" | "ar";
-  compactMode: boolean;
-}
-
 export default function StaffProfile() {
   const { t, setLanguage } = useLanguage();
-  const { user } = useAuth();
-
-  const [profile, setProfile] = useState<ProfileData>({
-    name: user?.firstName + " " + user?.lastName || "Staff Member",
-    email: user?.email || "",
-    phone: "",
-    avatar: user?.avatar || "",
-    bio: "",
-  });
-
-  const [notifications, setNotifications] = useState<NotificationsData>({
-    email: true,
-    push: true,
-    sms: false,
-    stockAlerts: true,
-    newProducts: true,
-    priceUpdates: true,
-  });
-
-  const [appearance, setAppearance] = useState<AppearanceData>({
-    theme: "light",
-    language: "en",
-    compactMode: false,
-  });
-
-  // Load settings from localStorage and apply theme
-  useEffect(() => {
-    const savedProfile = localStorage.getItem("luxa_staff_profile");
-    const savedNotifications = localStorage.getItem("luxa_staff_notifications");
-    const savedAppearance = localStorage.getItem("luxa_appearance");
-
-    if (savedProfile) setProfile(JSON.parse(savedProfile));
-    if (savedNotifications) setNotifications(JSON.parse(savedNotifications));
-    if (savedAppearance) {
-      const parsed = JSON.parse(savedAppearance);
-      setAppearance(parsed);
-      applyTheme(parsed.theme);
-    }
-  }, []);
+  const { updateUser } = useAuth();
+  const {
+    profile,
+    notificationPreferences,
+    appearanceSettings,
+    isLoading,
+    isError,
+    setProfile,
+    setNotificationPreferences,
+    setAppearanceSettings,
+    saveProfile,
+    saveNotificationPreferences,
+    saveAppearanceSettings,
+    uploadAvatar,
+  } = useProfile();
 
   const applyTheme = (theme: string) => {
     if (theme === "dark") {
@@ -95,33 +51,118 @@ export default function StaffProfile() {
     }
   };
 
-  const handleSaveProfile = () => {
-    localStorage.setItem("luxa_staff_profile", JSON.stringify(profile));
-    toast(t("Profile updated successfully"));
+  // Apply the loaded backend appearance once the profile has been fetched
+  useEffect(() => {
+    if (!isLoading) {
+      applyTheme(appearanceSettings.theme);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoading]);
+
+  const handleAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const ACCEPTED_TYPES = [
+      "image/jpeg",
+      "image/png",
+      "image/webp",
+      "image/gif",
+      "image/svg+xml",
+    ];
+
+    if (!ACCEPTED_TYPES.includes(file.type)) {
+      toast(t("Please select a JPG, PNG, WebP, GIF, or SVG image"));
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast(t("Image size must be less than 5MB"));
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      const imageData = event.target?.result as string;
+      try {
+        await uploadAvatar(imageData);
+        updateUser({ avatar: imageData });
+        toast(t("Profile picture updated"));
+      } catch {
+        toast(t("Failed to update profile picture"));
+      }
+    };
+    reader.readAsDataURL(file);
   };
 
-  const handleSaveNotifications = () => {
-    localStorage.setItem(
-      "luxa_staff_notifications",
-      JSON.stringify(notifications),
-    );
-    toast(t("Notification preferences saved"));
+  const handleSaveProfile = async () => {
+    if (!profile) return;
+    try {
+      await saveProfile();
+      const payload = toProfileUpdate(profile);
+      updateUser({
+        ...(payload.firstName ? { firstName: payload.firstName } : {}),
+        ...(payload.lastName ? { lastName: payload.lastName } : {}),
+      });
+      toast(t("Profile updated successfully"));
+    } catch {
+      toast(t("Failed to update profile"));
+    }
   };
 
-  const handleSaveAppearance = () => {
-    localStorage.setItem("luxa_appearance", JSON.stringify(appearance));
-    applyTheme(appearance.theme);
-    toast(t("Appearance settings saved"));
+  const handleSaveNotifications = async () => {
+    try {
+      await saveNotificationPreferences();
+      toast(t("Notification preferences saved"));
+    } catch {
+      toast(t("Failed to save notification preferences"));
+    }
   };
 
-  const handleThemeChange = (newTheme: string) => {
-    setAppearance({ ...appearance, theme: newTheme });
+  const handleSaveAppearance = async () => {
+    try {
+      await saveAppearanceSettings();
+      localStorage.setItem("luxa_appearance", JSON.stringify(appearanceSettings));
+      applyTheme(appearanceSettings.theme);
+      toast(t("Appearance settings saved"));
+    } catch {
+      toast(t("Failed to save appearance settings"));
+    }
+  };
+
+  const handleThemeChange = (newTheme: AppearanceSettings["theme"]) => {
+    setAppearanceSettings((a) => ({ ...a, theme: newTheme }));
     applyTheme(newTheme);
   };
 
   const handleLanguageChange = (lang: "en" | "ar") => {
     setLanguage(lang);
   };
+
+  if (isLoading) {
+    return (
+      <div className="max-w-5xl mx-auto space-y-4 sm:space-y-6">
+        <div className="h-8 bg-muted rounded w-1/3 animate-pulse" />
+        <div className="bg-card rounded-xl border shadow-sm p-6 space-y-4 animate-pulse">
+          <div className="h-16 bg-muted rounded w-2/3" />
+          <div className="h-4 bg-muted/70 rounded w-3/4" />
+        </div>
+      </div>
+    );
+  }
+
+  if (isError || !profile) {
+    return (
+      <div className="max-w-5xl mx-auto text-center py-16">
+        <h1 className="font-display text-2xl font-bold text-foreground mb-2">
+          {t("Profile Settings")}
+        </h1>
+        <p className="text-muted-foreground">
+          {t("Failed to load profile")}
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-5xl mx-auto space-y-4 sm:space-y-6">
@@ -166,7 +207,10 @@ export default function StaffProfile() {
           >
             <ProfileSection
               profile={profile}
-              onProfileChange={setProfile}
+              onProfileChange={(p) =>
+                setProfile((prev) => (prev ? { ...prev, ...p } : prev))
+              }
+              onAvatarUpload={handleAvatarUpload}
               onSave={handleSaveProfile}
             />
           </motion.div>
@@ -179,8 +223,8 @@ export default function StaffProfile() {
             animate={{ opacity: 1, y: 0 }}
           >
             <NotificationsSection
-              notifications={notifications}
-              onNotificationsChange={setNotifications}
+              notifications={notificationPreferences}
+              onNotificationsChange={setNotificationPreferences}
               onSave={handleSaveNotifications}
             />
           </motion.div>
@@ -193,8 +237,8 @@ export default function StaffProfile() {
             animate={{ opacity: 1, y: 0 }}
           >
             <AppearanceSection
-              appearance={appearance}
-              onAppearanceChange={setAppearance}
+              appearance={appearanceSettings}
+              onAppearanceChange={setAppearanceSettings}
               onThemeChange={handleThemeChange}
               onLanguageChange={handleLanguageChange}
               onSave={handleSaveAppearance}
@@ -205,5 +249,3 @@ export default function StaffProfile() {
     </div>
   );
 }
-
-

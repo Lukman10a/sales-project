@@ -1,6 +1,10 @@
 import type { InventoryItem } from "@/types/inventoryTypes";
 import type { PaymentPart, SaleRecord } from "@/types/salesTypes";
 import type { Permission } from "@/types/teamTypes";
+import type {
+  AppearanceSettings,
+  NotificationPreferences,
+} from "@/types/profileTypes";
 
 /**
  * Write-guard for team permission payloads. The backend `UpdatePermissionsDto`
@@ -55,6 +59,88 @@ export function toSalePayload(sale: SaleRecord): SalePayload {
   if (sale.loyaltyPointsUsed !== undefined)
     payload.loyaltyPointsUsed = sale.loyaltyPointsUsed;
   if (sale.accountCredit !== undefined) payload.accountCredit = sale.accountCredit;
+
+  return payload;
+}
+
+/**
+ * Write-guard for profile updates. The backend `UpdateProfileDto` is Zod
+ * `.strict()` — it has no `name`, `email`, `avatar`, `id`, `role` or
+ * `joinedDate` keys, so those UI-only keys are dropped. The UI edits a single
+ * `name` field, which is split into backend `firstName` / `lastName`.
+ */
+export interface ProfileUpdatePayload {
+  firstName?: string;
+  lastName?: string;
+  phone?: string;
+  company?: string;
+  address?: string;
+  city?: string;
+  country?: string;
+  bio?: string;
+}
+
+export function toProfileUpdate(profile: {
+  name: string;
+  phone?: string;
+  company?: string;
+  address?: string;
+  city?: string;
+  country?: string;
+  bio?: string;
+}): ProfileUpdatePayload {
+  const payload: ProfileUpdatePayload = {};
+
+  const [firstName, ...rest] = profile.name.trim().split(/\s+/);
+  if (firstName) payload.firstName = firstName;
+  const lastName = rest.join(" ");
+  if (lastName) payload.lastName = lastName;
+
+  if (profile.phone) payload.phone = profile.phone;
+  if (profile.company) payload.company = profile.company;
+  if (profile.address) payload.address = profile.address;
+  if (profile.city) payload.city = profile.city;
+  if (profile.country) payload.country = profile.country;
+  if (profile.bio) payload.bio = profile.bio;
+
+  return payload;
+}
+
+/**
+ * Write-guard for profile preference patches. The backend
+ * `UpdatePreferencesDto` is Zod `.strict()` — `sms` is a UI-only channel the
+ * backend does not model, so it is stripped before sending.
+ */
+export interface NotificationPreferencesPayload {
+  email?: boolean;
+  push?: boolean;
+  lowStock?: boolean;
+  newSales?: boolean;
+  reports?: boolean;
+  teamActivity?: boolean;
+  aiInsights?: boolean;
+}
+
+export interface PreferencesUpdatePayload {
+  notificationPreferences?: NotificationPreferencesPayload;
+  appearanceSettings?: AppearanceSettings;
+}
+
+export function toPreferencesUpdate(preferences: {
+  notificationPreferences?: NotificationPreferences;
+  appearanceSettings?: AppearanceSettings;
+}): PreferencesUpdatePayload {
+  const payload: PreferencesUpdatePayload = {};
+
+  if (preferences.notificationPreferences) {
+    const { sms: _sms, ...rest } = preferences.notificationPreferences;
+    void _sms;
+    payload.notificationPreferences = { ...rest };
+  }
+
+  if (preferences.appearanceSettings) {
+    payload.appearanceSettings = { ...preferences.appearanceSettings };
+  }
 
   return payload;
 }

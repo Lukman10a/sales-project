@@ -8,24 +8,14 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
 import { Save } from "lucide-react";
-import { toast } from "@/components/ui/sonner";
 import { useLanguage } from "@/contexts/LanguageContext";
-
-interface NotificationsData {
-  email: boolean;
-  push: boolean;
-  sms: boolean;
-  stockAlerts: boolean;
-  newProducts: boolean;
-  priceUpdates: boolean;
-}
+import { NotificationToggle } from "@/components/notifications/NotificationToggle";
+import type { NotificationPreferences } from "@/types/profileTypes";
 
 interface NotificationsSectionProps {
-  notifications: NotificationsData;
-  onNotificationsChange: (notifications: NotificationsData) => void;
+  notifications: NotificationPreferences;
+  onNotificationsChange: (notifications: NotificationPreferences) => void;
   onSave: () => void;
 }
 
@@ -50,36 +40,33 @@ export default function NotificationsSection({
             {t("Notification Channels")}
           </h4>
           <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label htmlFor="email-notif">{t("Email Notifications")}</Label>
-                <p className="text-sm text-muted-foreground">
-                  {t("Receive notifications via email")}
-                </p>
-              </div>
-              <Switch
-                id="email-notif"
-                checked={notifications.email}
-                onCheckedChange={(checked) =>
-                  onNotificationsChange({ ...notifications, email: checked })
-                }
-              />
-            </div>
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label htmlFor="push-notif">{t("Push Notifications")}</Label>
-                <p className="text-sm text-muted-foreground">
-                  {t("Receive push notifications in browser")}
-                </p>
-              </div>
-              <Switch
-                id="push-notif"
-                checked={notifications.push}
-                onCheckedChange={(checked) =>
-                  onNotificationsChange({ ...notifications, push: checked })
-                }
-              />
-            </div>
+            <NotificationToggle
+              id="email-notif"
+              label="Email Notifications"
+              description="Receive notifications via email"
+              checked={notifications.email}
+              onCheckedChange={(checked) =>
+                onNotificationsChange({ ...notifications, email: checked })
+              }
+            />
+            <NotificationToggle
+              id="push-notif"
+              label="Push Notifications"
+              description="Receive push notifications in browser"
+              checked={notifications.push}
+              onCheckedChange={(checked) =>
+                onNotificationsChange({ ...notifications, push: checked })
+              }
+            />
+            <NotificationToggle
+              id="sms-notif"
+              label="SMS Notifications"
+              description="Receive notifications via SMS"
+              checked={notifications.sms}
+              onCheckedChange={(checked) =>
+                onNotificationsChange({ ...notifications, sms: checked })
+              }
+            />
           </div>
         </div>
 
@@ -88,62 +75,57 @@ export default function NotificationsSection({
             {t("Notification Types")}
           </h4>
           <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label htmlFor="stock-alerts">{t("Stock Alerts")}</Label>
-                <p className="text-sm text-muted-foreground">
-                  {t("Get notified about stock level changes")}
-                </p>
-              </div>
-              <Switch
-                id="stock-alerts"
-                checked={notifications.stockAlerts}
-                onCheckedChange={(checked) =>
-                  onNotificationsChange({
-                    ...notifications,
-                    stockAlerts: checked,
-                  })
-                }
-              />
-            </div>
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label htmlFor="new-products">
-                  {t("New Product Additions")}
-                </Label>
-                <p className="text-sm text-muted-foreground">
-                  {t("Notifications for new inventory items")}
-                </p>
-              </div>
-              <Switch
-                id="new-products"
-                checked={notifications.newProducts}
-                onCheckedChange={(checked) =>
-                  onNotificationsChange({
-                    ...notifications,
-                    newProducts: checked,
-                  })
-                }
-              />
-            </div>
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label htmlFor="price-updates">{t("Price Updates")}</Label>
-                <p className="text-sm text-muted-foreground">
-                  {t("Get notified when prices change")}
-                </p>
-              </div>
-              <Switch
-                id="price-updates"
-                checked={notifications.priceUpdates}
-                onCheckedChange={(checked) =>
-                  onNotificationsChange({
-                    ...notifications,
-                    priceUpdates: checked,
-                  })
-                }
-              />
-            </div>
+            <NotificationToggle
+              id="low-stock"
+              label="Low Stock Alerts"
+              description="Get notified when inventory is running low"
+              checked={notifications.lowStock}
+              onCheckedChange={(checked) =>
+                onNotificationsChange({ ...notifications, lowStock: checked })
+              }
+            />
+            <NotificationToggle
+              id="new-sales"
+              label="New Sales"
+              description="Notifications for new sales transactions"
+              checked={notifications.newSales}
+              onCheckedChange={(checked) =>
+                onNotificationsChange({ ...notifications, newSales: checked })
+              }
+            />
+            <NotificationToggle
+              id="reports"
+              label="Report Generation"
+              description="Notifications when reports are ready"
+              checked={notifications.reports}
+              onCheckedChange={(checked) =>
+                onNotificationsChange({ ...notifications, reports: checked })
+              }
+            />
+            <NotificationToggle
+              id="team-activity"
+              label="Team Activity"
+              description="Updates on team member actions"
+              checked={notifications.teamActivity}
+              onCheckedChange={(checked) =>
+                onNotificationsChange({
+                  ...notifications,
+                  teamActivity: checked,
+                })
+              }
+            />
+            <NotificationToggle
+              id="ai-insights"
+              label="AI Insights"
+              description="Get notified about AI-generated insights"
+              checked={notifications.aiInsights}
+              onCheckedChange={(checked) =>
+                onNotificationsChange({
+                  ...notifications,
+                  aiInsights: checked,
+                })
+              }
+            />
           </div>
         </div>
 
@@ -157,5 +139,3 @@ export default function NotificationsSection({
     </Card>
   );
 }
-
-

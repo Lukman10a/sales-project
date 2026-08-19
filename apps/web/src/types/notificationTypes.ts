@@ -1,6 +1,14 @@
+export type NotificationType =
+  | "inventory"
+  | "sale"
+  | "alert"
+  | "ai"
+  | "system"
+  | (string & {});
+
 export interface Notification {
   id: string;
-  type: "inventory" | "sale" | "alert" | "ai";
+  type: NotificationType;
   title: string;
   message: string;
   time: string;
