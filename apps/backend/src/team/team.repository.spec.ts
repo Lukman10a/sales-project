@@ -109,6 +109,8 @@ describe('TeamRepository', () => {
       const qb = {
         where: jest.fn().mockReturnThis(),
         andWhere: jest.fn().mockReturnThis(),
+        leftJoin: jest.fn().mockReturnThis(),
+        addSelect: jest.fn().mockReturnThis(),
         orderBy: jest.fn().mockReturnThis(),
         skip: jest.fn().mockReturnThis(),
         take: jest.fn().mockReturnThis(),
@@ -150,6 +152,8 @@ describe('TeamRepository', () => {
       const qb = {
         where: jest.fn().mockReturnThis(),
         andWhere: jest.fn().mockReturnThis(),
+        leftJoin: jest.fn().mockReturnThis(),
+        addSelect: jest.fn().mockReturnThis(),
         orderBy: jest.fn().mockReturnThis(),
         skip: jest.fn().mockReturnThis(),
         take: jest.fn().mockReturnThis(),
@@ -163,6 +167,42 @@ describe('TeamRepository', () => {
         businessId: 'b1',
       });
       expect(qb.andWhere).not.toHaveBeenCalled();
+    });
+
+    it('joins the user email and surfaces it on each member', async () => {
+      const members = [
+        {
+          id: 'm1',
+          name: 'Jane Doe',
+          user: { id: 'u1', email: 'jane@luxa.com' },
+        } as unknown as TeamMember,
+      ];
+      const qb = {
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        leftJoin: jest.fn().mockReturnThis(),
+        addSelect: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        skip: jest.fn().mockReturnThis(),
+        take: jest.fn().mockReturnThis(),
+        getManyAndCount: jest.fn().mockResolvedValue([members, 1]),
+      };
+      jest.spyOn(repository, 'createQueryBuilder').mockReturnValue(qb as never);
+
+      const result = await repository.list({
+        businessId: 'b1',
+        page: 1,
+        limit: 20,
+      });
+
+      expect(qb.leftJoin).toHaveBeenCalledWith('team.user', 'user');
+      expect(qb.addSelect).toHaveBeenCalledWith('user.email');
+      expect(result.data[0]).toMatchObject({
+        id: 'm1',
+        name: 'Jane Doe',
+        email: 'jane@luxa.com',
+      });
+      expect(result.data[0]).not.toHaveProperty('user');
     });
   });
 

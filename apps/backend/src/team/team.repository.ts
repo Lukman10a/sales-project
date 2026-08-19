@@ -5,6 +5,10 @@ import { TeamMember } from '../entities/team-member.entity';
 import { User } from '../entities/user.entity';
 import { PaginatedResult } from '../common/interfaces/paginated-result.interface';
 
+export interface TeamMemberWithEmail extends Omit<TeamMember, 'user'> {
+  email?: string;
+}
+
 export interface TeamListQuery {
   businessId: string;
   page: number;
@@ -70,13 +74,15 @@ export class TeamRepository extends Repository<TeamMember> {
     return manager.save(member);
   }
 
-  async list(query: TeamListQuery): Promise<PaginatedResult<TeamMember>> {
+  async list(
+    query: TeamListQuery,
+  ): Promise<PaginatedResult<TeamMemberWithEmail>> {
     const { businessId, page, limit, role, status } = query;
 
-    const qb = this.createQueryBuilder('team').where(
-      'team.businessId = :businessId',
-      { businessId },
-    );
+    const qb = this.createQueryBuilder('team')
+      .leftJoin('team.user', 'user')
+      .addSelect('user.email')
+      .where('team.businessId = :businessId', { businessId });
 
     if (role) {
       qb.andWhere('team.role = :role', { role });
@@ -93,7 +99,13 @@ export class TeamRepository extends Repository<TeamMember> {
       .getManyAndCount();
 
     return {
-      data,
+      data: data.map((member) => {
+        const { user, ...rest } = member;
+        return {
+          ...rest,
+          email: (user as { email?: string } | undefined)?.email,
+        };
+      }),
       pagination: {
         page,
         limit,

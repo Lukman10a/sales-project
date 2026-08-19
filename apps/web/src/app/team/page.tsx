@@ -10,10 +10,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, Users, Activity } from "lucide-react";
 import { toast } from "@/components/ui/sonner";
 import { TeamMember, TeamRole, Permission } from "@/types/teamTypes";
-import {
-  teamMembers as initialTeamMembers,
-  rolePermissions,
-} from "@/data/team";
+import { rolePermissions } from "@/data/team";
+import { useTeamData, TeamUpdateData } from "@/contexts/TeamDataContext";
 import TeamFilters from "@/components/team/TeamFilters";
 import StatsGrid from "@/components/team/StatsGrid";
 const TeamMembersGrid = dynamic(
@@ -71,8 +69,8 @@ const emptyNewMember: Omit<TeamMember, "id" | "joinedDate"> = {
 export default function TeamManagement() {
   const { t } = useLanguage();
   const { hasPermission, isOwner } = usePermissions();
-  const [teamMembers, setTeamMembers] =
-    useState<TeamMember[]>(initialTeamMembers);
+  const { teamMembers, inviteMember, updateMember, updatePermissions, removeMember } =
+    useTeamData();
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [filterRole, setFilterRole] = useState<string>("all");
@@ -120,17 +118,17 @@ export default function TeamManagement() {
       return;
     }
 
-    const member: TeamMember = {
-      ...newMember,
-      id: `${Date.now()}`,
-      joinedDate: new Date().toISOString().split("T")[0],
+    inviteMember({
+      name: newMember.name,
+      email: newMember.email,
+      role: newMember.role,
       permissions:
         newMember.permissions.length > 0
           ? newMember.permissions
           : rolePermissions[newMember.role],
-    };
+      department: newMember.department || undefined,
+    });
 
-    setTeamMembers([...teamMembers, member]);
     setNewMember(emptyNewMember);
     setIsAddOpen(false);
     toast(t("Team member invited successfully"));
@@ -143,9 +141,15 @@ export default function TeamManagement() {
   const handleSaveEdit = () => {
     if (!editingMember) return;
 
-    setTeamMembers(
-      teamMembers.map((m) => (m.id === editingMember.id ? editingMember : m)),
-    );
+    const updates: TeamUpdateData = {
+      status: editingMember.status,
+      department: editingMember.department || null,
+    };
+    if (editingMember.role !== "owner") {
+      updates.role = editingMember.role;
+    }
+    updateMember(editingMember.id, updates);
+    updatePermissions(editingMember.id, editingMember.permissions);
     setEditingMember(null);
     toast(t("Team member updated successfully"));
   };
@@ -153,7 +157,7 @@ export default function TeamManagement() {
   const handleDeleteMember = () => {
     if (!deleteTarget) return;
 
-    setTeamMembers(teamMembers.filter((m) => m.id !== deleteTarget.id));
+    removeMember(deleteTarget.id);
     toast(t("Team member removed successfully"));
     setDeleteTarget(null);
   };
@@ -288,4 +292,3 @@ export default function TeamManagement() {
     </>
   );
 }
-

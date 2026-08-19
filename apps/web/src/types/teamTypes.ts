@@ -7,12 +7,16 @@ export type TeamRole =
 export type TeamStatus = "active" | "inactive" | "invited";
 export type Permission =
   | "view-products"
-  | "view-out-of-stock"
   | "edit-products"
+  | "delete-products"
   | "view-sales-history"
-  | "checkout-sales"
+  | "record-sales"
   | "view-inventory"
-  | "assign-roles";
+  | "edit-inventory"
+  | "assign-roles"
+  | "view-reports"
+  | "checkout-sales"
+  | "view-out-of-stock";
 
 export interface TeamMember {
   id: string;

@@ -1,5 +1,21 @@
 import type { InventoryItem } from "@/types/inventoryTypes";
 import type { PaymentPart, SaleRecord } from "@/types/salesTypes";
+import type { Permission } from "@/types/teamTypes";
+
+/**
+ * Write-guard for team permission payloads. The backend `UpdatePermissionsDto`
+ * and `InviteMemberDto` are Zod `.strict()` with a `z.enum(TEAM_PERMISSIONS)`
+ * — deprecated UI aliases (`checkout-sales`, `view-out-of-stock`) are silently
+ * stripped rather than sent (the backend would otherwise 400).
+ */
+const DEPRECATED_PERMISSIONS: ReadonlySet<string> = new Set([
+  "checkout-sales",
+  "view-out-of-stock",
+]);
+
+export function toTeamPermissions(permissions: Permission[]): Permission[] {
+  return permissions.filter((permission) => !DEPRECATED_PERMISSIONS.has(permission));
+}
 
 /**
  * Write-guard for recording a sale. Maps the UI SaleRecord to the backend

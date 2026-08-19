@@ -7,6 +7,7 @@ import { InventoryDataProvider } from "@/contexts/InventoryDataContext";
 import { InvestorDataProvider } from "@/contexts/InvestorDataContext";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { SalesDataProvider } from "@/contexts/SalesDataContext";
+import { TeamDataProvider } from "@/contexts/TeamDataContext";
 import { UIProvider } from "@/contexts/UIContext";
 import { NotificationProvider } from "@/contexts/NotificationContext";
 
@@ -38,7 +39,9 @@ export default function ClientProviders({
             <NotificationProvider>
               <InventoryDataProvider>
                 <SalesDataProvider>
-                  <InvestorDataProvider>{children}</InvestorDataProvider>
+                  <TeamDataProvider>
+                    <InvestorDataProvider>{children}</InvestorDataProvider>
+                  </TeamDataProvider>
                 </SalesDataProvider>
               </InventoryDataProvider>
             </NotificationProvider>

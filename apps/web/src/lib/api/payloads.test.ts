@@ -1,7 +1,42 @@
 import { describe, it, expect } from "vitest";
-import { toInventoryPayload, toSalePayload } from "./payloads";
+import {
+  toInventoryPayload,
+  toSalePayload,
+  toTeamPermissions,
+} from "./payloads";
 import type { InventoryItem } from "@/types/inventoryTypes";
 import type { SaleRecord } from "@/types/salesTypes";
+
+describe("toTeamPermissions", () => {
+  it("keeps backend-valid permission names", () => {
+    expect(
+      toTeamPermissions([
+        "view-products",
+        "record-sales",
+        "assign-roles",
+        "view-reports",
+      ]),
+    ).toEqual(["view-products", "record-sales", "assign-roles", "view-reports"]);
+  });
+
+  it("strips the deprecated checkout-sales alias", () => {
+    expect(toTeamPermissions(["view-products", "checkout-sales"])).toEqual([
+      "view-products",
+    ]);
+  });
+
+  it("strips the deprecated view-out-of-stock alias", () => {
+    expect(toTeamPermissions(["view-inventory", "view-out-of-stock"])).toEqual([
+      "view-inventory",
+    ]);
+  });
+
+  it("returns an empty array when only aliases are sent", () => {
+    expect(toTeamPermissions(["checkout-sales", "view-out-of-stock"])).toEqual(
+      [],
+    );
+  });
+});
 
 describe("toSalePayload", () => {
   const sale: SaleRecord = {
