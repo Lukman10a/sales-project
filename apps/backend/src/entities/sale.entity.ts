@@ -49,6 +49,15 @@ export class Sale {
   @Column({ type: 'decimal', precision: 5, scale: 2, default: 0 })
   discountPercent!: number;
 
+  @Column({ type: 'jsonb', nullable: true })
+  splitPayments?: Array<{ method: string; amount: number }>;
+
+  @Column({ type: 'int', nullable: true })
+  loyaltyPointsUsed?: number;
+
+  @Column({ type: 'decimal', precision: 12, scale: 2, nullable: true })
+  accountCredit?: number;
+
   @Column({ type: 'decimal', precision: 12, scale: 2, nullable: true })
   refundAmount?: number;
 
@@ -57,6 +66,8 @@ export class Sale {
 
   @CreateDateColumn()
   createdAt!: Date;
+
+  itemCount?: number;
 
   // Relations
   @ManyToOne(() => User, (user) => user.sales)

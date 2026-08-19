@@ -18,11 +18,17 @@ export class SaleItem {
   @Column({ type: 'uuid' })
   productId!: string;
 
+  @Column()
+  productName!: string;
+
   @Column({ type: 'int' })
   quantity!: number;
 
   @Column({ type: 'decimal', precision: 10, scale: 2 })
   price!: number;
+
+  @Column({ type: 'decimal', precision: 10, scale: 2 })
+  total!: number;
 
   @CreateDateColumn()
   createdAt!: Date;

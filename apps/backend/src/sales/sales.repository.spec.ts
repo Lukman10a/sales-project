@@ -91,7 +91,14 @@ describe('SalesRepository', () => {
         saleDate: new Date('2024-01-01'),
         soldBy: 'u1',
         discountPercent: 0,
-        items: [{ productId: 'p1', quantity: 2, price: 50 }],
+        items: [
+          {
+            productId: 'p1',
+            quantity: 2,
+            price: 50,
+            productName: 'Widget',
+          },
+        ],
       });
 
       expect(managerMock.create).toHaveBeenCalledWith(Sale, {
@@ -103,16 +110,55 @@ describe('SalesRepository', () => {
         soldBy: 'u1',
         discountPercent: 0,
         items: [
-          expect.objectContaining({ productId: 'p1', quantity: 2, price: 50 }),
+          expect.objectContaining({
+            productId: 'p1',
+            quantity: 2,
+            price: 50,
+            productName: 'Widget',
+            total: 100,
+          }),
         ],
       });
       expect(managerMock.create).toHaveBeenCalledWith(SaleItem, {
         productId: 'p1',
         quantity: 2,
         price: 50,
+        productName: 'Widget',
+        total: 100,
       });
       expect(managerMock.save).toHaveBeenCalled();
       expect(result).toBe(sale);
+    });
+
+    it('computes each line item total as price * quantity', async () => {
+      const sale = { id: 's1' } as Sale;
+      managerMock.save.mockResolvedValue(sale);
+
+      await repository.createSale(manager, {
+        businessId: 'b1',
+        total: 100,
+        paymentMethod: 'cash',
+        status: 'completed',
+        saleDate: new Date('2024-01-01'),
+        soldBy: 'u1',
+        discountPercent: 0,
+        items: [
+          {
+            productId: 'p1',
+            quantity: 2,
+            price: 25.5,
+            productName: 'Widget',
+          },
+        ],
+      });
+
+      expect(managerMock.create).toHaveBeenCalledWith(SaleItem, {
+        productId: 'p1',
+        quantity: 2,
+        price: 25.5,
+        productName: 'Widget',
+        total: 51,
+      });
     });
   });
 
@@ -184,6 +230,7 @@ describe('SalesRepository', () => {
         take: jest.fn().mockReturnThis(),
         select: jest.fn().mockReturnThis(),
         addSelect: jest.fn().mockReturnThis(),
+        loadRelationCountAndMap: jest.fn().mockReturnThis(),
         getManyAndCount,
         getRawOne,
       };
@@ -214,6 +261,39 @@ describe('SalesRepository', () => {
       });
     });
 
+    it('loads an itemCount relation count onto each sale row', async () => {
+      const sales = [{ id: 's1' } as Sale];
+      const loadRelationCountAndMap = jest.fn().mockReturnThis();
+      const qb = {
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        skip: jest.fn().mockReturnThis(),
+        take: jest.fn().mockReturnThis(),
+        select: jest.fn().mockReturnThis(),
+        addSelect: jest.fn().mockReturnThis(),
+        loadRelationCountAndMap,
+        getManyAndCount: jest.fn().mockResolvedValue([sales, 1]),
+        getRawOne: jest.fn().mockResolvedValue({
+          totalSales: '100.00',
+          totalTransactions: '1',
+        }),
+      };
+      jest.spyOn(repository, 'createQueryBuilder').mockReturnValue(qb as never);
+
+      const result = await repository.list({
+        businessId: 'b1',
+        page: 1,
+        limit: 20,
+      });
+
+      expect(loadRelationCountAndMap).toHaveBeenCalledWith(
+        'sale.itemCount',
+        'sale.items',
+      );
+      expect(result.data).toEqual(sales);
+    });
+
     it('applies date, payment method and status filters when provided', async () => {
       const qb = {
         where: jest.fn().mockReturnThis(),
@@ -223,6 +303,7 @@ describe('SalesRepository', () => {
         take: jest.fn().mockReturnThis(),
         select: jest.fn().mockReturnThis(),
         addSelect: jest.fn().mockReturnThis(),
+        loadRelationCountAndMap: jest.fn().mockReturnThis(),
         getManyAndCount: jest.fn().mockResolvedValue([[], 0]),
         getRawOne: jest.fn().mockResolvedValue({
           totalSales: '0',

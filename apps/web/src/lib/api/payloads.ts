@@ -1,4 +1,47 @@
 import type { InventoryItem } from "@/types/inventoryTypes";
+import type { PaymentPart, SaleRecord } from "@/types/salesTypes";
+
+/**
+ * Write-guard for recording a sale. Maps the UI SaleRecord to the backend
+ * CreateSaleDto. The backend is Zod `.strict()` — only known keys are emitted
+ * and items are reduced to `{ productId, quantity, price }`.
+ */
+export interface SalePayload {
+  items: Array<{ productId: string; quantity: number; price: number }>;
+  paymentMethod: "cash" | "card" | "transfer" | "split" | "account";
+  discountPercent?: number;
+  customerId?: string;
+  customerName?: string;
+  saleDate?: string;
+  splitPayments?: PaymentPart[];
+  loyaltyPointsUsed?: number;
+  accountCredit?: number;
+}
+
+export function toSalePayload(sale: SaleRecord): SalePayload {
+  const payload: SalePayload = {
+    items: sale.items
+      .filter((item) => item.productId)
+      .map((item) => ({
+        productId: item.productId as string,
+        quantity: item.quantity,
+        price: item.price,
+      })),
+    paymentMethod: sale.paymentMethod ?? "cash",
+  };
+
+  if (sale.discount !== undefined) payload.discountPercent = sale.discount;
+  if (sale.customerId) payload.customerId = sale.customerId;
+  if (sale.customerName) payload.customerName = sale.customerName;
+  if (sale.saleDate) payload.saleDate = sale.saleDate;
+  if (sale.splitPayments && sale.splitPayments.length > 0)
+    payload.splitPayments = sale.splitPayments;
+  if (sale.loyaltyPointsUsed !== undefined)
+    payload.loyaltyPointsUsed = sale.loyaltyPointsUsed;
+  if (sale.accountCredit !== undefined) payload.accountCredit = sale.accountCredit;
+
+  return payload;
+}
 
 /**
  * Write-guard for inventory create/update payloads. The backend DTOs are

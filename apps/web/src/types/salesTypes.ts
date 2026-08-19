@@ -16,9 +16,32 @@ export interface PaymentPart {
   amount: number;
 }
 
+export interface HeldTransactionItem {
+  productId: string;
+  quantity: number;
+  price: number;
+}
+
+export interface HeldTransaction {
+  id: string;
+  customerName: string;
+  items: HeldTransactionItem[];
+  heldBy: string;
+  discountPercent: number;
+  paymentMethod: "cash" | "card" | "transfer" | "split" | "account";
+  createdAt: string;
+  expiresAt: string;
+}
+
 export interface SaleRecord {
   id: string;
-  items: { name: string; quantity: number; price: number }[];
+  items: {
+    name: string;
+    productId?: string;
+    quantity: number;
+    price: number;
+  }[];
+  itemCount?: number;
   total: number;
   soldBy: string;
   time: string;

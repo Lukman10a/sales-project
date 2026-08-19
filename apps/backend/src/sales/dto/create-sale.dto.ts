@@ -18,6 +18,16 @@ export const CreateSaleDtoSchema = z
     customerId: z.string().uuid().optional(),
     customerName: z.string().max(200).optional(),
     saleDate: z.coerce.date().optional(),
+    splitPayments: z
+      .array(
+        z.object({
+          method: z.enum(['cash', 'card', 'transfer', 'account']),
+          amount: z.number(),
+        }),
+      )
+      .optional(),
+    loyaltyPointsUsed: z.number().int().min(0).optional(),
+    accountCredit: z.number().min(0).optional(),
   })
   .strict();
 

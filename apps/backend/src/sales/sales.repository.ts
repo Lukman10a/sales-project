@@ -68,12 +68,25 @@ export class SalesRepository extends Repository<Sale> {
       customerId?: string;
       customerName?: string;
       discountPercent: number;
-      items: Array<{ productId: string; quantity: number; price: number }>;
+      splitPayments?: Sale['splitPayments'];
+      loyaltyPointsUsed?: number;
+      accountCredit?: number;
+      items: Array<{
+        productId: string;
+        quantity: number;
+        price: number;
+        productName: string;
+      }>;
     },
   ): Promise<Sale> {
     const sale = manager.create(Sale, {
       ...data,
-      items: data.items.map((item) => manager.create(SaleItem, item)),
+      items: data.items.map((item) =>
+        manager.create(SaleItem, {
+          ...item,
+          total: Number(item.price) * item.quantity,
+        }),
+      ),
     });
     return manager.save(sale);
   }
@@ -129,6 +142,7 @@ export class SalesRepository extends Repository<Sale> {
     }
 
     qb.orderBy('sale.saleDate', 'DESC');
+    qb.loadRelationCountAndMap('sale.itemCount', 'sale.items');
 
     const [data, total] = await qb
       .skip((page - 1) * limit)

@@ -174,6 +174,69 @@ describe('SalesService', () => {
         }),
       );
     });
+
+    it('passes productName through to each line item', async () => {
+      repository.transaction.mockImplementation(
+        async (fn: (manager: never) => Promise<unknown>) => {
+          repository.findProduct.mockResolvedValue({
+            ...product,
+            quantity: 10,
+          });
+          repository.saveProduct.mockResolvedValue(product);
+          repository.createSale.mockResolvedValue({ id: 's1' });
+          return fn({} as never);
+        },
+      );
+
+      await service.create(user, {
+        items: [{ productId: 'p1', quantity: 2, price: 50 }],
+        paymentMethod: 'cash' as const,
+      });
+
+      expect(repository.createSale).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          items: [expect.objectContaining({ productName: 'Widget' })],
+        }),
+      );
+    });
+
+    it('passes splitPayments, loyaltyPointsUsed and accountCredit through to createSale', async () => {
+      repository.transaction.mockImplementation(
+        async (fn: (manager: never) => Promise<unknown>) => {
+          repository.findProduct.mockResolvedValue({
+            ...product,
+            quantity: 10,
+          });
+          repository.saveProduct.mockResolvedValue(product);
+          repository.createSale.mockResolvedValue({ id: 's1' });
+          return fn({} as never);
+        },
+      );
+
+      await service.create(user, {
+        items: [{ productId: 'p1', quantity: 2, price: 50 }],
+        paymentMethod: 'split' as const,
+        splitPayments: [
+          { method: 'cash' as const, amount: 50 },
+          { method: 'card' as const, amount: 50 },
+        ],
+        loyaltyPointsUsed: 10,
+        accountCredit: 20,
+      });
+
+      expect(repository.createSale).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          splitPayments: [
+            { method: 'cash', amount: 50 },
+            { method: 'card', amount: 50 },
+          ],
+          loyaltyPointsUsed: 10,
+          accountCredit: 20,
+        }),
+      );
+    });
   });
 
   describe('list', () => {

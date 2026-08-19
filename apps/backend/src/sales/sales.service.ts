@@ -29,6 +29,12 @@ export class SalesService {
       async (manager) => {
         let subtotal = 0;
         const lowStockProducts: InventoryItem[] = [];
+        const items: Array<{
+          productId: string;
+          quantity: number;
+          price: number;
+          productName: string;
+        }> = [];
 
         for (const item of createSaleDto.items) {
           const product = await this.salesRepository.findProduct(
@@ -61,6 +67,12 @@ export class SalesService {
           }
 
           subtotal += Number(item.price) * item.quantity;
+          items.push({
+            productId: item.productId,
+            quantity: item.quantity,
+            price: item.price,
+            productName: product.name,
+          });
         }
 
         const discountPercent = createSaleDto.discountPercent ?? 0;
@@ -78,11 +90,10 @@ export class SalesService {
           customerId: createSaleDto.customerId,
           customerName: createSaleDto.customerName,
           discountPercent,
-          items: createSaleDto.items.map((item) => ({
-            productId: item.productId,
-            quantity: item.quantity,
-            price: item.price,
-          })),
+          splitPayments: createSaleDto.splitPayments,
+          loyaltyPointsUsed: createSaleDto.loyaltyPointsUsed,
+          accountCredit: createSaleDto.accountCredit,
+          items,
         });
 
         return { sale, lowStockProducts };
