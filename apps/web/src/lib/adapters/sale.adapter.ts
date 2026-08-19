@@ -1,3 +1,4 @@
+import { roundCurrency } from "./currency";
 import type { SaleRecord, PaymentPart } from "@/types/salesTypes";
 
 export interface BackendSaleItem {
@@ -27,10 +28,6 @@ export interface BackendSale {
   splitPayments?: PaymentPart[] | null;
   loyaltyPointsUsed?: number | null;
   accountCredit?: number | null;
-}
-
-function roundCurrency(value: number | string): number {
-  return Math.round(Number(value) * 100) / 100;
 }
 
 function toSaleItem(

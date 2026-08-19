@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import dynamicImport from "next/dynamic";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePermissions } from "@/hooks/usePermissions";
+import { useAnalytics } from "@/hooks/useAnalytics";
 import { AccessDenied } from "@/components/auth/AccessDenied";
 import { Calendar } from "@/components/ui/calendar";
 import {
@@ -23,12 +24,12 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
-import {
-  salesData,
-  dailyAnalyticsData,
-  monthlyAnalyticsData,
-} from "@/data/analytics";
 import { useLanguage } from "@/contexts/LanguageContext";
+import type { AnalyticsPeriod } from "@/lib/api/types";
+import type {
+  AnalyticsCategoryDatum,
+  AnalyticsTopProductDatum,
+} from "@/components/analytics/AnalyticsCharts";
 
 const AnalyticsCharts = dynamicImport(
   () => import("@/components/analytics/AnalyticsCharts"),
@@ -42,30 +43,62 @@ const AnalyticsCharts = dynamicImport(
 
 const Analytics = () => {
   const { isAuthenticated, isLoading } = useAuth();
-  const { isOwner } = usePermissions();
-  const [dateRange, setDateRange] = useState<
-    "today" | "week" | "month" | "custom"
-  >("week");
-  const [date, setDate] = useState<Date | undefined>(new Date());
-  const { t, formatCurrency } = useLanguage();
+  const { canViewReports } = usePermissions();
+  const [dateRange, setDateRange] = useState<AnalyticsPeriod>("week");
 
-  // Restrict analytics to owners only (contains business figures)
-  if (!isLoading && isAuthenticated && !isOwner()) {
+  // Restrict analytics to owners and managers (coarse access gate) before
+  // any data hook mounts, so apprentices never fire analytics API calls.
+  if (!isLoading && isAuthenticated && !canViewReports()) {
     return (
       <AccessDenied
-        message="Analytics access is restricted to business owners. This page contains detailed performance metrics and financial analysis."
-        requiredPermission="owner-access"
+        message="Analytics access is restricted to business owners and managers. This page contains detailed performance metrics and financial analysis."
+        requiredPermission="owner-or-manager-access"
       />
     );
   }
 
-  // Get the appropriate data based on selected period
-  const currentChartData =
-    dateRange === "today"
-      ? dailyAnalyticsData
-      : dateRange === "month"
-        ? monthlyAnalyticsData
-        : salesData;
+  // Show loading state while checking auth
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-accent border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-muted-foreground">Loading your workspace...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Don't render anything if not authenticated (will redirect)
+  if (!isAuthenticated) {
+    return null;
+  }
+
+  return <AnalyticsContent dateRange={dateRange} onDateRangeChange={setDateRange} />;
+};
+
+const AnalyticsContent = ({
+  dateRange,
+  onDateRangeChange,
+}: {
+  dateRange: AnalyticsPeriod;
+  onDateRangeChange: (range: AnalyticsPeriod) => void;
+}) => {
+  const [date, setDate] = useState<Date | undefined>(new Date());
+  const { t, formatCurrency } = useLanguage();
+
+  const analytics = useAnalytics(dateRange);
+
+  const summary = analytics.summary.data;
+
+  const currentChartData = useMemo(() => {
+    const chartBuckets = analytics.salesChart.data?.buckets ?? [];
+    return chartBuckets.map((bucket) => ({
+      [dateRange === "today" ? "time" : "day"]: bucket.label,
+      sales: bucket.revenue,
+      orders: bucket.orders,
+    }));
+  }, [analytics.salesChart.data, dateRange]);
 
   const chartTitle =
     dateRange === "today"
@@ -74,16 +107,7 @@ const Analytics = () => {
         ? t("Monthly Performance")
         : t("Weekly Performance");
 
-  const xAxisKey =
-    dateRange === "today" ? "time" : dateRange === "month" ? "time" : "day";
-
-  // Get data for area chart
-  const areaChartData =
-    dateRange === "today"
-      ? dailyAnalyticsData
-      : dateRange === "month"
-        ? monthlyAnalyticsData
-        : salesData;
+  const xAxisKey = dateRange === "today" ? "time" : "day";
 
   const areaChartTitle =
     dateRange === "today"
@@ -91,9 +115,6 @@ const Analytics = () => {
       : dateRange === "month"
         ? t("Monthly Sales Trend")
         : t("Weekly Sales Trend");
-
-  const areaChartXAxisKey =
-    dateRange === "today" ? "time" : dateRange === "month" ? "time" : "day";
 
   const formatCompact = (value: number) =>
     formatCurrency(value, {
@@ -109,20 +130,18 @@ const Analytics = () => {
       minimumFractionDigits: 0,
     });
 
-  // Calculate summary stats based on selected date range
-  const sumRevenue = currentChartData.reduce(
-    (sum: number, item: any) => sum + item.revenue,
-    0,
-  );
-  const sumOrders = currentChartData.reduce(
-    (sum: number, item: any) => sum + item.orders,
-    0,
-  );
-  const sumProfit = currentChartData.reduce(
-    (sum: number, item: any) => sum + (item.revenue - item.expenses),
-    0,
-  );
-  const avgOrderValue = sumOrders > 0 ? sumRevenue / sumOrders : 0;
+  const totalRevenue = summary?.current.revenue ?? 0;
+  const totalOrders = summary?.current.orders ?? 0;
+  const netProfit = summary?.current.netProfit ?? 0;
+  const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
+
+  const categoryData: AnalyticsCategoryDatum[] = (
+    analytics.categoryBreakdown.data?.data ?? []
+  ).map((row) => ({ name: row.category, value: row.revenue }));
+
+  const topProducts: AnalyticsTopProductDatum[] = (
+    analytics.topProducts.data?.data ?? []
+  ).map((row) => ({ name: row.name, sold: row.units, revenue: row.revenue }));
 
   return (
     <div className="max-w-7xl mx-auto space-y-4 sm:space-y-6 px-4 sm:px-6 lg:px-0">
@@ -141,7 +160,7 @@ const Analytics = () => {
             {(["today", "week", "month"] as const).map((range) => (
               <button
                 key={range}
-                onClick={() => setDateRange(range)}
+                onClick={() => onDateRangeChange(range)}
                 className={cn(
                   "px-2 sm:px-4 py-2 text-xs sm:text-sm font-medium rounded-md transition-colors capitalize flex-1 sm:flex-none",
                   dateRange === range
@@ -197,14 +216,14 @@ const Analytics = () => {
             </div>
             <div className="flex items-center gap-1 text-xs sm:text-sm font-medium text-success">
               <TrendingUp className="w-3 h-3" />
-              <span>+18.2%</span>
+              <span>+{summary?.trends.revenueChange ?? 0}%</span>
             </div>
           </div>
           <p className="text-xs sm:text-sm text-muted-foreground font-medium mb-1">
             {t("Total Revenue")}
           </p>
           <p className="text-2xl sm:text-3xl font-display font-bold text-foreground tracking-tight">
-            {formatCompact(sumRevenue)}
+            {formatCompact(totalRevenue)}
           </p>
         </motion.div>
 
@@ -220,14 +239,14 @@ const Analytics = () => {
             </div>
             <div className="flex items-center gap-1 text-xs sm:text-sm font-medium text-success">
               <TrendingUp className="w-3 h-3" />
-              <span>+12.5%</span>
+              <span>+{summary?.trends.netProfitChange ?? 0}%</span>
             </div>
           </div>
           <p className="text-xs sm:text-sm text-muted-foreground font-medium mb-1">
             {t("Net Profit")}
           </p>
           <p className="text-2xl sm:text-3xl font-display font-bold text-foreground tracking-tight">
-            {formatCompact(sumProfit)}
+            {formatCompact(netProfit)}
           </p>
         </motion.div>
 
@@ -243,14 +262,14 @@ const Analytics = () => {
             </div>
             <div className="flex items-center gap-1 text-xs sm:text-sm font-medium text-destructive">
               <TrendingDown className="w-3 h-3" />
-              <span>-2.4%</span>
+              <span>{summary?.trends.ordersChange ?? 0}%</span>
             </div>
           </div>
           <p className="text-xs sm:text-sm text-muted-foreground font-medium mb-1">
             {t("Total Orders")}
           </p>
           <p className="text-2xl sm:text-3xl font-display font-bold text-foreground tracking-tight">
-            {sumOrders}
+            {totalOrders}
           </p>
         </motion.div>
 
@@ -263,10 +282,6 @@ const Analytics = () => {
           <div className="flex items-center justify-between mb-4">
             <div className="p-2 sm:p-3 rounded-lg bg-warning/10">
               <Package className="w-4 sm:w-5 h-4 sm:h-5 text-warning" />
-            </div>
-            <div className="flex items-center gap-1 text-xs sm:text-sm font-medium text-success">
-              <TrendingUp className="w-3 h-3" />
-              <span>+5.8%</span>
             </div>
           </div>
           <p className="text-xs sm:text-sm text-muted-foreground font-medium mb-1">
@@ -283,17 +298,15 @@ const Analytics = () => {
         currentChartData={currentChartData}
         xAxisKey={xAxisKey}
         areaChartTitle={areaChartTitle}
-        areaChartData={areaChartData}
-        areaChartXAxisKey={areaChartXAxisKey}
         formatAxisCurrency={formatAxisCurrency}
         formatCurrency={formatCurrency}
         t={t}
         dateRange={dateRange}
+        categoryData={categoryData}
+        topProducts={topProducts}
       />
     </div>
   );
 };
 
 export default Analytics;
-
-

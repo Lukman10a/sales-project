@@ -16,24 +16,43 @@ import {
   ResponsiveContainer,
   Legend,
 } from "recharts";
-import { categoryData, topProducts } from "@/data/analytics";
+
+const CATEGORY_COLORS = [
+  "hsl(160, 60%, 45%)",
+  "hsl(230, 45%, 50%)",
+  "hsl(38, 92%, 50%)",
+  "hsl(280, 60%, 55%)",
+  "hsl(0, 70%, 55%)",
+];
 
 type TranslateOptions = {
   values?: Record<string, string | number>;
   fallback?: string;
 };
 
+export interface AnalyticsCategoryDatum {
+  name: string;
+  value: number;
+  color?: string;
+}
+
+export interface AnalyticsTopProductDatum {
+  name: string;
+  sold: number;
+  revenue: number;
+}
+
 type AnalyticsChartsProps = {
   chartTitle: string;
   currentChartData: Array<Record<string, any>>;
   xAxisKey: string;
   areaChartTitle: string;
-  areaChartData: Array<Record<string, any>>;
-  areaChartXAxisKey: string;
   formatAxisCurrency: (value: number) => string;
   formatCurrency: (value: number) => string;
   t: (key: string, options?: TranslateOptions) => string;
   dateRange: string;
+  categoryData?: AnalyticsCategoryDatum[];
+  topProducts?: AnalyticsTopProductDatum[];
 };
 
 const CustomTooltip = ({ active, payload, label, formatCurrency }: any) => {
@@ -57,12 +76,12 @@ export default function AnalyticsCharts({
   currentChartData,
   xAxisKey,
   areaChartTitle,
-  areaChartData,
-  areaChartXAxisKey,
   formatAxisCurrency,
   formatCurrency,
   t,
   dateRange,
+  categoryData = [],
+  topProducts = [],
 }: AnalyticsChartsProps) {
   return (
     <>
@@ -115,8 +134,8 @@ export default function AnalyticsCharts({
                   radius={[4, 4, 0, 0]}
                 />
                 <Bar
-                  dataKey="profit"
-                  name={t("Profit")}
+                  dataKey="orders"
+                  name={t("Orders")}
                   fill="hsl(160, 60%, 45%)"
                   radius={[4, 4, 0, 0]}
                 />
@@ -137,7 +156,7 @@ export default function AnalyticsCharts({
           </h3>
           <div className="h-72">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={areaChartData} key={dateRange}>
+              <AreaChart data={currentChartData} key={dateRange}>
                 <defs>
                   <linearGradient
                     id="salesGradient"
@@ -164,7 +183,7 @@ export default function AnalyticsCharts({
                   vertical={false}
                 />
                 <XAxis
-                  dataKey={areaChartXAxisKey}
+                  dataKey={xAxisKey}
                   axisLine={false}
                   tickLine={false}
                   tick={{
@@ -221,9 +240,13 @@ export default function AnalyticsCharts({
                   outerRadius={80}
                   paddingAngle={5}
                   dataKey="value"
+                  nameKey="name"
                 >
                   {categoryData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
+                    <Cell
+                      key={`cell-${index}`}
+                      fill={entry.color ?? CATEGORY_COLORS[index % CATEGORY_COLORS.length]}
+                    />
                   ))}
                 </Pie>
                 <Tooltip />
@@ -231,20 +254,28 @@ export default function AnalyticsCharts({
             </ResponsiveContainer>
           </div>
           <div className="grid grid-cols-2 gap-3 mt-4">
-            {categoryData.map((cat) => (
+            {categoryData.map((cat, index) => (
               <div key={cat.name} className="flex items-center gap-2">
                 <div
                   className="w-3 h-3 rounded-full"
-                  style={{ backgroundColor: cat.color }}
+                  style={{
+                    backgroundColor:
+                      cat.color ?? CATEGORY_COLORS[index % CATEGORY_COLORS.length],
+                  }}
                 />
                 <span className="text-sm text-muted-foreground">
                   {t(cat.name)}
                 </span>
                 <span className="text-sm font-medium ml-auto">
-                  {cat.value}%
+                  {formatCurrency(cat.value)}
                 </span>
               </div>
             ))}
+            {categoryData.length === 0 && (
+              <p className="text-sm text-muted-foreground col-span-2 text-center py-4">
+                {t("No category data yet")}
+              </p>
+            )}
           </div>
         </motion.div>
 
@@ -289,6 +320,11 @@ export default function AnalyticsCharts({
                 </div>
               </div>
             ))}
+            {topProducts.length === 0 && (
+              <p className="text-sm text-muted-foreground text-center py-4">
+                {t("No product data yet")}
+              </p>
+            )}
           </div>
         </motion.div>
       </div>

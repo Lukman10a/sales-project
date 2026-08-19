@@ -51,6 +51,7 @@ export function InventoryDataProvider({
   const invalidate = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: ["inventory"] });
     queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+    queryClient.invalidateQueries({ queryKey: ["analytics"] });
   }, [queryClient]);
 
   const inventoryQuery = useQuery({

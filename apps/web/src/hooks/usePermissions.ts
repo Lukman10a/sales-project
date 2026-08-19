@@ -51,10 +51,20 @@ export const usePermissions = () => {
     return user?.role === "owner";
   };
 
+  /**
+   * Coarse access gate: dashboard, analytics, and refunds are restricted to
+   * owners and managers (backend `manager` maps to apprentice with
+   * `staffRole === "manager"`).
+   */
+  const canViewReports = (): boolean => {
+    return user?.role === "owner" || user?.staffRole === "manager";
+  };
+
   return {
     hasPermission,
     hasAnyPermission,
     hasAllPermissions,
     isOwner,
+    canViewReports,
   };
 };

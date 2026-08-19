@@ -10,12 +10,9 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { useLanguage } from "@/contexts/LanguageContext";
-import {
-  dailySalesData,
-  weeklySalesData,
-  monthlySalesData,
-} from "@/data/analytics";
+import { useSalesChart } from "@/hooks/useSalesChart";
 import { cn } from "@/lib/utils";
+import type { AnalyticsPeriod } from "@/lib/api/types";
 
 const CustomTooltip = ({ active, payload, label, formatCurrency }: any) => {
   if (active && payload && payload.length) {
@@ -35,14 +32,13 @@ const CustomTooltip = ({ active, payload, label, formatCurrency }: any) => {
 
 const SalesChart = () => {
   const { t, formatCurrency } = useLanguage();
-  const [period, setPeriod] = useState<"today" | "week" | "month">("today");
+  const [period, setPeriod] = useState<AnalyticsPeriod>("week");
+  const { data: salesChart } = useSalesChart(period);
 
-  const chartData =
-    period === "today"
-      ? dailySalesData
-      : period === "week"
-        ? weeklySalesData
-        : monthlySalesData;
+  const chartData = (salesChart?.buckets ?? []).map((bucket) => ({
+    time: bucket.label,
+    sales: bucket.revenue,
+  }));
 
   const chartTitle =
     period === "today"
@@ -81,39 +77,26 @@ const SalesChart = () => {
           <p className="text-sm text-muted-foreground">{chartSubtitle}</p>
         </div>
         <div className="flex items-center gap-2">
-          <button
-            onClick={() => setPeriod("today")}
-            className={cn(
-              "px-3 py-1.5 text-sm font-medium rounded-lg transition-colors",
-              period === "today"
-                ? "bg-primary text-primary-foreground"
-                : "text-muted-foreground hover:text-foreground hover:bg-muted",
-            )}
-          >
-            {t("Today")}
-          </button>
-          <button
-            onClick={() => setPeriod("week")}
-            className={cn(
-              "px-3 py-1.5 text-sm font-medium rounded-lg transition-colors",
-              period === "week"
-                ? "bg-primary text-primary-foreground"
-                : "text-muted-foreground hover:text-foreground hover:bg-muted",
-            )}
-          >
-            {t("Week")}
-          </button>
-          <button
-            onClick={() => setPeriod("month")}
-            className={cn(
-              "px-3 py-1.5 text-sm font-medium rounded-lg transition-colors",
-              period === "month"
-                ? "bg-primary text-primary-foreground"
-                : "text-muted-foreground hover:text-foreground hover:bg-muted",
-            )}
-          >
-            {t("Month")}
-          </button>
+          {(["today", "week", "month"] as const).map((range) => (
+            <button
+              key={range}
+              onClick={() => setPeriod(range)}
+              className={cn(
+                "px-3 py-1.5 text-sm font-medium rounded-lg transition-colors",
+                period === range
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted",
+              )}
+            >
+              {t(
+                range === "today"
+                  ? "Today"
+                  : range === "week"
+                    ? "Week"
+                    : "Month",
+              )}
+            </button>
+          ))}
         </div>
       </div>
 
@@ -169,5 +152,3 @@ const SalesChart = () => {
 };
 
 export default SalesChart;
-
-

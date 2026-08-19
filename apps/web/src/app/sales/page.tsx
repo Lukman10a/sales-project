@@ -54,9 +54,10 @@ const PrintPreviewDialog = dynamic(
 
 export default function Sales() {
   const { user } = useAuth();
-  const { hasPermission, isOwner } = usePermissions();
+  const { hasPermission, isOwner, canViewReports } = usePermissions();
   const { inventory: allProducts, decrementInventory } = useInventoryData();
   const { addSaleRecord, recentSales } = useSalesData();
+  const canRefund = canViewReports();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -320,14 +321,16 @@ export default function Sales() {
                   {t("Select items and record transactions")}
                 </p>
               </div>
-              <Button
-                onClick={() => setRefundModalOpen(true)}
-                variant="outline"
-                className="gap-2"
-              >
-                <RotateCcw className="w-4 h-4" />
-                {t("Refund")}
-              </Button>
+              {canRefund && (
+                <Button
+                  onClick={() => setRefundModalOpen(true)}
+                  variant="outline"
+                  className="gap-2"
+                >
+                  <RotateCcw className="w-4 h-4" />
+                  {t("Refund")}
+                </Button>
+              )}
             </div>
 
             {/* Search */}
@@ -436,12 +439,14 @@ export default function Sales() {
       />
 
       {/* Refund Modal */}
-      <RefundModal
-        open={refundModalOpen}
-        recentSales={recentSales}
-        onClose={() => setRefundModalOpen(false)}
-        onProcessRefund={handleProcessRefund}
-      />
+      {canRefund && (
+        <RefundModal
+          open={refundModalOpen}
+          recentSales={recentSales}
+          onClose={() => setRefundModalOpen(false)}
+          onProcessRefund={handleProcessRefund}
+        />
+      )}
 
       {/* Print Preview Dialog */}
       <PrintPreviewDialog

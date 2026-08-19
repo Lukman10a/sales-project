@@ -66,8 +66,10 @@ const staffNavigation: Record<
     { name: "Notifications", href: "/notifications", icon: Bell },
   ],
   manager: [
+    { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
     { name: "Sales", href: "/sales", icon: ShoppingCart },
     { name: "Inventory", href: "/inventory", icon: Package },
+    { name: "Analytics", href: "/analytics", icon: BarChart3 },
     { name: "Team", href: "/team", icon: Users },
     { name: "Notifications", href: "/notifications", icon: Bell },
   ],

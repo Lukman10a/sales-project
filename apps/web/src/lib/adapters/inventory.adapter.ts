@@ -1,3 +1,4 @@
+import { roundCurrency } from "./currency";
 import type { InventoryItem } from "@/types/inventoryTypes";
 
 export interface BackendInventoryItem {
@@ -18,10 +19,6 @@ export interface BackendInventoryItem {
   lastRestocked?: string | Date | null;
   bundleQuantity?: number | null;
   bundlePrice?: number | string | null;
-}
-
-function roundCurrency(value: number | string): number {
-  return Math.round(Number(value) * 100) / 100;
 }
 
 export function toInventoryItem(item: BackendInventoryItem): InventoryItem {

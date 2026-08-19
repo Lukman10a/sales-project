@@ -5,10 +5,10 @@ import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePermissions } from "@/hooks/usePermissions";
+import { useDashboard } from "@/hooks/useDashboard";
 import { AccessDenied } from "@/components/auth/AccessDenied";
 import StatCard from "@/components/dashboard/StatCard";
 import { useInventoryData } from "@/contexts/InventoryDataContext";
-import { useSalesData } from "@/contexts/SalesDataContext";
 import QuickActions from "@/components/dashboard/QuickActions";
 import {
   DollarSign,
@@ -23,7 +23,6 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { motion } from "framer-motion";
-import Image from "next/image";
 import { toast } from "@/components/ui/sonner";
 
 // Dynamically import heavy components
@@ -61,7 +60,7 @@ const AIInsightCard = dynamic(
 
 export default function Dashboard() {
   const { user, isAuthenticated, isLoading } = useAuth();
-  const { isOwner } = usePermissions();
+  const { canViewReports } = usePermissions();
   const router = useRouter();
 
   useEffect(() => {
@@ -70,12 +69,12 @@ export default function Dashboard() {
     }
   }, [isAuthenticated, isLoading, user, router]);
 
-  // Restrict dashboard to owners only (contains business figures)
-  if (!isLoading && isAuthenticated && !isOwner()) {
+  // Restrict dashboard to owners and managers (coarse access gate)
+  if (!isLoading && isAuthenticated && !canViewReports()) {
     return (
       <AccessDenied
-        message="Dashboard access is restricted to business owners. This page contains confidential business metrics and financial data."
-        requiredPermission="owner-access"
+        message="Dashboard access is restricted to business owners and managers. This page contains confidential business metrics and financial data."
+        requiredPermission="owner-or-manager-access"
       />
     );
   }
@@ -109,28 +108,26 @@ const getTimeBasedGreeting = () => {
 
 const DashboardContent = memo(function DashboardContent() {
   const { user } = useAuth();
-  const { hasPermission, isOwner } = usePermissions();
-  const { totalItemsInStock, lowStockItems, inventory } = useInventoryData();
-  const { totalItemsSold, totalSalesAmount, recentSales } = useSalesData();
+  const { isOwner, hasPermission } = usePermissions();
+  const { inventory } = useInventoryData();
+  const dashboard = useDashboard();
   const { t, formatCurrency } = useLanguage();
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [greeting] = useState(getTimeBasedGreeting());
   const userRole = user?.role || "owner";
+
+  const metrics = dashboard.data?.metrics;
+  const inventoryBreakdown = dashboard.data?.inventory;
+  const topSellingProducts = dashboard.data?.topProducts ?? [];
 
   // Calculate pending confirmations for apprentices
   const pendingConfirmations = inventory.filter(
     (item) => !item.confirmedByApprentice,
   ).length;
 
-  // Calculate top selling products
-  const topSellingProducts = inventory
-    .filter((item) => item.sold > 0)
-    .sort((a, b) => b.sold - a.sold)
-    .slice(0, 3);
-
   // Revenue goal (mock - would come from settings)
   const monthlyGoal = 500000;
-  const currentRevenue = totalSalesAmount;
+  const currentRevenue = metrics?.totalRevenue ?? 0;
   const goalProgress = (currentRevenue / monthlyGoal) * 100;
 
   const handleRefresh = () => {
@@ -176,56 +173,44 @@ const DashboardContent = memo(function DashboardContent() {
       />
 
       {/* Stats Grid - Owners & Managers only */}
-      {(isOwner() || hasPermission("view-sales-history")) && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-          <StatCard
-            title={t("Today's Sales")}
-            value={formatCurrency(totalSalesAmount)}
-            change={12.5}
-            changeLabel={t("vs yesterday")}
-            icon={DollarSign}
-            variant="accent"
-            delay={0}
-          />
-          <StatCard
-            title={t("Items Sold")}
-            value={String(totalItemsSold)}
-            change={8.2}
-            changeLabel={t("vs yesterday")}
-            icon={ShoppingCart}
-            delay={0.1}
-          />
-          <StatCard
-            title={t("In Stock")}
-            value={String(totalItemsInStock)}
-            change={-2.4}
-            changeLabel={t("from last week")}
-            icon={Package}
-            variant="warning"
-            delay={0.2}
-          />
-          <StatCard
-            title={t("Low Stock Alerts")}
-            value={String(lowStockItems)}
-            change={3.1}
-            changeLabel={t("need attention")}
-            icon={TrendingUp}
-            delay={0.3}
-          />
-        </div>
-      )}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        <StatCard
+          title={t("Today's Sales")}
+          value={formatCurrency(metrics?.todayRevenue ?? 0)}
+          icon={DollarSign}
+          variant="accent"
+          delay={0}
+        />
+        <StatCard
+          title={t("Today's Transactions")}
+          value={String(metrics?.todayOrders ?? 0)}
+          icon={ShoppingCart}
+          delay={0.1}
+        />
+        <StatCard
+          title={t("In Stock")}
+          value={String(inventoryBreakdown?.byStatus["in-stock"] ?? 0)}
+          icon={Package}
+          variant="warning"
+          delay={0.2}
+        />
+        <StatCard
+          title={t("Low Stock Alerts")}
+          value={String(metrics?.lowStockCount ?? 0)}
+          icon={TrendingUp}
+          delay={0.3}
+        />
+      </div>
 
-      {/* Charts and Sales - Owners & Managers only */}
-      {(isOwner() || hasPermission("view-sales-history")) && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
-          <div className="lg:col-span-2">
-            <SalesChart />
-          </div>
-          <div>
-            <RecentSales />
-          </div>
+      {/* Charts and Sales */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
+        <div className="lg:col-span-2">
+          <SalesChart />
         </div>
-      )}
+        <div>
+          <RecentSales />
+        </div>
+      </div>
 
       {/* Summary Cards Row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
@@ -250,12 +235,9 @@ const DashboardContent = memo(function DashboardContent() {
                     {t("Total Revenue")}
                   </p>
                   <p className="text-xl font-bold text-foreground">
-                    {formatCurrency(totalSalesAmount)}
+                    {formatCurrency(currentRevenue)}
                   </p>
                 </div>
-              </div>
-              <div className="text-right">
-                <span className="text-xs font-medium text-success">+12.5%</span>
               </div>
             </div>
 
@@ -269,36 +251,27 @@ const DashboardContent = memo(function DashboardContent() {
                     {t("Transactions")}
                   </p>
                   <p className="text-xl font-bold text-foreground">
-                    {recentSales.length}
+                    {metrics?.totalOrders ?? 0}
                   </p>
                 </div>
-              </div>
-              <div className="text-right">
-                <span className="text-xs font-medium text-success">+8.2%</span>
               </div>
             </div>
 
             <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-warning/10">
-                  <Package className="w-5 h-5 text-warning" />
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">
-                    {t("Items Sold")}
-                  </p>
-                  <p className="text-xl font-bold text-foreground">
-                    {totalItemsSold}
-                  </p>
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-warning/10">
+                    <Package className="w-5 h-5 text-warning" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">
+                      {t("Net Profit")}
+                    </p>
+                    <p className="text-xl font-bold text-foreground">
+                      {formatCurrency(metrics?.netProfit ?? 0)}
+                    </p>
+                  </div>
                 </div>
               </div>
-              <div className="text-right">
-                <span className="text-xs font-medium text-muted-foreground flex items-center gap-1">
-                  <TrendingDown className="w-3 h-3" />
-                  2.4%
-                </span>
-              </div>
-            </div>
           </div>
         </motion.div>
 
@@ -369,7 +342,7 @@ const DashboardContent = memo(function DashboardContent() {
             </div>
 
             <div className="pt-4 border-t space-y-2">
-              {(isOwner() || hasPermission("view-sales-history")) && (
+              {isOwner() || hasPermission("view-sales-history") ? (
                 <>
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">
@@ -390,7 +363,7 @@ const DashboardContent = memo(function DashboardContent() {
                     </span>
                   </div>
                 </>
-              )}
+              ) : null}
             </div>
           </div>
         </motion.div>
@@ -409,17 +382,11 @@ const DashboardContent = memo(function DashboardContent() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {topSellingProducts.map((product, index) => (
             <div
-              key={product.id}
+              key={product.productId}
               className="flex items-center gap-3 p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors"
             >
-              <div className="relative w-12 h-12 rounded-lg overflow-hidden bg-muted flex-shrink-0">
-                <Image
-                  src={product.image}
-                  alt={product.name}
-                  width={48}
-                  height={48}
-                  className="object-cover"
-                />
+              <div className="w-12 h-12 rounded-lg bg-muted flex-shrink-0 flex items-center justify-center">
+                <Package className="w-6 h-6 text-muted-foreground" />
                 <div className="absolute -top-1 -left-1 w-5 h-5 bg-accent text-accent-foreground rounded-full flex items-center justify-center text-xs font-bold">
                   {index + 1}
                 </div>
@@ -430,11 +397,11 @@ const DashboardContent = memo(function DashboardContent() {
                 </p>
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
                   <span>
-                    {product.sold} {t("sold")}
+                    {product.units} {t("sold")}
                   </span>
                   <span>•</span>
                   <span className="text-accent font-medium">
-                    {formatCurrency(product.sellingPrice)}
+                    {formatCurrency(product.revenue)}
                   </span>
                 </div>
               </div>
@@ -457,5 +424,3 @@ const DashboardContent = memo(function DashboardContent() {
     </div>
   );
 });
-
-

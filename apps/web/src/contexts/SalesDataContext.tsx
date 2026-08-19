@@ -47,6 +47,7 @@ export function SalesDataProvider({ children }: { children: React.ReactNode }) {
     queryClient.invalidateQueries({ queryKey: ["held"] });
     queryClient.invalidateQueries({ queryKey: ["inventory"] });
     queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+    queryClient.invalidateQueries({ queryKey: ["analytics"] });
   }, [queryClient]);
 
   const salesQuery = useQuery({
