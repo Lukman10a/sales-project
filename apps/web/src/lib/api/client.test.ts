@@ -170,6 +170,23 @@ describe("api client", () => {
     expect(refreshCalls).toHaveLength(0);
   });
 
+  it("posts multipart FormData without a Content-Type header", async () => {
+    tokens.getAccessToken.mockReturnValue("tok-1");
+    const form = new FormData();
+    form.append(
+      "file",
+      new File(["name,sellingPrice\nA,10"], "data.csv", {
+        type: "text/csv",
+      }),
+    );
+
+    await api.postForm("/inventory/bulk-import", form);
+
+    expect(callLog[0].url).toBe("/api/inventory/bulk-import");
+    expect(callLog[0].headers["Content-Type"]).toBeUndefined();
+    expect(callLog[0].headers.Authorization).toBe("Bearer tok-1");
+  });
+
   it("clears tokens and rejects when the refresh fails without looping", async () => {
     tokens.getAccessToken.mockReturnValue("old-access");
     tokens.getRefreshToken.mockReturnValue("old-refresh");

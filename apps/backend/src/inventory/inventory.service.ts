@@ -74,6 +74,9 @@ export class InventoryService {
       supplier: createInventoryDto.supplier,
       bundleQuantity: createInventoryDto.bundleQuantity,
       bundlePrice: createInventoryDto.bundlePrice,
+      image: createInventoryDto.image,
+      lastRestocked: createInventoryDto.lastRestocked,
+      confirmedByApprentice: createInventoryDto.confirmedByApprentice ?? false,
       status: calculateStatus(
         createInventoryDto.quantity,
         createInventoryDto.reorderPoint,
@@ -119,6 +122,12 @@ export class InventoryService {
       item.bundleQuantity = updateInventoryDto.bundleQuantity ?? undefined;
     if (updateInventoryDto.bundlePrice !== undefined)
       item.bundlePrice = updateInventoryDto.bundlePrice ?? undefined;
+    if (updateInventoryDto.image !== undefined)
+      item.image = updateInventoryDto.image;
+    if (updateInventoryDto.lastRestocked !== undefined)
+      item.lastRestocked = updateInventoryDto.lastRestocked;
+    if (updateInventoryDto.confirmedByApprentice !== undefined)
+      item.confirmedByApprentice = updateInventoryDto.confirmedByApprentice;
 
     item.status = calculateStatus(item.quantity, item.reorderPoint);
 

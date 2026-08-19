@@ -25,12 +25,13 @@ export class ApiError extends Error {
 interface RequestOptions {
   method?: "GET" | "POST" | "PATCH" | "DELETE";
   body?: unknown;
+  formData?: FormData;
 }
 
 type FetchInit = {
   method?: string;
   headers: Record<string, string>;
-  body?: string;
+  body?: string | FormData;
 };
 
 function baseUrl(): string {
@@ -116,7 +117,10 @@ async function request<T>(
   if (options.method) {
     init.method = options.method;
   }
-  if (options.body !== undefined) {
+  if (options.formData) {
+    init.body = options.formData;
+    delete headers["Content-Type"];
+  } else if (options.body !== undefined) {
     init.body = JSON.stringify(options.body);
   }
 
@@ -145,6 +149,8 @@ export const api = {
   get: <T>(path: string) => request<T>(path, { method: "GET" }),
   post: <T>(path: string, body?: unknown) =>
     request<T>(path, { method: "POST", body }),
+  postForm: <T>(path: string, formData: FormData) =>
+    request<T>(path, { method: "POST", formData }),
   patch: <T>(path: string, body?: unknown) =>
     request<T>(path, { method: "PATCH", body }),
   delete: <T>(path: string) => request<T>(path, { method: "DELETE" }),

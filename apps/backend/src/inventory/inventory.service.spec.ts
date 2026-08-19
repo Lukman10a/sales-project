@@ -143,6 +143,34 @@ describe('InventoryService', () => {
       expect(repository.save).toHaveBeenCalled();
       expect(result.id).toBe('i1');
     });
+
+    it('persists image, lastRestocked, and confirmedByApprentice', async () => {
+      const dto = {
+        name: 'Widget',
+        sellingPrice: 10,
+        wholesalePrice: 5,
+        quantity: 2,
+        reorderPoint: 5,
+        image: 'https://example.com/img.png',
+        lastRestocked: new Date('2026-08-01'),
+        confirmedByApprentice: true,
+      };
+      repository.create.mockReturnValue({});
+      repository.save.mockImplementation((e: InventoryItem) =>
+        Promise.resolve({ ...e, id: 'i1' }),
+      );
+
+      await service.create(user, dto);
+
+      expect(repository.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          image: 'https://example.com/img.png',
+          lastRestocked: dto.lastRestocked,
+          confirmedByApprentice: true,
+        }),
+      );
+      expect(repository.save).toHaveBeenCalled();
+    });
   });
 
   describe('update', () => {
@@ -170,6 +198,25 @@ describe('InventoryService', () => {
       expect(result.quantity).toBe(1);
       expect(result.status).toBe('low-stock');
       expect(repository.save).toHaveBeenCalled();
+    });
+
+    it('persists image, lastRestocked, confirmedByApprentice and recalculates status', async () => {
+      repository.findByIdAndBusiness.mockResolvedValue(item);
+      repository.save.mockImplementation((e: InventoryItem) =>
+        Promise.resolve(e),
+      );
+
+      const result = await service.update(user, 'i1', {
+        image: 'https://example.com/new.png',
+        lastRestocked: new Date('2026-08-10'),
+        confirmedByApprentice: true,
+        quantity: 2,
+      });
+
+      expect(result.image).toBe('https://example.com/new.png');
+      expect(result.lastRestocked).toEqual(new Date('2026-08-10'));
+      expect(result.confirmedByApprentice).toBe(true);
+      expect(result.status).toBe('low-stock');
     });
   });
 

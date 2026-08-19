@@ -14,6 +14,9 @@ export const CreateInventoryDtoSchema = z
     supplier: z.string().max(200).optional(),
     bundleQuantity: z.coerce.number().int().min(1).optional(),
     bundlePrice: z.coerce.number().min(0).optional(),
+    image: z.string().optional(),
+    lastRestocked: z.coerce.date().optional(),
+    confirmedByApprentice: z.boolean().optional(),
   })
   .strict();
 
