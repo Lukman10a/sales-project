@@ -47,6 +47,15 @@ export default function ItemBasicInfoCard({ item }: ItemBasicInfoCardProps) {
           </div>
 
           <div className="pt-4 border-t space-y-2">
+            {item.createdByName && (
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-muted-foreground flex items-center gap-1">
+                  <Package className="w-3 h-3" />
+                  {t("Added by")}
+                </span>
+                <span className="text-sm font-medium">{item.createdByName}</span>
+              </div>
+            )}
             <div className="flex items-center justify-between">
               <span className="text-sm text-muted-foreground">
                 {t("Category")}

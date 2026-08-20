@@ -78,4 +78,20 @@ describe("inventory adapter", () => {
     expect(item.status).toBe("low-stock");
     expect(item.confirmedByApprentice).toBe(true);
   });
+
+  it("maps createdBy and createdByName onto the item", () => {
+    const item = toInventoryItem(
+      backendItem({ createdBy: "u1", createdByName: "Ada Lovelace" }),
+    );
+
+    expect(item.createdBy).toBe("u1");
+    expect(item.createdByName).toBe("Ada Lovelace");
+  });
+
+  it("leaves creator fields undefined when absent", () => {
+    const item = toInventoryItem(backendItem());
+
+    expect(item.createdBy).toBeUndefined();
+    expect(item.createdByName).toBeUndefined();
+  });
 });

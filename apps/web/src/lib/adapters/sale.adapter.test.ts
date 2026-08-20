@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { toSaleRecord } from "./sale.adapter";
 import type { BackendSale, BackendSaleItem } from "./sale.adapter";
 
@@ -29,10 +29,24 @@ function backendSale(overrides: Partial<BackendSale> = {}): BackendSale {
 }
 
 describe("sale adapter", () => {
-  it("maps time and saleTimestamp from createdAt", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-08-01T12:05:00.000Z"));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("maps createdAt to a human-readable relative time", () => {
     const sale = toSaleRecord(backendSale());
 
-    expect(sale.time).toBe("2026-08-01T12:00:00.000Z");
+    expect(sale.time).toBe("5 minutes ago");
+  });
+
+  it("maps saleTimestamp from createdAt", () => {
+    const sale = toSaleRecord(backendSale());
+
     expect(sale.saleTimestamp).toBe(new Date("2026-08-01T12:00:00.000Z").getTime());
   });
 

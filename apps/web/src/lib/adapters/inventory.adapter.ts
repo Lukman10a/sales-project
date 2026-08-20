@@ -19,6 +19,8 @@ export interface BackendInventoryItem {
   lastRestocked?: string | Date | null;
   bundleQuantity?: number | null;
   bundlePrice?: number | string | null;
+  createdBy?: string;
+  createdByName?: string | null;
 }
 
 export function toInventoryItem(item: BackendInventoryItem): InventoryItem {
@@ -49,5 +51,7 @@ export function toInventoryItem(item: BackendInventoryItem): InventoryItem {
       item.bundlePrice !== undefined && item.bundlePrice !== null
         ? roundCurrency(item.bundlePrice)
         : undefined,
+    createdBy: item.createdBy ?? undefined,
+    createdByName: item.createdByName ?? undefined,
   };
 }

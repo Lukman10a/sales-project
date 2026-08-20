@@ -31,6 +31,7 @@ describe('InventoryService', () => {
     remove: jest.Mock;
     decrementStock: jest.Mock;
     bulkUpsert: jest.Mock;
+    resolveCreatorNames: jest.Mock;
   };
   let eventEmitter: { emit: jest.Mock };
 
@@ -38,6 +39,7 @@ describe('InventoryService', () => {
   const item = {
     id: 'i1',
     businessId: 'b1',
+    createdBy: 'u1',
     name: 'Widget',
     category: ['tools'],
     wholesalePrice: 5,
@@ -56,6 +58,7 @@ describe('InventoryService', () => {
       remove: jest.fn(),
       decrementStock: jest.fn(),
       bulkUpsert: jest.fn(),
+      resolveCreatorNames: jest.fn(),
     };
     eventEmitter = { emit: jest.fn() };
 
@@ -83,6 +86,9 @@ describe('InventoryService', () => {
         data: [item],
         pagination: { total: 1 },
       });
+      repository.resolveCreatorNames.mockResolvedValue(
+        new Map([['u1', 'Ada Lovelace']]),
+      );
 
       const result = await service.list(user, query);
 
@@ -95,7 +101,24 @@ describe('InventoryService', () => {
         status: 'in-stock',
         sort: 'name',
       });
-      expect(result.data).toEqual([item]);
+      expect(repository.resolveCreatorNames).toHaveBeenCalledWith(['u1']);
+      expect(result.data).toEqual([{ ...item, createdByName: 'Ada Lovelace' }]);
+    });
+
+    it('leaves items untouched when the creator cannot be resolved', async () => {
+      repository.list.mockResolvedValue({
+        data: [item],
+        pagination: { total: 1 },
+      });
+      repository.resolveCreatorNames.mockResolvedValue(new Map());
+
+      const result = await service.list(user, {
+        page: 1,
+        limit: 20,
+        sort: 'name',
+      });
+
+      expect(result.data[0]).toEqual({ ...item, createdByName: undefined });
     });
   });
 
@@ -108,10 +131,16 @@ describe('InventoryService', () => {
       );
     });
 
-    it('returns the item for the business', async () => {
+    it('returns the item enriched with the creator name', async () => {
       repository.findByIdAndBusiness.mockResolvedValue(item);
+      repository.resolveCreatorNames.mockResolvedValue(
+        new Map([['u1', 'Ada Lovelace']]),
+      );
 
-      await expect(service.findOne(user, 'i1')).resolves.toBe(item);
+      await expect(service.findOne(user, 'i1')).resolves.toEqual({
+        ...item,
+        createdByName: 'Ada Lovelace',
+      });
       expect(repository.findByIdAndBusiness).toHaveBeenCalledWith('i1', 'b1');
     });
   });

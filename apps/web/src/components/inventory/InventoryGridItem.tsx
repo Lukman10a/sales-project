@@ -85,6 +85,14 @@ export default function InventoryGridItem({
           </div>
         </div>
         <div className="space-y-1 text-sm">
+          {item.createdByName && (
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">{t("Added by")}</span>
+              <span className="font-medium text-foreground truncate">
+                {item.createdByName}
+              </span>
+            </div>
+          )}
           <div className="flex justify-between">
             <span className="text-muted-foreground">{t("Qty Available")}</span>
             <span className="font-medium text-foreground">{item.quantity}</span>

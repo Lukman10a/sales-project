@@ -16,4 +16,6 @@ export interface InventoryItem {
   lastRestocked?: string;
   bundleQuantity?: number;
   bundlePrice?: number;
+  createdBy?: string;
+  createdByName?: string;
 }

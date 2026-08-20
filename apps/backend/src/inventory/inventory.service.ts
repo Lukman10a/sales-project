@@ -30,7 +30,7 @@ export class InventoryService {
   ) {}
 
   async list(user: { businessId: string }, query: QueryInventoryDto) {
-    return this.inventoryRepository.list({
+    const result = await this.inventoryRepository.list({
       businessId: user.businessId,
       page: query.page,
       limit: query.limit,
@@ -39,6 +39,10 @@ export class InventoryService {
       status: query.status,
       sort: query.sort,
     });
+
+    const data = await this.enrichCreators(result.data);
+
+    return { ...result, data };
   }
 
   async findOne(
@@ -52,7 +56,22 @@ export class InventoryService {
     if (!item) {
       throw new NotFoundException('Product not found');
     }
-    return item;
+    const [enriched] = await this.enrichCreators([item]);
+    return enriched;
+  }
+
+  private async enrichCreators(
+    items: InventoryItem[],
+  ): Promise<Array<InventoryItem & { createdByName?: string }>> {
+    if (items.length === 0) return items;
+
+    const ids = [...new Set(items.map((item) => item.createdBy))];
+    const names = await this.inventoryRepository.resolveCreatorNames(ids);
+
+    return items.map((item) => ({
+      ...item,
+      createdByName: names.get(item.createdBy),
+    }));
   }
 
   async create(

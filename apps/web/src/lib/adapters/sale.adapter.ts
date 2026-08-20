@@ -1,4 +1,5 @@
 import { roundCurrency } from "./currency";
+import { formatDistanceToNow } from "date-fns";
 import type { SaleRecord, PaymentPart } from "@/types/salesTypes";
 
 export interface BackendSaleItem {
@@ -47,7 +48,7 @@ export function toSaleRecord(sale: BackendSale): SaleRecord {
     itemCount: sale.itemCount ?? sale.items?.length ?? 0,
     total: roundCurrency(sale.total),
     soldBy: sale.soldBy,
-    time: new Date(sale.createdAt).toISOString(),
+    time: formatDistanceToNow(new Date(sale.createdAt), { addSuffix: true }),
     saleTimestamp: new Date(sale.createdAt).getTime(),
     status: sale.status,
     paymentMethod: sale.paymentMethod,

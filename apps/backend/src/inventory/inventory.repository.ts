@@ -1,7 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
-import { DataSource, EntityManager, Repository } from 'typeorm';
+import { DataSource, EntityManager, In, Repository } from 'typeorm';
 import { InventoryItem } from '../entities/inventory-item.entity';
+import { User } from '../entities/user.entity';
 import { PaginatedResult } from '../common/interfaces/paginated-result.interface';
 
 export interface InventoryListQuery {
@@ -22,6 +23,19 @@ export class InventoryRepository extends Repository<InventoryItem> {
 
   transaction<T>(fn: (manager: EntityManager) => Promise<T>): Promise<T> {
     return this.dataSource.transaction(fn);
+  }
+
+  async resolveCreatorNames(ids: string[]): Promise<Map<string, string>> {
+    if (ids.length === 0) return new Map();
+
+    const users = await this.manager.find(User, {
+      where: { id: In(ids) },
+      select: ['id', 'firstName', 'lastName'],
+    });
+
+    return new Map(
+      users.map((user) => [user.id, `${user.firstName} ${user.lastName}`]),
+    );
   }
 
   async findByIdAndBusiness(

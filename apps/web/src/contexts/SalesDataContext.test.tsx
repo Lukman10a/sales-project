@@ -268,7 +268,7 @@ describe("SalesDataContext", () => {
     );
   });
 
-  it("createHeld posts to /sales/held", async () => {
+  it("createHeld posts a write-guarded payload to /sales/held", async () => {
     apiMock.post.mockResolvedValue(backendHeld);
     renderContext(<Harness />);
     await waitFor(() =>
@@ -278,14 +278,17 @@ describe("SalesDataContext", () => {
     fireEvent.click(screen.getByText("createHeld"));
 
     await waitFor(() =>
-      expect(apiMock.post).toHaveBeenCalledWith(
-        "/sales/held",
-        expect.objectContaining({
-          customerName: "Ada",
-          items: [{ productId: "p1", quantity: 1, price: 50 }],
-        }),
-      ),
+      expect(apiMock.post).toHaveBeenCalledWith("/sales/held", {
+        customerName: "Ada",
+        items: [{ productId: "p1", quantity: 1, price: 50 }],
+        paymentMethod: "cash",
+      }),
     );
+    const body = apiMock.post.mock.calls[0][1];
+    expect(body).not.toHaveProperty("id");
+    expect(body).not.toHaveProperty("heldBy");
+    expect(body).not.toHaveProperty("createdAt");
+    expect(body).not.toHaveProperty("expiresAt");
   });
 
   it("deleteHeld calls DELETE /sales/held/:id", async () => {

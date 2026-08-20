@@ -1,26 +1,21 @@
 "use client";
 
-import { Package, Clock, CheckCircle } from "lucide-react";
+import { Package, Clock, CheckCircle, Receipt } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useLanguage } from "@/contexts/LanguageContext";
-
-interface SaleRecord {
-  id: string;
-  items: { name: string; quantity: number; price: number }[];
-  total: number;
-  soldBy: string;
-  time: string;
-  status: "completed" | "pending" | "refunded" | "partial-refund";
-  paymentMethod?: string;
-  discount?: number;
-}
+import type { SaleRecord } from "@/types/salesTypes";
 
 interface RecentSalesListProps {
   sales: SaleRecord[];
+  onViewReceipt?: (sale: SaleRecord) => void;
 }
 
-export default function RecentSalesList({ sales }: RecentSalesListProps) {
+export default function RecentSalesList({
+  sales,
+  onViewReceipt,
+}: RecentSalesListProps) {
   const { t, formatCurrency } = useLanguage();
 
   return (
@@ -72,6 +67,19 @@ export default function RecentSalesList({ sales }: RecentSalesListProps) {
                 {t(sale.status)}
               </Badge>
             </div>
+            {onViewReceipt && (
+              <Button
+                onClick={() => onViewReceipt(sale)}
+                variant="ghost"
+                size="sm"
+                className="ml-2"
+                aria-label={t("View receipt for {name}", {
+                  values: { name: sale.id },
+                })}
+              >
+                <Receipt className="w-4 h-4" />
+              </Button>
+            )}
           </div>
         ))}
       </div>

@@ -50,6 +50,11 @@ export default function InventoryListItem({
                 {t("Pending confirmation")}
               </span>
             )}
+            {item.createdByName && (
+              <span className="block text-xs text-muted-foreground">
+                {t("Added by")}: {item.createdByName}
+              </span>
+            )}
           </div>
         </div>
       </td>

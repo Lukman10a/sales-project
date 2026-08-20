@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
+  toHeldPayload,
   toInventoryPayload,
   toPreferencesUpdate,
   toProfileUpdate,
@@ -7,8 +8,9 @@ import {
   toTeamPermissions,
 } from "./payloads";
 import type { InventoryItem } from "@/types/inventoryTypes";
-import type { SaleRecord } from "@/types/salesTypes";
+import type { HeldTransaction, SaleRecord } from "@/types/salesTypes";
 import type { UserProfile } from "@/types/profileTypes";
+import { buildSaleRecord } from "@/lib/sales/saleRecord";
 
 describe("toTeamPermissions", () => {
   it("keeps backend-valid permission names", () => {
@@ -78,12 +80,12 @@ describe("toSalePayload", () => {
   it("passes customerId, customerName, saleDate and paymentMethod", () => {
     const payload = toSalePayload({
       ...sale,
-      customerId: "c1",
+      customerId: "6f0c5d5b-9b1a-4a5e-9b3c-3d5f1a2b3c4d",
       customerName: "Ada",
       saleDate: "2026-08-01",
     });
 
-    expect(payload.customerId).toBe("c1");
+    expect(payload.customerId).toBe("6f0c5d5b-9b1a-4a5e-9b3c-3d5f1a2b3c4d");
     expect(payload.customerName).toBe("Ada");
     expect(payload.saleDate).toBe("2026-08-01");
     expect(payload.paymentMethod).toBe("cash");
@@ -118,8 +120,91 @@ describe("toSalePayload", () => {
     expect(payload.loyaltyPointsUsed).toBeUndefined();
     expect(payload.accountCredit).toBeUndefined();
   });
+
+  it("drops a customerId that is not a UUID (backend would 400)", () => {
+    const payload = toSalePayload({ ...sale, customerId: "generated-id" });
+
+    expect(payload.customerId).toBeUndefined();
+  });
+
+  it("keeps a customerId that is a real UUID", () => {
+    const payload = toSalePayload({
+      ...sale,
+      customerId: "6f0c5d5b-9b1a-4a5e-9b3c-3d5f1a2b3c4d",
+    });
+
+    expect(payload.customerId).toBe("6f0c5d5b-9b1a-4a5e-9b3c-3d5f1a2b3c4d");
+  });
+
+  it("produces a non-empty items payload from a POS cart-built record (regression: sales never persisted)", () => {
+    const record = buildSaleRecord({
+      cart: [
+        {
+          id: "p1",
+          name: "Widget",
+          image: "img.png",
+          sellingPrice: 50,
+          availableQty: 5,
+          categories: ["tools"],
+          quantity: 2,
+          actualPrice: 50,
+        },
+      ],
+      soldBy: "Ada",
+      paymentMethod: "cash",
+      discountPercent: 0,
+      splitPayments: [],
+      loyaltyPointsUsed: 0,
+      accountCreditUsed: 0,
+      saleDate: "2026-08-20",
+    });
+
+    const payload = toSalePayload(record);
+
+    expect(payload.items.length).toBeGreaterThan(0);
+    expect(payload.items).toEqual([{ productId: "p1", quantity: 2, price: 50 }]);
+  });
 });
 
+
+describe("toHeldPayload", () => {
+  const held: HeldTransaction = {
+    id: "h1",
+    customerName: "Ada",
+    items: [{ productId: "p1", quantity: 2, price: 50 }],
+    heldBy: "u1",
+    discountPercent: 5,
+    paymentMethod: "cash",
+    createdAt: "2026-08-01T10:00:00.000Z",
+    expiresAt: "2026-08-02T10:00:00.000Z",
+  };
+
+  it("emits only backend-valid keys from a held transaction", () => {
+    const payload = toHeldPayload(held);
+
+    expect(payload).toEqual({
+      customerName: "Ada",
+      items: [{ productId: "p1", quantity: 2, price: 50 }],
+      discountPercent: 5,
+      paymentMethod: "cash",
+    });
+  });
+
+  it("never sends id, heldBy, createdAt or expiresAt", () => {
+    const payload = toHeldPayload(held);
+
+    expect(payload).not.toHaveProperty("id");
+    expect(payload).not.toHaveProperty("heldBy");
+    expect(payload).not.toHaveProperty("createdAt");
+    expect(payload).not.toHaveProperty("expiresAt");
+  });
+
+  it("omits discountPercent when zero", () => {
+    const payload = toHeldPayload({ ...held, discountPercent: 0 });
+
+    expect(payload.discountPercent).toBeUndefined();
+  });
+});
 
 describe("toProfileUpdate", () => {
   it("splits name into firstName and lastName", () => {

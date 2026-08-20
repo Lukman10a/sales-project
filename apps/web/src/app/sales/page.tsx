@@ -2,7 +2,13 @@
 
 import { useMemo, useState } from "react";
 import dynamic from "next/dynamic";
-import { CartItem, SaleItem, PaymentPart } from "@/types/salesTypes";
+import {
+  CartItem,
+  SaleItem,
+  PaymentPart,
+  HeldTransaction,
+  SaleRecord,
+} from "@/types/salesTypes";
 import { toast } from "@/components/ui/sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { useInventoryData } from "@/contexts/InventoryDataContext";
@@ -10,6 +16,8 @@ import { useSalesData } from "@/contexts/SalesDataContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { usePermissions } from "@/hooks/usePermissions";
 import { routeRefund } from "@/lib/refund";
+import { buildSaleRecord, buildHeldTransaction } from "@/lib/sales/saleRecord";
+import { filterProducts } from "@/lib/sales/filterProducts";
 import { categories } from "@/data/inventory";
 import ProductSearchBar from "@/components/sales/ProductSearchBar";
 import CategoryFilters from "@/components/sales/CategoryFilters";
@@ -48,6 +56,14 @@ const RefundModal = dynamic(() => import("@/components/sales/RefundModal"), {
   ssr: false,
   loading: () => null,
 });
+const HeldSalesList = dynamic(
+  () => import("@/components/sales/HeldSalesList"),
+  { ssr: false, loading: () => null },
+);
+const ReceiptModal = dynamic(() => import("@/components/sales/ReceiptModal"), {
+  ssr: false,
+  loading: () => null,
+});
 const PrintPreviewDialog = dynamic(
   () => import("@/components/sales/PrintPreviewDialog"),
   { ssr: false, loading: () => null },
@@ -57,7 +73,15 @@ export default function Sales() {
   const { user } = useAuth();
   const { hasPermission, isOwner, canViewReports } = usePermissions();
   const { inventory: allProducts, decrementInventory } = useInventoryData();
-  const { addSaleRecord, refundSale, recentSales } = useSalesData();
+  const {
+    addSaleRecord,
+    refundSale,
+    recentSales,
+    heldTransactions,
+    createHeld,
+    deleteHeld,
+    getSaleById,
+  } = useSalesData();
   const canRefund = canViewReports();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
@@ -87,6 +111,8 @@ export default function Sales() {
   const [saleDateOpen, setSaleDateOpen] = useState(false);
   const [refundModalOpen, setRefundModalOpen] = useState(false);
   const [printPreviewOpen, setPrintPreviewOpen] = useState(false);
+  const [receiptModalOpen, setReceiptModalOpen] = useState(false);
+  const [receiptSale, setReceiptSale] = useState<SaleRecord | null>(null);
 
   const { t, formatCurrency } = useLanguage();
 
@@ -99,16 +125,14 @@ export default function Sales() {
         image: item.image,
         sellingPrice: item.sellingPrice,
         availableQty: item.quantity,
+        categories: item.category,
       })),
     [allProducts],
   );
 
   const filteredItems = useMemo(
-    () =>
-      products.filter((item) =>
-        item.name.toLowerCase().includes(searchQuery.toLowerCase()),
-      ),
-    [products, searchQuery],
+    () => filterProducts(products, searchQuery, selectedCategory),
+    [products, searchQuery, selectedCategory],
   );
 
   const openQuickAddDialog = (item: SaleItem) => {
@@ -200,6 +224,75 @@ export default function Sales() {
     toast(t("Sale date updated"));
   };
 
+  const handleHoldSale = () => {
+    if (cart.length === 0) {
+      toast(t("Cart is empty"));
+      return;
+    }
+
+    const held = buildHeldTransaction({
+      cart,
+      customerName: selectedCustomer?.name ?? user?.firstName ?? "Customer",
+      heldBy: user?.id ?? "",
+      discountPercent,
+      paymentMethod,
+    });
+    createHeld(held);
+
+    setCart([]);
+    setDiscountPercent(0);
+    setPaymentMethod("cash");
+    setSplitPayments([]);
+    setSelectedCustomer(null);
+    setLoyaltyPointsUsed(0);
+    setAccountCreditUsed(0);
+
+    toast(t("Sale held"), {
+      description: t("You can resume it anytime from the held sales list"),
+    });
+  };
+
+  const handleResumeHeld = (held: HeldTransaction) => {
+    const restoredCart: CartItem[] = held.items.flatMap((heldItem) => {
+      const product = allProducts.find((p) => p.id === heldItem.productId);
+      if (!product) return [];
+      return [
+        {
+          id: product.id,
+          name: product.name,
+          image: product.image,
+          sellingPrice: product.sellingPrice,
+          availableQty: product.quantity,
+          quantity: heldItem.quantity,
+          actualPrice: heldItem.price,
+        },
+      ];
+    });
+
+    if (restoredCart.length === 0) {
+      toast(t("Held sale items are no longer available"));
+      return;
+    }
+
+    setCart(restoredCart);
+    setDiscountPercent(held.discountPercent);
+    setPaymentMethod(held.paymentMethod);
+    deleteHeld(held.id);
+
+    toast(t("Held sale resumed"));
+  };
+
+  const handleDeleteHeld = (id: string) => {
+    deleteHeld(id);
+    toast(t("Held sale deleted"));
+  };
+
+  const handleViewReceipt = async (sale: SaleRecord) => {
+    const fetched = await getSaleById(sale.id);
+    setReceiptSale(fetched ?? sale);
+    setReceiptModalOpen(true);
+  };
+
   const handleProcessRefund = (
     saleId: string,
     refundAmount: number,
@@ -239,42 +332,23 @@ export default function Sales() {
   };
 
   const completeSaleDirectly = () => {
-    const cartSubtotal = cart.reduce(
-      (sum, item) => sum + item.actualPrice * item.quantity,
-      0,
-    );
-    const cartDiscount = (cartSubtotal * discountPercent) / 100;
-    const loyaltyDiscount = loyaltyPointsUsed / 100;
-    const cartTotal =
-      cartSubtotal - cartDiscount - loyaltyDiscount - accountCreditUsed;
-
     // Decrement inventory globally
     cart.forEach((item) => {
       decrementInventory(item.id, item.quantity);
     });
 
     // Create and add sale record globally
-    const newRecord = {
-      id: String(Date.now()),
-      items: cart.map((c) => ({
-        name: c.name,
-        quantity: c.quantity,
-        price: c.actualPrice,
-      })),
-      total: cartTotal,
+    const newRecord = buildSaleRecord({
+      cart,
       soldBy: user ? user.firstName : "You",
-      time: "just now",
-      status: "completed" as const,
       paymentMethod,
-      discount: discountPercent,
-      splitPayments: paymentMethod === "split" ? splitPayments : undefined,
-      customerId: selectedCustomer ? "generated-id" : undefined,
-      customerName: selectedCustomer?.name,
+      discountPercent,
+      splitPayments,
+      selectedCustomer,
       loyaltyPointsUsed,
-      accountCredit: accountCreditUsed,
+      accountCreditUsed,
       saleDate,
-      saleTimestamp: new Date(saleDate).getTime(),
-    };
+    });
     addSaleRecord(newRecord);
 
     // Clear cart and reset
@@ -290,8 +364,8 @@ export default function Sales() {
 
     toast(t("Sale completed"), {
       description: t("Total {amount}", {
-        values: { amount: formatCurrency(cartTotal) },
-        fallback: `${t("Total")}: ${formatCurrency(cartTotal)}`,
+        values: { amount: formatCurrency(newRecord.total) },
+        fallback: `${t("Total")}: ${formatCurrency(newRecord.total)}`,
       }),
     });
   };
@@ -346,7 +420,19 @@ export default function Sales() {
 
             {/* Recent Sales - Only visible if user has permission */}
             {(isOwner() || hasPermission("view-sales-history")) && (
-              <RecentSalesList sales={recentSales} />
+              <RecentSalesList
+                sales={recentSales}
+                onViewReceipt={handleViewReceipt}
+              />
+            )}
+
+            {/* Held Sales */}
+            {heldTransactions.length > 0 && (
+              <HeldSalesList
+                transactions={heldTransactions}
+                onResume={handleResumeHeld}
+                onDelete={handleDeleteHeld}
+              />
             )}
           </div>
 
@@ -362,6 +448,7 @@ export default function Sales() {
               onDiscountChange={setDiscountPercent}
               onPaymentMethodChange={setPaymentMethod}
               onCompleteSale={handleCompleteSale}
+              onHoldSale={handleHoldSale}
               onOpenSplitPayment={() => setSplitPaymentOpen(true)}
               onOpenCustomerAccount={() => setCustomerAccountOpen(true)}
               onOpenDatePicker={() => setSaleDateOpen(true)}
@@ -454,6 +541,13 @@ export default function Sales() {
         soldBy={user ? user.firstName : "Staff"}
         onConfirmSale={completeSaleDirectly}
         onPrintAndComplete={completeSaleDirectly}
+      />
+
+      {/* Receipt Modal */}
+      <ReceiptModal
+        open={receiptModalOpen}
+        sale={receiptSale}
+        onClose={() => setReceiptModalOpen(false)}
       />
     </>
   );

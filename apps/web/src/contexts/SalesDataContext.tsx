@@ -13,7 +13,7 @@ import {
   BackendSale,
   toSaleRecord,
 } from "@/lib/adapters/sale.adapter";
-import { toSalePayload } from "@/lib/api/payloads";
+import { toSalePayload, toHeldPayload } from "@/lib/api/payloads";
 import type { HeldTransaction, SaleRecord } from "@/types/salesTypes";
 
 interface SalesDataContextType {
@@ -100,7 +100,7 @@ export function SalesDataProvider({ children }: { children: React.ReactNode }) {
 
   const createHeldMutation = useMutation({
     mutationFn: (held: HeldTransaction) =>
-      api.post<HeldTransaction>("/sales/held", held),
+      api.post<HeldTransaction>("/sales/held", toHeldPayload(held)),
     onSuccess: invalidate,
   });
 

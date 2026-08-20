@@ -4,6 +4,7 @@ export interface SaleItem {
   image: string;
   sellingPrice: number;
   availableQty: number;
+  categories?: string[];
 }
 
 export interface CartItem extends SaleItem {

@@ -1,5 +1,7 @@
+import { In } from 'typeorm';
 import { InventoryRepository } from './inventory.repository';
 import { InventoryItem } from '../entities/inventory-item.entity';
+import { User } from '../entities/user.entity';
 
 describe('InventoryRepository', () => {
   let repository: InventoryRepository;
@@ -78,6 +80,42 @@ describe('InventoryRepository', () => {
         where: { id: 'i1', businessId: 'b1' },
       });
       expect(result).toBe(reloaded);
+    });
+  });
+
+  describe('resolveCreatorNames', () => {
+    it('maps user ids to full names without loading full user rows', async () => {
+      const users = [
+        { id: 'u1', firstName: 'Ada', lastName: 'Lovelace' },
+        { id: 'u2', firstName: 'Grace', lastName: 'Hopper' },
+      ];
+      const manager = { find: jest.fn().mockResolvedValue(users) };
+      const repo = new InventoryRepository({
+        createEntityManager: () => manager,
+        transaction: transactionFn,
+      } as never);
+
+      const result = await repo.resolveCreatorNames(['u1', 'u2']);
+
+      expect(manager.find).toHaveBeenCalledWith(User, {
+        where: { id: In(['u1', 'u2']) },
+        select: ['id', 'firstName', 'lastName'],
+      });
+      expect(result.get('u1')).toBe('Ada Lovelace');
+      expect(result.get('u2')).toBe('Grace Hopper');
+    });
+
+    it('returns an empty map for an empty id list', async () => {
+      const manager = { find: jest.fn() };
+      const repo = new InventoryRepository({
+        createEntityManager: () => manager,
+        transaction: transactionFn,
+      } as never);
+
+      const result = await repo.resolveCreatorNames([]);
+
+      expect(manager.find).not.toHaveBeenCalled();
+      expect(result.size).toBe(0);
     });
   });
 

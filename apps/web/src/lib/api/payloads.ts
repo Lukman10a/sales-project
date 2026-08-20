@@ -1,5 +1,9 @@
 import type { InventoryItem } from "@/types/inventoryTypes";
-import type { PaymentPart, SaleRecord } from "@/types/salesTypes";
+import type {
+  HeldTransaction,
+  PaymentPart,
+  SaleRecord,
+} from "@/types/salesTypes";
 import type { Permission } from "@/types/teamTypes";
 import type {
   AppearanceSettings,
@@ -16,6 +20,13 @@ const DEPRECATED_PERMISSIONS: ReadonlySet<string> = new Set([
   "checkout-sales",
   "view-out-of-stock",
 ]);
+
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function isUuid(value: string): boolean {
+  return UUID_PATTERN.test(value);
+}
 
 export function toTeamPermissions(permissions: Permission[]): Permission[] {
   return permissions.filter((permission) => !DEPRECATED_PERMISSIONS.has(permission));
@@ -51,7 +62,8 @@ export function toSalePayload(sale: SaleRecord): SalePayload {
   };
 
   if (sale.discount !== undefined) payload.discountPercent = sale.discount;
-  if (sale.customerId) payload.customerId = sale.customerId;
+  if (sale.customerId && isUuid(sale.customerId))
+    payload.customerId = sale.customerId;
   if (sale.customerName) payload.customerName = sale.customerName;
   if (sale.saleDate) payload.saleDate = sale.saleDate;
   if (sale.splitPayments && sale.splitPayments.length > 0)
@@ -59,6 +71,36 @@ export function toSalePayload(sale: SaleRecord): SalePayload {
   if (sale.loyaltyPointsUsed !== undefined)
     payload.loyaltyPointsUsed = sale.loyaltyPointsUsed;
   if (sale.accountCredit !== undefined) payload.accountCredit = sale.accountCredit;
+
+  return payload;
+}
+
+/**
+ * Write-guard for holding a sale. Maps the UI HeldTransaction to the backend
+ * CreateHeldTransactionDto. The backend is Zod `.strict()` — the UI-only keys
+ * (id, heldBy, createdAt, expiresAt) are dropped so the request does not 400.
+ */
+export interface HeldPayload {
+  customerName: string;
+  items: Array<{ productId: string; quantity: number; price: number }>;
+  discountPercent?: number;
+  paymentMethod: "cash" | "card" | "transfer" | "split" | "account";
+}
+
+export function toHeldPayload(held: HeldTransaction): HeldPayload {
+  const payload: HeldPayload = {
+    customerName: held.customerName,
+    items: held.items.map((item) => ({
+      productId: item.productId,
+      quantity: item.quantity,
+      price: item.price,
+    })),
+    paymentMethod: held.paymentMethod ?? "cash",
+  };
+
+  if (held.discountPercent !== undefined && held.discountPercent !== 0) {
+    payload.discountPercent = held.discountPercent;
+  }
 
   return payload;
 }

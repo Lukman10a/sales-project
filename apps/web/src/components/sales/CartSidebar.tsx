@@ -15,6 +15,7 @@ import {
   Split,
   User,
   Calendar,
+  Pause,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -36,6 +37,7 @@ interface CartSidebarProps {
     method: "cash" | "card" | "transfer" | "split" | "account",
   ) => void;
   onCompleteSale: () => void;
+  onHoldSale?: () => void;
   onOpenSplitPayment?: () => void;
   onOpenCustomerAccount?: () => void;
   onOpenDatePicker?: () => void;
@@ -54,6 +56,7 @@ export default function CartSidebar({
   onDiscountChange,
   onPaymentMethodChange,
   onCompleteSale,
+  onHoldSale,
   onOpenSplitPayment,
   onOpenCustomerAccount,
   onOpenDatePicker,
@@ -317,6 +320,18 @@ export default function CartSidebar({
               <CheckCircle className="w-4 h-4 mr-2" />
               {t("Complete Sale")}
             </Button>
+
+            {onHoldSale && (
+              <Button
+                onClick={onHoldSale}
+                disabled={cart.length === 0}
+                variant="outline"
+                className="w-full mt-2"
+              >
+                <Pause className="w-4 h-4 mr-2" />
+                {t("Hold Sale")}
+              </Button>
+            )}
           </div>
         </>
       )}
