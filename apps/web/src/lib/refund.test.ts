@@ -12,10 +12,10 @@ const completedSale: SaleRecord = {
 };
 
 describe("routeRefund", () => {
-  it("routes a valid refund to refundSale (PATCH), not a new sale", () => {
-    const refundSale = vi.fn();
+  it("routes a valid refund to refundSale (PATCH), not a new sale", async () => {
+    const refundSale = vi.fn().mockResolvedValue(undefined);
 
-    const result = routeRefund({
+    const result = await routeRefund({
       saleId: "s1",
       refundAmount: 50,
       reason: "Damaged item",
@@ -27,10 +27,10 @@ describe("routeRefund", () => {
     expect(refundSale).toHaveBeenCalledWith("s1", 50, "Damaged item");
   });
 
-  it("returns false without calling anything when the sale is not found", () => {
+  it("returns false without calling anything when the sale is not found", async () => {
     const refundSale = vi.fn();
 
-    const result = routeRefund({
+    const result = await routeRefund({
       saleId: "missing",
       refundAmount: 50,
       reason: "Damaged item",

@@ -26,6 +26,7 @@ interface PrintPreviewDialogProps {
   soldBy: string;
   onConfirmSale: () => void;
   onPrintAndComplete: () => void;
+  isSubmitting?: boolean;
 }
 
 export default function PrintPreviewDialog({
@@ -42,6 +43,7 @@ export default function PrintPreviewDialog({
   soldBy,
   onConfirmSale,
   onPrintAndComplete,
+  isSubmitting = false,
 }: PrintPreviewDialogProps) {
   const { t, formatCurrency } = useLanguage();
   const printRef = useRef<HTMLDivElement>(null);
@@ -298,6 +300,7 @@ export default function PrintPreviewDialog({
             </Button>
             <Button
               variant="outline"
+              disabled={isSubmitting}
               onClick={() => {
                 onConfirmSale();
                 onOpenChange(false);
@@ -308,6 +311,7 @@ export default function PrintPreviewDialog({
               {t("Complete Without Print")}
             </Button>
             <Button
+              disabled={isSubmitting}
               onClick={() => {
                 handlePrint();
                 onPrintAndComplete();

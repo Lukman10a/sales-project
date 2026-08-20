@@ -5,7 +5,11 @@ export interface RefundRouteInput {
   refundAmount: number;
   reason: string;
   recentSales: SaleRecord[];
-  refundSale: (saleId: string, refundAmount: number, reason: string) => void;
+  refundSale: (
+    saleId: string,
+    refundAmount: number,
+    reason: string,
+  ) => Promise<void>;
 }
 
 /**
@@ -14,11 +18,11 @@ export interface RefundRouteInput {
  * is deliberately not in this seam, so a refund can never be routed to a
  * brand-new sale record.
  */
-export function routeRefund(input: RefundRouteInput): boolean {
+export async function routeRefund(input: RefundRouteInput): Promise<boolean> {
   const { saleId, refundAmount, reason, recentSales } = input;
   const originalSale = recentSales.find((s) => s.id === saleId);
   if (!originalSale) return false;
 
-  input.refundSale(saleId, refundAmount, reason);
+  await input.refundSale(saleId, refundAmount, reason);
   return true;
 }

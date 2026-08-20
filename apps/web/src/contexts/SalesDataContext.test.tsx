@@ -19,7 +19,13 @@ const apiMock = vi.hoisted(() => ({
   delete: vi.fn(),
 }));
 
+const toastMock = vi.hoisted(() => ({
+  error: vi.fn(),
+  success: vi.fn(),
+}));
+
 vi.mock("@/lib/api/client", () => ({ api: apiMock }));
+vi.mock("@/components/ui/sonner", () => ({ toast: toastMock }));
 
 const backendSale1: BackendSale = {
   id: "s1",
@@ -91,18 +97,22 @@ function Harness() {
     deleteHeld,
     totalSalesAmount,
     totalItemsSold,
+    isRecordingSale,
   } = useSalesData();
 
   return (
     <div>
       <span data-testid="loading">{String(isLoading)}</span>
+      <span data-testid="recording">{String(isRecordingSale)}</span>
       <span data-testid="ids">{recentSales.map((s) => s.id).join(",")}</span>
       <span data-testid="count">{recentSales[0]?.itemCount ?? ""}</span>
       <span data-testid="items">{recentSales[0]?.items.length ?? ""}</span>
       <span data-testid="total">{totalSalesAmount}</span>
       <span data-testid="sold">{totalItemsSold}</span>
       <span data-testid="held">{heldTransactions.map((h) => h.id).join(",")}</span>
-      <button onClick={() => addSaleRecord(newRecord)}>add</button>
+      <button onClick={() => void addSaleRecord(newRecord).catch(() => {})}>
+        add
+      </button>
       <button onClick={() => refundSale("s1", 50, "reason")}>refund</button>
       <button onClick={() => void getSaleById("s1")}>receipt</button>
       <button onClick={() => createHeld(backendHeld)}>createHeld</button>
@@ -313,5 +323,34 @@ describe("SalesDataContext", () => {
       expect(screen.getByTestId("ids").textContent).toContain("s1"),
     );
     expect(getItemSpy).not.toHaveBeenCalledWith("luxa_sales");
+  });
+
+  it("surfaces a toast.error when recording a sale fails", async () => {
+    apiMock.post.mockRejectedValue(new Error("Insufficient stock"));
+    renderContext(<Harness />);
+    await waitFor(() =>
+      expect(screen.getByTestId("ids").textContent).toContain("s1"),
+    );
+    toastMock.error.mockClear();
+
+    fireEvent.click(screen.getByText("add"));
+
+    await waitFor(() =>
+      expect(toastMock.error).toHaveBeenCalledWith("Insufficient stock"),
+    );
+  });
+
+  it("exposes isRecordingSale while the sale POST is pending", async () => {
+    apiMock.post.mockReturnValue(new Promise(() => {}));
+    renderContext(<Harness />);
+    await waitFor(() =>
+      expect(screen.getByTestId("ids").textContent).toContain("s1"),
+    );
+
+    fireEvent.click(screen.getByText("add"));
+
+    await waitFor(() =>
+      expect(screen.getByTestId("recording").textContent).toBe("true"),
+    );
   });
 });

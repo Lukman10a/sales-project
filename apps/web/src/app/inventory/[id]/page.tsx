@@ -92,7 +92,7 @@ export default function InventoryItemDetails({
     }
   };
 
-  const handleSaveEdit = () => {
+  const handleSaveEdit = async () => {
     if (!editingItem) return;
     const nameError = getNameError(editingItem.name, id);
     if (nameError) {
@@ -118,7 +118,7 @@ export default function InventoryItemDetails({
       return;
     }
     const trimmedName = editingItem.name.trim();
-    updateInventoryItem(id, { ...editingItem, name: trimmedName });
+    await updateInventoryItem(id, { ...editingItem, name: trimmedName });
     setIsEditOpen(false);
     setEditingItem(null);
     toast(t("Item updated successfully"));

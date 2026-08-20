@@ -14,21 +14,22 @@ import {
   toSaleRecord,
 } from "@/lib/adapters/sale.adapter";
 import { toSalePayload, toHeldPayload } from "@/lib/api/payloads";
+import { toastMutationError } from "@/lib/toastError";
 import type { HeldTransaction, SaleRecord } from "@/types/salesTypes";
 
 interface SalesDataContextType {
   recentSales: SaleRecord[];
-  setRecentSales: (sales: SaleRecord[]) => void;
-  addSaleRecord: (sale: SaleRecord) => void;
+  addSaleRecord: (sale: SaleRecord) => Promise<void>;
   refundSale: (
     saleId: string,
     refundAmount: number,
     reason: string,
-  ) => void;
+  ) => Promise<void>;
   getSaleById: (id: string) => Promise<SaleRecord | null>;
   heldTransactions: HeldTransaction[];
-  createHeld: (held: HeldTransaction) => void;
-  deleteHeld: (id: string) => void;
+  createHeld: (held: HeldTransaction) => Promise<void>;
+  deleteHeld: (id: string) => Promise<void>;
+  isRecordingSale: boolean;
   totalSalesAmount: number;
   totalItemsSold: number;
   isLoading: boolean;
@@ -71,14 +72,11 @@ export function SalesDataProvider({ children }: { children: React.ReactNode }) {
     [heldQuery.data],
   );
 
-  const setRecentSales = useCallback((sales: SaleRecord[]) => {
-    queryClient.setQueryData(["sales"], sales);
-  }, [queryClient]);
-
   const addMutation = useMutation({
     mutationFn: (sale: SaleRecord) =>
       api.post<BackendSale>("/sales", toSalePayload(sale)),
     onSuccess: invalidate,
+    onError: toastMutationError,
   });
 
   const refundMutation = useMutation({
@@ -96,28 +94,38 @@ export function SalesDataProvider({ children }: { children: React.ReactNode }) {
         refundReason: reason,
       }),
     onSuccess: invalidate,
+    onError: toastMutationError,
   });
 
   const createHeldMutation = useMutation({
     mutationFn: (held: HeldTransaction) =>
       api.post<HeldTransaction>("/sales/held", toHeldPayload(held)),
     onSuccess: invalidate,
+    onError: toastMutationError,
   });
 
   const deleteHeldMutation = useMutation({
     mutationFn: (id: string) =>
       api.delete<{ message: string }>(`/sales/held/${id}`),
     onSuccess: invalidate,
+    onError: toastMutationError,
   });
 
   const addSaleRecord = useCallback(
-    (sale: SaleRecord) => addMutation.mutate(sale),
+    async (sale: SaleRecord): Promise<void> => {
+      await addMutation.mutateAsync(sale);
+    },
     [addMutation],
   );
 
   const refundSale = useCallback(
-    (saleId: string, refundAmount: number, reason: string) =>
-      refundMutation.mutate({ saleId, refundAmount, reason }),
+    async (
+      saleId: string,
+      refundAmount: number,
+      reason: string,
+    ): Promise<void> => {
+      await refundMutation.mutateAsync({ saleId, refundAmount, reason });
+    },
     [refundMutation],
   );
 
@@ -134,12 +142,16 @@ export function SalesDataProvider({ children }: { children: React.ReactNode }) {
   );
 
   const createHeld = useCallback(
-    (held: HeldTransaction) => createHeldMutation.mutate(held),
+    async (held: HeldTransaction): Promise<void> => {
+      await createHeldMutation.mutateAsync(held);
+    },
     [createHeldMutation],
   );
 
   const deleteHeld = useCallback(
-    (id: string) => deleteHeldMutation.mutate(id),
+    async (id: string): Promise<void> => {
+      await deleteHeldMutation.mutateAsync(id);
+    },
     [deleteHeldMutation],
   );
 
@@ -172,13 +184,13 @@ export function SalesDataProvider({ children }: { children: React.ReactNode }) {
   const value = useMemo(
     () => ({
       recentSales,
-      setRecentSales,
       addSaleRecord,
       refundSale,
       getSaleById,
       heldTransactions,
       createHeld,
       deleteHeld,
+      isRecordingSale: addMutation.isPending,
       totalSalesAmount,
       totalItemsSold,
       isLoading: salesQuery.isLoading,
@@ -186,13 +198,13 @@ export function SalesDataProvider({ children }: { children: React.ReactNode }) {
     }),
     [
       recentSales,
-      setRecentSales,
       addSaleRecord,
       refundSale,
       getSaleById,
       heldTransactions,
       createHeld,
       deleteHeld,
+      addMutation.isPending,
       totalSalesAmount,
       totalItemsSold,
       salesQuery.isLoading,

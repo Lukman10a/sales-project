@@ -22,6 +22,13 @@ const apiMock = vi.hoisted(() => ({
 
 vi.mock("@/lib/api/client", () => ({ api: apiMock }));
 
+const toastMock = vi.hoisted(() => ({
+  error: vi.fn(),
+  success: vi.fn(),
+}));
+
+vi.mock("@/components/ui/sonner", () => ({ toast: toastMock }));
+
 const backendItem1: BackendInventoryItem = {
   id: "i1",
   name: "Widget",
@@ -96,21 +103,31 @@ function Harness() {
       <span data-testid="total">{totalItemsInStock}</span>
       <span data-testid="low">{lowStockItems}</span>
       <span data-testid="out">{outOfStockItems}</span>
-      <button onClick={() => addInventoryItem(newItem)}>add</button>
+      <button onClick={() => void addInventoryItem(newItem).catch(() => {})}>
+        add
+      </button>
       <button
         onClick={() =>
-          updateInventoryItem("i1", {
+          void updateInventoryItem("i1", {
             confirmedByApprentice: true,
             image: "new.png",
-          })
+          }).catch(() => {})
         }
       >
         update
       </button>
-      <button onClick={() => deleteInventoryItem("i1")}>delete</button>
-      <button onClick={() => decrementInventory("i1", 2)}>decrement</button>
-      <button onClick={() => confirmInventoryReceipt("i1")}>confirm</button>
-      <button onClick={() => void bulkImportInventory(file)}>bulk</button>
+      <button onClick={() => void deleteInventoryItem("i1").catch(() => {})}>
+        delete
+      </button>
+      <button onClick={() => void decrementInventory("i1", 2).catch(() => {})}>
+        decrement
+      </button>
+      <button onClick={() => void confirmInventoryReceipt("i1").catch(() => {})}>
+        confirm
+      </button>
+      <button onClick={() => void bulkImportInventory(file).catch(() => {})}>
+        bulk
+      </button>
     </div>
   );
 }
@@ -316,5 +333,35 @@ describe("InventoryDataContext", () => {
       expect(screen.getByTestId("names").textContent).toContain("Widget"),
     );
     expect(getItemSpy).not.toHaveBeenCalledWith("luxa_inventory");
+  });
+
+  it("surfaces a toast.error when adding an inventory item fails", async () => {
+    apiMock.post.mockRejectedValue(new Error("Barcode already exists"));
+    renderContext(<Harness />);
+    await waitFor(() =>
+      expect(screen.getByTestId("names").textContent).toContain("Widget"),
+    );
+    toastMock.error.mockClear();
+
+    fireEvent.click(screen.getByText("add"));
+
+    await waitFor(() =>
+      expect(toastMock.error).toHaveBeenCalledWith("Barcode already exists"),
+    );
+  });
+
+  it("surfaces a toast.error when decrementing inventory fails", async () => {
+    apiMock.post.mockRejectedValue(new Error("Insufficient stock"));
+    renderContext(<Harness />);
+    await waitFor(() =>
+      expect(screen.getByTestId("names").textContent).toContain("Widget"),
+    );
+    toastMock.error.mockClear();
+
+    fireEvent.click(screen.getByText("decrement"));
+
+    await waitFor(() =>
+      expect(toastMock.error).toHaveBeenCalledWith("Insufficient stock"),
+    );
   });
 });

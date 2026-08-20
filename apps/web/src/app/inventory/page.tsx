@@ -218,7 +218,7 @@ export default function Inventory() {
     );
   }
 
-  const handleAddItem = () => {
+  const handleAddItem = async () => {
     const nameError = getNameError(newItem.name);
     if (nameError) {
       toast(nameError);
@@ -253,7 +253,7 @@ export default function Inventory() {
         "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&h=400&fit=crop",
     };
 
-    addInventoryItem(itemToAdd);
+    await addInventoryItem(itemToAdd);
 
     setNewItem(emptyNewItem);
     setIsAddOpen(false);
@@ -279,7 +279,7 @@ export default function Inventory() {
     });
   };
 
-  const handleSaveEdit = () => {
+  const handleSaveEdit = async () => {
     if (!editingId || !editingItem) return;
     const nameError = getNameError(editingItem.name, editingId);
     if (nameError) {
@@ -305,21 +305,21 @@ export default function Inventory() {
       return;
     }
     const trimmedName = editingItem.name.trim();
-    updateInventoryItem(editingId, { ...editingItem, name: trimmedName });
+    await updateInventoryItem(editingId, { ...editingItem, name: trimmedName });
     setEditingId(null);
     setEditingItem(null);
     toast(t("Item updated successfully"));
   };
 
-  const handleConfirmDelete = () => {
+  const handleConfirmDelete = async () => {
     if (!deleteTarget) return;
-    deleteInventoryItem(deleteTarget.id);
+    await deleteInventoryItem(deleteTarget.id);
     toast(t("Item deleted successfully"));
     setDeleteTarget(null);
   };
 
-  const handleConfirmReceipt = (itemId: string, itemName: string) => {
-    confirmInventoryReceipt(itemId);
+  const handleConfirmReceipt = async (itemId: string, itemName: string) => {
+    await confirmInventoryReceipt(itemId);
     toast(t("Receipt confirmed for {item}", { values: { item: itemName } }));
   };
 

@@ -137,7 +137,7 @@ export default function NotificationActionModal({
       await new Promise((resolve) => setTimeout(resolve, 1000));
 
       const newQuantity = relatedItem.quantity + formData.quantity;
-      updateInventoryItem(relatedItem.id, {
+      await updateInventoryItem(relatedItem.id, {
         quantity: newQuantity,
         status: newQuantity > 20 ? "in-stock" : "low-stock",
       });
@@ -172,7 +172,7 @@ export default function NotificationActionModal({
         relatedItem.sellingPrice * (1 - formData.discountPercent / 100),
       );
 
-      updateInventoryItem(relatedItem.id, {
+      await updateInventoryItem(relatedItem.id, {
         sellingPrice: discountedPrice,
       });
 
@@ -200,7 +200,7 @@ export default function NotificationActionModal({
       await new Promise((resolve) => setTimeout(resolve, 1000));
 
       if (approved) {
-        updateInventoryItem(relatedItem.id, {
+        await updateInventoryItem(relatedItem.id, {
           confirmedByApprentice: true,
         });
         toast(t("Inventory receipt confirmed successfully"));
@@ -235,7 +235,7 @@ export default function NotificationActionModal({
         relatedItem.sold - formData.returnQuantity,
       );
 
-      updateInventoryItem(relatedItem.id, {
+      await updateInventoryItem(relatedItem.id, {
         quantity: newQuantity,
         sold: newSoldCount,
       });

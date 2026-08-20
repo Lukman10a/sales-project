@@ -14,6 +14,7 @@ import {
   toInventoryItem,
 } from "@/lib/adapters/inventory.adapter";
 import { toInventoryPayload } from "@/lib/api/payloads";
+import { toastMutationError } from "@/lib/toastError";
 import type { InventoryItem } from "@/types/inventoryTypes";
 
 interface BulkImportResult {
@@ -26,11 +27,14 @@ interface InventoryDataContextType {
   inventory: InventoryItem[];
   isLoading: boolean;
   isError: boolean;
-  addInventoryItem: (item: InventoryItem) => void;
-  updateInventoryItem: (id: string, updates: Partial<InventoryItem>) => void;
-  deleteInventoryItem: (id: string) => void;
-  decrementInventory: (id: string, quantity: number) => void;
-  confirmInventoryReceipt: (id: string) => void;
+  addInventoryItem: (item: InventoryItem) => Promise<void>;
+  updateInventoryItem: (
+    id: string,
+    updates: Partial<InventoryItem>,
+  ) => Promise<void>;
+  deleteInventoryItem: (id: string) => Promise<void>;
+  decrementInventory: (id: string, quantity: number) => Promise<void>;
+  confirmInventoryReceipt: (id: string) => Promise<void>;
   bulkImportInventory: (file: File) => Promise<BulkImportResult>;
   totalItemsInStock: number;
   lowStockItems: number;
@@ -69,6 +73,7 @@ export function InventoryDataProvider({
     mutationFn: (item: InventoryItem) =>
       api.post<BackendInventoryItem>("/inventory", toInventoryPayload(item)),
     onSuccess: invalidate,
+    onError: toastMutationError,
   });
 
   const updateMutation = useMutation({
@@ -84,12 +89,14 @@ export function InventoryDataProvider({
         toInventoryPayload(updates),
       ),
     onSuccess: invalidate,
+    onError: toastMutationError,
   });
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) =>
       api.delete<{ message: string }>(`/inventory/${id}`),
     onSuccess: invalidate,
+    onError: toastMutationError,
   });
 
   const decrementMutation = useMutation({
@@ -98,6 +105,7 @@ export function InventoryDataProvider({
         quantity,
       }),
     onSuccess: invalidate,
+    onError: toastMutationError,
   });
 
   const confirmMutation = useMutation({
@@ -106,6 +114,7 @@ export function InventoryDataProvider({
         confirmedByApprentice: true,
       }),
     onSuccess: invalidate,
+    onError: toastMutationError,
   });
 
   const bulkImportMutation = useMutation({
@@ -115,31 +124,41 @@ export function InventoryDataProvider({
       return api.postForm<BulkImportResult>("/inventory/bulk-import", formData);
     },
     onSuccess: invalidate,
+    onError: toastMutationError,
   });
 
   const addInventoryItem = useCallback(
-    (item: InventoryItem) => addMutation.mutate(item),
+    async (item: InventoryItem): Promise<void> => {
+      await addMutation.mutateAsync(item);
+    },
     [addMutation],
   );
 
   const updateInventoryItem = useCallback(
-    (id: string, updates: Partial<InventoryItem>) =>
-      updateMutation.mutate({ id, updates }),
+    async (id: string, updates: Partial<InventoryItem>): Promise<void> => {
+      await updateMutation.mutateAsync({ id, updates });
+    },
     [updateMutation],
   );
 
   const deleteInventoryItem = useCallback(
-    (id: string) => deleteMutation.mutate(id),
+    async (id: string): Promise<void> => {
+      await deleteMutation.mutateAsync(id);
+    },
     [deleteMutation],
   );
 
   const decrementInventory = useCallback(
-    (id: string, quantity: number) => decrementMutation.mutate({ id, quantity }),
+    async (id: string, quantity: number): Promise<void> => {
+      await decrementMutation.mutateAsync({ id, quantity });
+    },
     [decrementMutation],
   );
 
   const confirmInventoryReceipt = useCallback(
-    (id: string) => confirmMutation.mutate(id),
+    async (id: string): Promise<void> => {
+      await confirmMutation.mutateAsync(id);
+    },
     [confirmMutation],
   );
 

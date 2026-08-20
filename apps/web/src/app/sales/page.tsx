@@ -16,6 +16,7 @@ import { useSalesData } from "@/contexts/SalesDataContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { usePermissions } from "@/hooks/usePermissions";
 import { routeRefund } from "@/lib/refund";
+import { submitSale } from "@/lib/sales/completeSale";
 import { buildSaleRecord, buildHeldTransaction } from "@/lib/sales/saleRecord";
 import { filterProducts } from "@/lib/sales/filterProducts";
 import { categories } from "@/data/inventory";
@@ -72,7 +73,7 @@ const PrintPreviewDialog = dynamic(
 export default function Sales() {
   const { user } = useAuth();
   const { hasPermission, isOwner, canViewReports } = usePermissions();
-  const { inventory: allProducts, decrementInventory } = useInventoryData();
+  const { inventory: allProducts } = useInventoryData();
   const {
     addSaleRecord,
     refundSale,
@@ -81,6 +82,7 @@ export default function Sales() {
     createHeld,
     deleteHeld,
     getSaleById,
+    isRecordingSale,
   } = useSalesData();
   const canRefund = canViewReports();
   const [searchQuery, setSearchQuery] = useState("");
@@ -224,7 +226,7 @@ export default function Sales() {
     toast(t("Sale date updated"));
   };
 
-  const handleHoldSale = () => {
+  const handleHoldSale = async () => {
     if (cart.length === 0) {
       toast(t("Cart is empty"));
       return;
@@ -237,7 +239,7 @@ export default function Sales() {
       discountPercent,
       paymentMethod,
     });
-    createHeld(held);
+    await createHeld(held);
 
     setCart([]);
     setDiscountPercent(0);
@@ -252,7 +254,7 @@ export default function Sales() {
     });
   };
 
-  const handleResumeHeld = (held: HeldTransaction) => {
+  const handleResumeHeld = async (held: HeldTransaction) => {
     const restoredCart: CartItem[] = held.items.flatMap((heldItem) => {
       const product = allProducts.find((p) => p.id === heldItem.productId);
       if (!product) return [];
@@ -274,16 +276,17 @@ export default function Sales() {
       return;
     }
 
+    await deleteHeld(held.id);
+
     setCart(restoredCart);
     setDiscountPercent(held.discountPercent);
     setPaymentMethod(held.paymentMethod);
-    deleteHeld(held.id);
 
     toast(t("Held sale resumed"));
   };
 
-  const handleDeleteHeld = (id: string) => {
-    deleteHeld(id);
+  const handleDeleteHeld = async (id: string) => {
+    await deleteHeld(id);
     toast(t("Held sale deleted"));
   };
 
@@ -293,12 +296,12 @@ export default function Sales() {
     setReceiptModalOpen(true);
   };
 
-  const handleProcessRefund = (
+  const handleProcessRefund = async (
     saleId: string,
     refundAmount: number,
     reason: string,
   ) => {
-    const routed = routeRefund({
+    const routed = await routeRefund({
       saleId,
       refundAmount,
       reason,
@@ -331,13 +334,9 @@ export default function Sales() {
     setPrintPreviewOpen(true);
   };
 
-  const completeSaleDirectly = () => {
-    // Decrement inventory globally
-    cart.forEach((item) => {
-      decrementInventory(item.id, item.quantity);
-    });
+  const completeSaleDirectly = async () => {
+    if (isRecordingSale) return;
 
-    // Create and add sale record globally
     const newRecord = buildSaleRecord({
       cart,
       soldBy: user ? user.firstName : "You",
@@ -349,25 +348,35 @@ export default function Sales() {
       accountCreditUsed,
       saleDate,
     });
-    addSaleRecord(newRecord);
 
-    // Clear cart and reset
-    setCart([]);
-    setSearchQuery("");
-    setDiscountPercent(0);
-    setPaymentMethod("cash");
-    setSplitPayments([]);
-    setSelectedCustomer(null);
-    setLoyaltyPointsUsed(0);
-    setAccountCreditUsed(0);
-    setSaleDate(new Date().toISOString().split("T")[0]);
+    try {
+      await submitSale({
+        record: newRecord,
+        recordSale: addSaleRecord,
+        onSubmitted: () => {
+          // Clear cart and reset
+          setCart([]);
+          setSearchQuery("");
+          setDiscountPercent(0);
+          setPaymentMethod("cash");
+          setSplitPayments([]);
+          setSelectedCustomer(null);
+          setLoyaltyPointsUsed(0);
+          setAccountCreditUsed(0);
+          setSaleDate(new Date().toISOString().split("T")[0]);
 
-    toast(t("Sale completed"), {
-      description: t("Total {amount}", {
-        values: { amount: formatCurrency(newRecord.total) },
-        fallback: `${t("Total")}: ${formatCurrency(newRecord.total)}`,
-      }),
-    });
+          toast(t("Sale completed"), {
+            description: t("Total {amount}", {
+              values: { amount: formatCurrency(newRecord.total) },
+              fallback: `${t("Total")}: ${formatCurrency(newRecord.total)}`,
+            }),
+          });
+        },
+      });
+    } catch {
+      // The sale mutation's onError already surfaced the failure; the cart
+      // stays intact so the user can retry.
+    }
   };
 
   return (
@@ -539,6 +548,7 @@ export default function Sales() {
         accountCreditUsed={accountCreditUsed}
         saleDate={saleDate}
         soldBy={user ? user.firstName : "Staff"}
+        isSubmitting={isRecordingSale}
         onConfirmSale={completeSaleDirectly}
         onPrintAndComplete={completeSaleDirectly}
       />
