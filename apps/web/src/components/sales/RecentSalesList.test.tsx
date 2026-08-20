@@ -9,7 +9,10 @@ import RecentSalesList from "./RecentSalesList";
 
 vi.mock("@/contexts/LanguageContext", () => ({
   useLanguage: () => ({
-    t: (key: string) => key,
+    t: (key: string, opts?: { values?: Record<string, string> }) =>
+      opts?.values
+        ? key.replace(/\{(\w+)\}/g, (_, name: string) => opts.values?.[name] ?? "")
+        : key,
     formatCurrency: (amount: number) => `₦${amount}`,
   }),
 }));
@@ -34,7 +37,7 @@ describe("RecentSalesList", () => {
       <RecentSalesList sales={[sale]} onViewReceipt={onViewReceipt} />,
     );
 
-    fireEvent.click(screen.getByLabelText("View receipt for {name}"));
+    fireEvent.click(screen.getByLabelText("View receipt for s1"));
 
     expect(onViewReceipt).toHaveBeenCalledWith(sale);
   });
@@ -43,7 +46,23 @@ describe("RecentSalesList", () => {
     render(<RecentSalesList sales={[sale]} />);
 
     expect(
-      screen.queryByLabelText("View receipt for {name}"),
+      screen.queryByLabelText("View receipt for s1"),
     ).not.toBeInTheDocument();
+  });
+
+  it("renders the seller full name when soldByName is present", () => {
+    render(
+      <RecentSalesList
+        sales={[{ ...sale, soldByName: "Ada Lovelace" }]}
+      />,
+    );
+
+    expect(screen.getByText("by Ada Lovelace")).toBeInTheDocument();
+  });
+
+  it("falls back to soldBy when soldByName is missing", () => {
+    render(<RecentSalesList sales={[sale]} />);
+
+    expect(screen.getByText("by Ada")).toBeInTheDocument();
   });
 });

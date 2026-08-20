@@ -1,9 +1,10 @@
 import { SalesRepository } from './sales.repository';
-import type { EntityManager } from 'typeorm';
+import { In, type EntityManager } from 'typeorm';
 import { Sale } from '../entities/sale.entity';
 import { SaleItem } from '../entities/sale-item.entity';
 import { InventoryItem } from '../entities/inventory-item.entity';
 import { HeldTransaction } from '../entities/held-transaction.entity';
+import { User } from '../entities/user.entity';
 
 describe('SalesRepository', () => {
   let repository: SalesRepository;
@@ -12,6 +13,7 @@ describe('SalesRepository', () => {
 
   const managerMock = {
     findOne: jest.fn(),
+    find: jest.fn(),
     save: jest.fn(),
     create: jest.fn((_entity: unknown, data: unknown) => data),
     createQueryBuilder: jest.fn(),
@@ -211,6 +213,33 @@ describe('SalesRepository', () => {
         where: { id: 's1', businessId: 'b1' },
         relations: ['items'],
       });
+    });
+  });
+
+  describe('resolveSellerNames', () => {
+    it('maps user ids to full names without loading full user rows', async () => {
+      const users = [
+        { id: 'u1', firstName: 'Ada', lastName: 'Lovelace' },
+        { id: 'u2', firstName: 'Grace', lastName: 'Hopper' },
+      ];
+      managerMock.find.mockResolvedValue(users);
+
+      const result = await repository.resolveSellerNames(['u1', 'u2']);
+
+      expect(managerMock.find).toHaveBeenCalledWith(User, {
+        where: { id: In(['u1', 'u2']) },
+        select: ['id', 'firstName', 'lastName'],
+      });
+      expect(result.get('u1')).toBe('Ada Lovelace');
+      expect(result.get('u2')).toBe('Grace Hopper');
+    });
+
+    it('returns an empty map for an empty id list', async () => {
+      managerMock.find.mockClear();
+      const result = await repository.resolveSellerNames([]);
+
+      expect(managerMock.find).not.toHaveBeenCalled();
+      expect(result.size).toBe(0);
     });
   });
 

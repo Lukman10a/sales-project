@@ -18,6 +18,7 @@ export interface BackendSale {
   status: "completed" | "pending" | "refunded" | "partial-refund";
   saleDate: string;
   soldBy: string;
+  soldByName?: string | null;
   customerId?: string | null;
   customerName?: string | null;
   discountPercent: number | string;
@@ -48,6 +49,7 @@ export function toSaleRecord(sale: BackendSale): SaleRecord {
     itemCount: sale.itemCount ?? sale.items?.length ?? 0,
     total: roundCurrency(sale.total),
     soldBy: sale.soldBy,
+    soldByName: sale.soldByName ?? undefined,
     time: formatDistanceToNow(new Date(sale.createdAt), { addSuffix: true }),
     saleTimestamp: new Date(sale.createdAt).getTime(),
     status: sale.status,

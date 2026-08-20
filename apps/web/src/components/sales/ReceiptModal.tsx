@@ -45,7 +45,7 @@ export default function ReceiptModal({
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">{t("Sold by")}</span>
-              <span className="font-medium">{sale.soldBy}</span>
+              <span className="font-medium">{sale.soldByName ?? sale.soldBy}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">{t("Time")}</span>

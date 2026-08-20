@@ -84,6 +84,12 @@ describe("sale adapter", () => {
     expect(sale.items).toEqual([{ name: "Widget", quantity: 2, price: 50 }]);
   });
 
+  it("passes through soldByName when present", () => {
+    const sale = toSaleRecord(backendSale({ soldByName: "Ada Lovelace" }));
+
+    expect(sale.soldByName).toBe("Ada Lovelace");
+  });
+
   it("passes through paymentMethod, status, soldBy, customer and refund fields", () => {
     const sale = toSaleRecord(
       backendSale({

@@ -42,7 +42,9 @@ export default function RecentSalesList({
                   <span>{sale.time}</span>
                   <span>•</span>
                   <span>
-                    {t("by {name}", { values: { name: sale.soldBy } })}
+                    {t("by {name}", {
+                      values: { name: sale.soldByName ?? sale.soldBy },
+                    })}
                   </span>
                 </div>
               </div>

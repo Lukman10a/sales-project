@@ -17,6 +17,7 @@ describe('SalesService', () => {
     findSaleWithItems: jest.Mock;
     findSaleByIdAndBusiness: jest.Mock;
     findSaleWithItemsDirect: jest.Mock;
+    resolveSellerNames: jest.Mock;
     list: jest.Mock;
     createHeld: jest.Mock;
     listHeld: jest.Mock;
@@ -47,6 +48,7 @@ describe('SalesService', () => {
       findSaleWithItems: jest.fn(),
       findSaleByIdAndBusiness: jest.fn(),
       findSaleWithItemsDirect: jest.fn(),
+      resolveSellerNames: jest.fn(),
       list: jest.fn(),
       createHeld: jest.fn(),
       listHeld: jest.fn(),
@@ -250,7 +252,11 @@ describe('SalesService', () => {
         dateFrom: new Date('2024-01-01'),
       } as never;
 
-      await expect(service.list(user, query)).resolves.toBe(result);
+      await expect(service.list(user, query)).resolves.toEqual({
+        data: [],
+        pagination: {},
+        summary: {},
+      });
       expect(repository.list).toHaveBeenCalledWith({
         businessId: 'b1',
         page: 1,
@@ -260,6 +266,23 @@ describe('SalesService', () => {
         paymentMethod: undefined,
         status: undefined,
       });
+    });
+
+    it('enriches each sale row with the seller full name', async () => {
+      const sales = [{ id: 's1', soldBy: 'u1' } as Sale];
+      repository.list.mockResolvedValue({
+        data: sales,
+        pagination: {},
+        summary: {},
+      });
+      repository.resolveSellerNames.mockResolvedValue(
+        new Map([['u1', 'Ada Lovelace']]),
+      );
+
+      const result = await service.list(user, {} as never);
+
+      expect(repository.resolveSellerNames).toHaveBeenCalledWith(['u1']);
+      expect(result.data[0].soldByName).toBe('Ada Lovelace');
     });
   });
 
@@ -272,11 +295,16 @@ describe('SalesService', () => {
       );
     });
 
-    it('returns the sale with items for the business', async () => {
-      const sale = { id: 's1', items: [] } as unknown as Sale;
+    it('returns the sale with items and the seller full name for the business', async () => {
+      const sale = { id: 's1', soldBy: 'u1', items: [] } as unknown as Sale;
       repository.findSaleWithItemsDirect.mockResolvedValue(sale);
+      repository.resolveSellerNames.mockResolvedValue(
+        new Map([['u1', 'Ada Lovelace']]),
+      );
 
-      await expect(service.findOne(user, 's1')).resolves.toBe(sale);
+      const result = await service.findOne(user, 's1');
+
+      expect(result).toEqual({ ...sale, soldByName: 'Ada Lovelace' });
       expect(repository.findSaleWithItemsDirect).toHaveBeenCalledWith(
         's1',
         'b1',

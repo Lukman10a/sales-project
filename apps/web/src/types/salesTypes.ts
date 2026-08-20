@@ -45,6 +45,7 @@ export interface SaleRecord {
   itemCount?: number;
   total: number;
   soldBy: string;
+  soldByName?: string;
   time: string;
   status: "completed" | "pending" | "refunded" | "partial-refund";
   paymentMethod?: "cash" | "card" | "transfer" | "split" | "account";

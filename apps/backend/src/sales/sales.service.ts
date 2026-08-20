@@ -116,7 +116,7 @@ export class SalesService {
   }
 
   async list(user: { businessId: string }, query: QuerySalesDto) {
-    return this.salesRepository.list({
+    const result = await this.salesRepository.list({
       businessId: user.businessId,
       page: query.page,
       limit: query.limit,
@@ -129,6 +129,10 @@ export class SalesService {
       paymentMethod: query.paymentMethod,
       status: query.status,
     });
+
+    const data = await this.enrichSellers(result.data);
+
+    return { ...result, data };
   }
 
   async findOne(user: { businessId: string }, id: string): Promise<Sale> {
@@ -139,7 +143,22 @@ export class SalesService {
     if (!sale) {
       throw new NotFoundException('Sale not found');
     }
-    return sale;
+    const [enriched] = await this.enrichSellers([sale]);
+    return enriched;
+  }
+
+  private async enrichSellers(
+    sales: Sale[],
+  ): Promise<Array<Sale & { soldByName?: string }>> {
+    if (sales.length === 0) return sales;
+
+    const ids = [...new Set(sales.map((sale) => sale.soldBy))];
+    const names = await this.salesRepository.resolveSellerNames(ids);
+
+    return sales.map((sale) => ({
+      ...sale,
+      soldByName: names.get(sale.soldBy),
+    }));
   }
 
   async refund(

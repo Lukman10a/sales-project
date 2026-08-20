@@ -1,10 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
-import { DataSource, EntityManager, Repository } from 'typeorm';
+import { DataSource, EntityManager, In, Repository } from 'typeorm';
 import { Sale } from '../entities/sale.entity';
 import { SaleItem } from '../entities/sale-item.entity';
 import { InventoryItem } from '../entities/inventory-item.entity';
 import { HeldTransaction } from '../entities/held-transaction.entity';
+import { User } from '../entities/user.entity';
 import { PaginatedResult } from '../common/interfaces/paginated-result.interface';
 
 export interface SalesListQuery {
@@ -107,6 +108,19 @@ export class SalesRepository extends Repository<Sale> {
     businessId: string,
   ): Promise<Sale | null> {
     return this.findOne({ where: { id, businessId } });
+  }
+
+  async resolveSellerNames(ids: string[]): Promise<Map<string, string>> {
+    if (ids.length === 0) return new Map();
+
+    const users = await this.manager.find(User, {
+      where: { id: In(ids) },
+      select: ['id', 'firstName', 'lastName'],
+    });
+
+    return new Map(
+      users.map((user) => [user.id, `${user.firstName} ${user.lastName}`]),
+    );
   }
 
   async findSaleWithItemsDirect(
