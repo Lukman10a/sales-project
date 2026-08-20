@@ -20,6 +20,7 @@ export const ROLE_DEFAULT_PERMISSIONS: Record<string, string[]> = {
     'view-sales-history',
     'record-sales',
     'view-inventory',
+    'edit-inventory',
     'assign-roles',
     'view-reports',
   ],

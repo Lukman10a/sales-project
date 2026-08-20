@@ -329,6 +329,7 @@ describe('AuthService', () => {
             'view-sales-history',
             'record-sales',
             'view-inventory',
+            'edit-inventory',
             'assign-roles',
             'view-reports',
           ],

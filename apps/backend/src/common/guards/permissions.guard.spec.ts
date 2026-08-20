@@ -1,6 +1,7 @@
 import { ExecutionContext } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { PermissionsGuard } from './permissions.guard';
+import { ROLE_DEFAULT_PERMISSIONS } from '../constants/permissions';
 
 describe('PermissionsGuard', () => {
   let guard: PermissionsGuard;
@@ -47,13 +48,38 @@ describe('PermissionsGuard', () => {
     expect(guard.canActivate(mockContext(user))).toBe(true);
   });
 
-  it('blocks a user missing at least one required permission', () => {
+  it('allows a user holding only one of the required permissions (OR semantics)', () => {
     (reflector.getAllAndOverride as jest.Mock).mockReturnValue([
-      'record-sales',
+      'view-inventory',
+      'view-products',
+    ]);
+    const user = { role: 'manager', permissions: ['view-products'] };
+    expect(guard.canActivate(mockContext(user))).toBe(true);
+  });
+
+  it('blocks a user holding none of the required permissions', () => {
+    (reflector.getAllAndOverride as jest.Mock).mockReturnValue([
       'edit-inventory',
+      'edit-products',
     ]);
     const user = { role: 'manager', permissions: ['record-sales'] };
     expect(guard.canActivate(mockContext(user))).toBe(false);
+  });
+
+  it('default manager role includes edit-inventory', () => {
+    expect(ROLE_DEFAULT_PERMISSIONS.manager).toContain('edit-inventory');
+  });
+
+  it('lets a default manager pass the inventory create/edit guard', () => {
+    (reflector.getAllAndOverride as jest.Mock).mockReturnValue([
+      'edit-inventory',
+      'edit-products',
+    ]);
+    const user = {
+      role: 'manager',
+      permissions: [...ROLE_DEFAULT_PERMISSIONS.manager],
+    };
+    expect(guard.canActivate(mockContext(user))).toBe(true);
   });
 
   it('blocks a user with no permissions when permissions are required', () => {
