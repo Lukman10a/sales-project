@@ -32,7 +32,10 @@ const meResponse = {
   avatar: "data:image/png;base64,abc",
 };
 
-function authResponse(role: "owner" | "apprentice", staffRole?: string) {
+function authResponse(
+  role: "owner" | "apprentice" | "manager",
+  staffRole?: string,
+) {
   return {
     user: {
       id: "u1",
@@ -148,7 +151,7 @@ describe("AuthContext", () => {
   });
 
   it("redirects an apprentice to /sales after login", async () => {
-    apiMock.post.mockResolvedValue(authResponse("apprentice", "manager"));
+    apiMock.post.mockResolvedValue(authResponse("apprentice"));
 
     render(
       <AuthProvider>
@@ -161,6 +164,24 @@ describe("AuthContext", () => {
     );
     fireEvent.click(screen.getByText("login-apprentice"));
     await waitFor(() => expect(routerMocks.push).toHaveBeenCalledWith("/sales"));
+  });
+
+  it("redirects a manager to /dashboard after login", async () => {
+    apiMock.post.mockResolvedValue(authResponse("manager"));
+
+    render(
+      <AuthProvider>
+        <Harness />
+      </AuthProvider>,
+    );
+
+    await waitFor(() =>
+      expect(screen.getByTestId("loading").textContent).toBe("false"),
+    );
+    fireEvent.click(screen.getByText("login-apprentice"));
+    await waitFor(() =>
+      expect(routerMocks.push).toHaveBeenCalledWith("/dashboard"),
+    );
   });
 
   it("logout clears the session and redirects to /auth/login", async () => {

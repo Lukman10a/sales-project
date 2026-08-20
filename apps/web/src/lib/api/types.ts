@@ -27,6 +27,7 @@ export interface AuthUser {
   role: string;
   avatar?: string;
   staffRole?: string;
+  permissions?: string[];
 }
 
 export interface AuthResponse {

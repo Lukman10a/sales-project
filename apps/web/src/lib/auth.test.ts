@@ -120,11 +120,40 @@ describe("AuthService", () => {
     expect(authApi.getMe).not.toHaveBeenCalled();
   });
 
-  it("landingPathFor sends apprentice to /sales and owner to /dashboard", () => {
+  it("landingPathFor sends apprentice to /sales and owner/manager to /dashboard", () => {
     const apprentice = { ...backendUser, role: "apprentice" } as User;
+    const manager = {
+      ...backendUser,
+      role: "apprentice",
+      staffRole: "manager",
+    } as User;
     const owner = { ...backendUser, role: "owner" } as User;
 
     expect(landingPathFor(apprentice)).toBe("/sales");
+    expect(landingPathFor(manager)).toBe("/dashboard");
     expect(landingPathFor(owner)).toBe("/dashboard");
+  });
+
+  it("login surfaces the backend permission array on the mapped user", async () => {
+    authApi.login.mockResolvedValue({
+      ...authResponse,
+      user: {
+        ...backendUser,
+        role: "manager",
+        permissions: ["record-sales", "view-inventory"],
+      },
+    });
+
+    const user = await AuthService.login({
+      email: "mgr@luxa.com",
+      password: "Password1",
+      role: "apprentice",
+    });
+
+    expect(user).toMatchObject({
+      role: "apprentice",
+      staffRole: "manager",
+      permissions: ["record-sales", "view-inventory"],
+    });
   });
 });

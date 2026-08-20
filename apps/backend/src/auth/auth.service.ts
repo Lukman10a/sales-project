@@ -8,10 +8,14 @@ import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
 import type { User } from '../entities/user.entity';
 import { UsersRepository } from './users.repository';
+import { TeamMemberRepository } from './team-members.repository';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { JwtPayload } from './interfaces/jwt-payload.interface';
-import { ALL_PERMISSIONS } from '../common/constants/permissions';
+import {
+  ALL_PERMISSIONS,
+  ROLE_DEFAULT_PERMISSIONS,
+} from '../common/constants/permissions';
 
 @Injectable()
 export class AuthService {
@@ -19,6 +23,7 @@ export class AuthService {
     private usersRepository: UsersRepository,
     private jwtService: JwtService,
     private configService: ConfigService,
+    private teamMemberRepository: TeamMemberRepository,
   ) {}
 
   async register(registerDto: RegisterDto) {
@@ -55,7 +60,7 @@ export class AuthService {
 
     return {
       message: 'User registered successfully',
-      user: this.toUserResponse(user),
+      user: await this.toUserResponse(user),
       ...tokens,
     };
   }
@@ -83,7 +88,7 @@ export class AuthService {
     const tokens = await this.generateTokens(user);
 
     return {
-      user: this.toUserResponse(user),
+      user: await this.toUserResponse(user),
       ...tokens,
     };
   }
@@ -102,7 +107,7 @@ export class AuthService {
       const tokens = await this.generateTokens(user);
 
       return {
-        user: this.toUserResponse(user),
+        user: await this.toUserResponse(user),
         ...tokens,
       };
     } catch {
@@ -130,7 +135,28 @@ export class AuthService {
     return user;
   }
 
+  /**
+   * Effective permissions for the token and /auth/me payload. Owners always
+   * hold every permission. Staff load their stored TeamMember permissions
+   * (businessId + userId); when none are stored, the role's defaults apply.
+   * Users with no TeamMember row (owner self-registration edge) keep an empty
+   * permission set.
+   */
+  private async loadEffectivePermissions(user: User): Promise<string[]> {
+    if (user.role === 'owner') return [...ALL_PERMISSIONS];
+
+    const member = await this.teamMemberRepository.findByBusinessAndUser(
+      user.businessId ?? user.id,
+      user.id,
+    );
+    if (!member) return [];
+
+    if (member.permissions.length > 0) return [...member.permissions];
+    return ROLE_DEFAULT_PERMISSIONS[member.role] ?? [];
+  }
+
   private async generateTokens(user: User) {
+    const permissions = await this.loadEffectivePermissions(user);
     const payload: JwtPayload = {
       sub: user.id,
       email: user.email,
@@ -138,7 +164,7 @@ export class AuthService {
       businessName: user.businessName,
       businessId: user.businessId ?? user.id,
       staffRole: user.staffRole,
-      permissions: user.role === 'owner' ? [...ALL_PERMISSIONS] : [],
+      permissions,
     };
 
     const accessExpiresIn: JwtSignOptions['expiresIn'] =
@@ -163,7 +189,8 @@ export class AuthService {
     return { access_token: accessToken, refresh_token: refreshToken };
   }
 
-  private toUserResponse(user: User) {
+  private async toUserResponse(user: User) {
+    const permissions = await this.loadEffectivePermissions(user);
     return {
       id: user.id,
       email: user.email,
@@ -174,6 +201,7 @@ export class AuthService {
       role: user.role,
       avatar: user.avatar,
       staffRole: user.staffRole,
+      permissions,
     };
   }
 }

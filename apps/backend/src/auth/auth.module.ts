@@ -11,6 +11,7 @@ import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { JwtStrategy } from './jwt.strategy';
 import { UsersRepository } from './users.repository';
+import { TeamMemberRepository } from './team-members.repository';
 import { User } from '../entities/user.entity';
 
 @Module({
@@ -29,7 +30,7 @@ import { User } from '../entities/user.entity';
       inject: [ConfigService],
     }),
   ],
-  providers: [AuthService, JwtStrategy, UsersRepository],
+  providers: [AuthService, JwtStrategy, UsersRepository, TeamMemberRepository],
   controllers: [AuthController],
   exports: [AuthService, JwtModule, UsersRepository],
 })

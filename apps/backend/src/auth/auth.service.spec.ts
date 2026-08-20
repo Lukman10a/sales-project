@@ -3,6 +3,7 @@ import * as bcrypt from 'bcrypt';
 import { AuthService } from './auth.service';
 import { UsersRepository } from './users.repository';
 import { User } from '../entities/user.entity';
+import { TeamMember } from '../entities/team-member.entity';
 import { ALL_PERMISSIONS } from '../common/constants/permissions';
 
 jest.mock('bcrypt', () => ({
@@ -17,6 +18,12 @@ describe('AuthService', () => {
     findById: jest.Mock<Promise<User | null>, [string]>;
     create: jest.Mock<User, [Partial<User>]>;
     save: jest.Mock<Promise<User>, [User]>;
+  };
+  let teamMemberRepository: {
+    findByBusinessAndUser: jest.Mock<
+      Promise<TeamMember | null>,
+      [string, string]
+    >;
   };
   let jwtService: {
     signAsync: jest.Mock<Promise<string>, [object, object]>;
@@ -43,6 +50,11 @@ describe('AuthService', () => {
       create: jest.fn((data: Partial<User>) => ({ id: 'u1', ...data }) as User),
       save: jest.fn((user: User) => Promise.resolve(user)),
     };
+    teamMemberRepository = {
+      findByBusinessAndUser: jest.fn((_businessId: string, _userId: string) =>
+        Promise.resolve(null),
+      ),
+    };
     jwtService = {
       signAsync: jest.fn((_payload: object, _options: object) =>
         Promise.resolve('signed-token'),
@@ -63,6 +75,7 @@ describe('AuthService', () => {
       usersRepository as unknown as UsersRepository,
       jwtService as never,
       configService as never,
+      teamMemberRepository as never,
     );
   });
 
@@ -260,6 +273,109 @@ describe('AuthService', () => {
     });
   });
 
+  describe('effective permissions', () => {
+    const managerUser = {
+      ...baseUser,
+      role: 'manager',
+      businessId: 'b1',
+      staffRole: 'manager',
+    } as unknown as User;
+
+    const generateTokens = () =>
+      (
+        service as unknown as {
+          generateTokens: (u: User) => Promise<{
+            access_token: string;
+            refresh_token: string;
+          }>;
+        }
+      ).generateTokens(managerUser);
+
+    it('loads real permissions from the TeamMember row into the token for a non-owner', async () => {
+      teamMemberRepository.findByBusinessAndUser.mockResolvedValue({
+        role: 'manager',
+        permissions: ['record-sales', 'view-inventory'],
+      } as unknown as TeamMember);
+
+      await generateTokens();
+
+      expect(teamMemberRepository.findByBusinessAndUser).toHaveBeenCalledWith(
+        'b1',
+        'u1',
+      );
+      expect(jwtService.signAsync).toHaveBeenNthCalledWith(
+        1,
+        expect.objectContaining({
+          permissions: ['record-sales', 'view-inventory'],
+        }),
+        expect.anything(),
+      );
+    });
+
+    it('falls back to role default permissions when the TeamMember permissions are empty', async () => {
+      teamMemberRepository.findByBusinessAndUser.mockResolvedValue({
+        role: 'manager',
+        permissions: [],
+      } as unknown as TeamMember);
+
+      await generateTokens();
+
+      expect(jwtService.signAsync).toHaveBeenNthCalledWith(
+        1,
+        expect.objectContaining({
+          permissions: [
+            'view-products',
+            'edit-products',
+            'view-sales-history',
+            'record-sales',
+            'view-inventory',
+            'assign-roles',
+            'view-reports',
+          ],
+        }),
+        expect.anything(),
+      );
+    });
+
+    it('keeps empty permissions for staff with no TeamMember row', async () => {
+      teamMemberRepository.findByBusinessAndUser.mockResolvedValue(null);
+
+      await generateTokens();
+
+      expect(jwtService.signAsync).toHaveBeenNthCalledWith(
+        1,
+        expect.objectContaining({ permissions: [] }),
+        expect.anything(),
+      );
+    });
+
+    it('never queries the TeamMember row for an owner', async () => {
+      await (
+        service as unknown as {
+          generateTokens: (u: User) => Promise<unknown>;
+        }
+      ).generateTokens(baseUser);
+
+      expect(teamMemberRepository.findByBusinessAndUser).not.toHaveBeenCalled();
+    });
+
+    it('includes the real permissions in the /auth/me response', async () => {
+      teamMemberRepository.findByBusinessAndUser.mockResolvedValue({
+        role: 'manager',
+        permissions: ['view-sales-history'],
+      } as unknown as TeamMember);
+      usersRepository.findById.mockResolvedValue(managerUser);
+
+      const result = await service.me('u1');
+
+      expect(result).toEqual(
+        expect.objectContaining({
+          permissions: ['view-sales-history'],
+        }),
+      );
+    });
+  });
+
   describe('me', () => {
     it('throws UnauthorizedException when the user does not exist', async () => {
       usersRepository.findById.mockResolvedValue(null);
@@ -269,7 +385,7 @@ describe('AuthService', () => {
       );
     });
 
-    it('returns the full user shape including avatar and staffRole', async () => {
+    it('returns the full user shape including avatar, staffRole and permissions', async () => {
       const staffUser = {
         ...baseUser,
         role: 'apprentice',
@@ -290,6 +406,7 @@ describe('AuthService', () => {
         role: 'apprentice',
         avatar: 'data:image/png;base64,abc',
         staffRole: 'manager',
+        permissions: [],
       });
     });
   });

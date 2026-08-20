@@ -18,14 +18,17 @@ export const usePermissions = () => {
     // Owners have all permissions
     if (user.role === "owner") return true;
 
-    // Check staff permissions based on their role
+    // Consult the real permission set from the backend payload when present.
+    if (Array.isArray(user.permissions)) {
+      return user.permissions.includes(permission);
+    }
+
+    // Fall back to the role map for staff whose token predates the new
+    // permissions payload (undefined, not an empty array).
     if (user.role === "apprentice" && user.staffRole) {
       const permissions = rolePermissions[user.staffRole];
       return permissions.includes(permission);
     }
-
-    // If role is apprentice but no staffRole, deny access
-    if (user.role === "apprentice") return false;
 
     return false;
   };

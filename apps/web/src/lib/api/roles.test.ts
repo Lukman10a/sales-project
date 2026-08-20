@@ -99,6 +99,25 @@ describe("roles", () => {
     expect(mapAuthUser(backend).avatar).toBe("");
   });
 
+  it("mapAuthUser surfaces the real permission array", () => {
+    const backend: AuthUser = {
+      id: "u2",
+      email: "mgr@luxa.com",
+      firstName: "Grace",
+      lastName: "Hopper",
+      businessName: "LUXA",
+      businessId: "b1",
+      role: "manager",
+      permissions: ["record-sales", "view-inventory"],
+    };
+
+    expect(mapAuthUser(backend)).toMatchObject({
+      role: "apprentice",
+      staffRole: "manager",
+      permissions: ["record-sales", "view-inventory"],
+    });
+  });
+
   it("assertStaffRole throws the coming soon error for investor", () => {
     expect(() => assertStaffRole("investor")).toThrow(INVESTOR_COMING_SOON);
   });

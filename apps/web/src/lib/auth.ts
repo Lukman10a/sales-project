@@ -114,5 +114,9 @@ export class AuthService {
 }
 
 export function landingPathFor(user: User): string {
-  return user.role === "apprentice" ? "/sales" : "/dashboard";
+  // Managers get the same coarse dashboard/analytics access as owners.
+  if (user.role === "owner" || user.staffRole === "manager") {
+    return "/dashboard";
+  }
+  return "/sales";
 }

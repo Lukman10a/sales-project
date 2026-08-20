@@ -1,4 +1,5 @@
 import type { AuthUser } from "./types";
+import type { Permission } from "@/types/teamTypes";
 
 export type StaffRole = "sales-assistant" | "manager" | "checkout" | "inventory";
 
@@ -14,6 +15,7 @@ export interface AppUser {
   businessName: string;
   businessId?: string;
   avatar: string;
+  permissions?: Permission[];
 }
 
 export const INVESTOR_COMING_SOON =
@@ -61,5 +63,6 @@ export function mapAuthUser(backendUser: AuthUser): AppUser {
     businessName: backendUser.businessName,
     businessId: backendUser.businessId,
     avatar: backendUser.avatar ?? "",
+    permissions: backendUser.permissions as Permission[] | undefined,
   };
 }
