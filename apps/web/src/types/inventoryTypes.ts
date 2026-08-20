@@ -9,6 +9,9 @@ export interface InventoryItem {
   sold: number;
   status: "in-stock" | "low-stock" | "out-of-stock";
   confirmedByApprentice: boolean;
+  confirmedBy?: string;
+  confirmedAt?: string;
+  confirmedByName?: string;
   sku?: string;
   barcode?: string;
   supplier?: string;

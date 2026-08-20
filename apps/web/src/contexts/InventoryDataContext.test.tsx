@@ -250,8 +250,8 @@ describe("InventoryDataContext", () => {
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ["dashboard"] });
   });
 
-  it("confirmInventoryReceipt patches confirmedByApprentice true", async () => {
-    apiMock.patch.mockResolvedValue(backendItem1);
+  it("confirmInventoryReceipt posts to the confirm endpoint", async () => {
+    apiMock.post.mockResolvedValue(backendItem1);
     const { queryClient } = renderContext(<Harness />);
     await waitFor(() =>
       expect(screen.getByTestId("names").textContent).toContain("Widget"),
@@ -261,9 +261,7 @@ describe("InventoryDataContext", () => {
     fireEvent.click(screen.getByText("confirm"));
 
     await waitFor(() =>
-      expect(apiMock.patch).toHaveBeenCalledWith("/inventory/i1", {
-        confirmedByApprentice: true,
-      }),
+      expect(apiMock.post).toHaveBeenCalledWith("/inventory/i1/confirm"),
     );
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ["inventory"] });
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ["dashboard"] });

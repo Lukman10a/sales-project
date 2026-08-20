@@ -101,6 +101,23 @@ export class InventoryController {
   }
 
   /**
+   * Confirm receipt of an inventory entry.
+   * POST /inventory/:id/confirm
+   * Requires: view-inventory OR view-products (role rules enforced in service:
+   * owner confirms any; manager confirms others' entries; apprentice confirms own)
+   */
+  @Post(':id/confirm')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions('view-inventory', 'view-products')
+  @HttpCode(200)
+  confirm(
+    @CurrentUser() user: CurrentUserPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.inventoryService.confirm(user, id);
+  }
+
+  /**
    * Delete product
    * DELETE /inventory/:id
    * Requires: delete-products

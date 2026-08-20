@@ -7,7 +7,7 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Calendar, Truck, Package, AlertTriangle } from "lucide-react";
+import { Calendar, Truck, Package, CheckCircle, AlertTriangle } from "lucide-react";
 import ImageDisplay from "./ImageDisplay";
 import { cn } from "@/lib/utils";
 import { InventoryItem } from "@/types/inventoryTypes";
@@ -54,6 +54,27 @@ export default function ItemBasicInfoCard({ item }: ItemBasicInfoCardProps) {
                   {t("Added by")}
                 </span>
                 <span className="text-sm font-medium">{item.createdByName}</span>
+              </div>
+            )}
+            {item.confirmedByName && (
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-muted-foreground flex items-center gap-1">
+                  <CheckCircle className="w-3 h-3" />
+                  {t("Confirmed by")}
+                </span>
+                <span className="text-sm font-medium">
+                  {item.confirmedByName}
+                </span>
+              </div>
+            )}
+            {item.confirmedAt && (
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">
+                  {t("Confirmed on")}
+                </span>
+                <span className="text-sm font-medium">
+                  {new Date(item.confirmedAt).toLocaleDateString()}
+                </span>
               </div>
             )}
             <div className="flex items-center justify-between">

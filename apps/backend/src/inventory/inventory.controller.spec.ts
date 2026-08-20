@@ -13,6 +13,7 @@ describe('InventoryController', () => {
     remove: jest.Mock;
     decrement: jest.Mock;
     bulkImport: jest.Mock;
+    confirm: jest.Mock;
   };
 
   const currentUser = {
@@ -32,6 +33,7 @@ describe('InventoryController', () => {
       remove: jest.fn(),
       decrement: jest.fn(),
       bulkImport: jest.fn(),
+      confirm: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -128,6 +130,19 @@ describe('InventoryController', () => {
       'i1',
       dto,
     );
+  });
+
+  it('delegates confirm to the service', async () => {
+    inventoryService.confirm.mockResolvedValue({
+      id: 'i1',
+      confirmedBy: 'u1',
+    });
+
+    await expect(controller.confirm(currentUser, 'i1')).resolves.toEqual({
+      id: 'i1',
+      confirmedBy: 'u1',
+    });
+    expect(inventoryService.confirm).toHaveBeenCalledWith(currentUser, 'i1');
   });
 
   it('delegates bulkImport with the uploaded file', async () => {

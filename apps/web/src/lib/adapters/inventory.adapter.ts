@@ -21,6 +21,9 @@ export interface BackendInventoryItem {
   bundlePrice?: number | string | null;
   createdBy?: string;
   createdByName?: string | null;
+  confirmedBy?: string | null;
+  confirmedAt?: string | Date | null;
+  confirmedByName?: string | null;
 }
 
 export function toInventoryItem(item: BackendInventoryItem): InventoryItem {
@@ -53,5 +56,10 @@ export function toInventoryItem(item: BackendInventoryItem): InventoryItem {
         : undefined,
     createdBy: item.createdBy ?? undefined,
     createdByName: item.createdByName ?? undefined,
+    confirmedBy: item.confirmedBy ?? undefined,
+    confirmedAt: item.confirmedAt
+      ? new Date(item.confirmedAt).toISOString()
+      : undefined,
+    confirmedByName: item.confirmedByName ?? undefined,
   };
 }

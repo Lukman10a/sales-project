@@ -110,9 +110,7 @@ export function InventoryDataProvider({
 
   const confirmMutation = useMutation({
     mutationFn: (id: string) =>
-      api.patch<BackendInventoryItem>(`/inventory/${id}`, {
-        confirmedByApprentice: true,
-      }),
+      api.post<BackendInventoryItem>(`/inventory/${id}/confirm`),
     onSuccess: invalidate,
     onError: toastMutationError,
   });

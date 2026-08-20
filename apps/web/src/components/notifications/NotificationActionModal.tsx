@@ -88,7 +88,7 @@ export default function NotificationActionModal({
     returnQuantity: 0,
   });
 
-  const { inventory, updateInventoryItem, addInventoryItem } =
+  const { inventory, updateInventoryItem, addInventoryItem, confirmInventoryReceipt } =
     useInventoryData();
   const { t, formatCurrency } = useLanguage();
 
@@ -200,9 +200,7 @@ export default function NotificationActionModal({
       await new Promise((resolve) => setTimeout(resolve, 1000));
 
       if (approved) {
-        await updateInventoryItem(relatedItem.id, {
-          confirmedByApprentice: true,
-        });
+        await confirmInventoryReceipt(relatedItem.id);
         toast(t("Inventory receipt confirmed successfully"));
       } else {
         toast(t("Inventory receipt rejected. Please contact admin."));

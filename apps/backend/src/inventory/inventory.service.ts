@@ -1,6 +1,7 @@
 import {
   Injectable,
   BadRequestException,
+  ForbiddenException,
   NotFoundException,
 } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
@@ -62,22 +63,34 @@ export class InventoryService {
 
   private async enrichCreators(
     items: InventoryItem[],
-  ): Promise<Array<InventoryItem & { createdByName?: string }>> {
+  ): Promise<
+    Array<InventoryItem & { createdByName?: string; confirmedByName?: string }>
+  > {
     if (items.length === 0) return items;
 
-    const ids = [...new Set(items.map((item) => item.createdBy))];
+    const ids = [
+      ...new Set(
+        items
+          .flatMap((item) => [item.createdBy, item.confirmedBy])
+          .filter((id): id is string => Boolean(id)),
+      ),
+    ];
     const names = await this.inventoryRepository.resolveCreatorNames(ids);
 
     return items.map((item) => ({
       ...item,
       createdByName: names.get(item.createdBy),
+      confirmedByName: item.confirmedBy
+        ? names.get(item.confirmedBy)
+        : undefined,
     }));
   }
 
   async create(
-    user: { businessId: string; id: string },
+    user: { businessId: string; id: string; role: string },
     createInventoryDto: CreateInventoryDto,
   ): Promise<InventoryItem> {
+    const isOwner = user.role === 'owner';
     const item = this.inventoryRepository.create({
       businessId: user.businessId,
       createdBy: user.id,
@@ -95,12 +108,46 @@ export class InventoryService {
       bundlePrice: createInventoryDto.bundlePrice,
       image: createInventoryDto.image,
       lastRestocked: createInventoryDto.lastRestocked,
-      confirmedByApprentice: createInventoryDto.confirmedByApprentice ?? false,
+      confirmedBy: isOwner ? user.id : undefined,
+      confirmedAt: isOwner ? new Date() : undefined,
+      confirmedByApprentice: isOwner
+        ? true
+        : (createInventoryDto.confirmedByApprentice ?? false),
       status: calculateStatus(
         createInventoryDto.quantity,
         createInventoryDto.reorderPoint,
       ),
     });
+
+    return this.inventoryRepository.save(item);
+  }
+
+  async confirm(
+    user: { businessId: string; id: string; role: string },
+    id: string,
+  ): Promise<InventoryItem> {
+    const item = await this.inventoryRepository.findByIdAndBusiness(
+      id,
+      user.businessId,
+    );
+    if (!item) {
+      throw new NotFoundException('Product not found');
+    }
+    if (item.confirmedBy) {
+      throw new BadRequestException('Product already confirmed');
+    }
+
+    const canConfirm =
+      user.role === 'owner' ||
+      (user.role === 'manager' && item.createdBy !== user.id) ||
+      (user.role === 'apprentice' && item.createdBy === user.id);
+    if (!canConfirm) {
+      throw new ForbiddenException('You are not allowed to confirm this item');
+    }
+
+    item.confirmedBy = user.id;
+    item.confirmedAt = new Date();
+    item.confirmedByApprentice = true;
 
     return this.inventoryRepository.save(item);
   }

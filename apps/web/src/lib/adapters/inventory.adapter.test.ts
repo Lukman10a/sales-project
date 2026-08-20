@@ -88,6 +88,28 @@ describe("inventory adapter", () => {
     expect(item.createdByName).toBe("Ada Lovelace");
   });
 
+  it("maps confirmedBy, confirmedAt and confirmedByName onto the item", () => {
+    const item = toInventoryItem(
+      backendItem({
+        confirmedBy: "u2",
+        confirmedAt: "2026-08-02T10:00:00.000Z",
+        confirmedByName: "Grace Hopper",
+      }),
+    );
+
+    expect(item.confirmedBy).toBe("u2");
+    expect(item.confirmedAt).toBe("2026-08-02T10:00:00.000Z");
+    expect(item.confirmedByName).toBe("Grace Hopper");
+  });
+
+  it("leaves confirm fields undefined when absent", () => {
+    const item = toInventoryItem(backendItem());
+
+    expect(item.confirmedBy).toBeUndefined();
+    expect(item.confirmedAt).toBeUndefined();
+    expect(item.confirmedByName).toBeUndefined();
+  });
+
   it("leaves creator fields undefined when absent", () => {
     const item = toInventoryItem(backendItem());
 

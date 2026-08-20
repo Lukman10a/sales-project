@@ -6,6 +6,7 @@ import { Edit, Trash2, CheckCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { InventoryItem } from "@/types/inventoryTypes";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { canConfirmItem } from "@/lib/inventoryConfirm";
 import { statusConfig } from "./inventoryConfig";
 import ImageDisplay from "./ImageDisplay";
 
@@ -13,6 +14,7 @@ interface InventoryGridItemProps {
   item: InventoryItem;
   index: number;
   userRole: string;
+  currentUserId?: string;
   onEdit: (item: InventoryItem) => void;
   onDelete: (item: InventoryItem) => void;
   onConfirmReceipt: (itemId: string, itemName: string) => void;
@@ -23,12 +25,14 @@ export default function InventoryGridItem({
   item,
   index,
   userRole,
+  currentUserId,
   onEdit,
   onDelete,
   onConfirmReceipt,
   canEdit = false,
 }: InventoryGridItemProps) {
   const { t, formatCurrency } = useLanguage();
+  const canConfirm = canConfirmItem(item, userRole, currentUserId);
 
   return (
     <motion.div
@@ -54,7 +58,7 @@ export default function InventoryGridItem({
           >
             {t(statusConfig[item.status].label)}
           </Badge>
-          {!item.confirmedByApprentice && userRole === "apprentice" && (
+          {!item.confirmedByApprentice && canConfirm && (
             <div className="absolute inset-0 bg-warning/20 backdrop-blur-sm flex items-center justify-center">
               <Button
                 size="sm"

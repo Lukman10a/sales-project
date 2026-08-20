@@ -4,12 +4,14 @@ import { Badge } from "@/components/ui/badge";
 import { Edit, Trash2, AlertTriangle } from "lucide-react";
 import { InventoryItem } from "@/types/inventoryTypes";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { canConfirmItem } from "@/lib/inventoryConfirm";
 import { statusConfig } from "./inventoryConfig";
 import ImageDisplay from "./ImageDisplay";
 
 interface InventoryListItemProps {
   item: InventoryItem;
   userRole: string;
+  currentUserId?: string;
   onEdit: (item: InventoryItem) => void;
   onDelete: (item: InventoryItem) => void;
   onConfirmReceipt: (itemId: string, itemName: string) => void;
@@ -19,12 +21,14 @@ interface InventoryListItemProps {
 export default function InventoryListItem({
   item,
   userRole,
+  currentUserId,
   onEdit,
   onDelete,
   onConfirmReceipt,
   canEdit = false,
 }: InventoryListItemProps) {
   const { t, formatCurrency } = useLanguage();
+  const canConfirm = canConfirmItem(item, userRole, currentUserId);
 
   return (
     <tr className="border-b hover:bg-muted/30 transition-colors">
@@ -100,7 +104,7 @@ export default function InventoryListItem({
                 <Trash2 className="w-4 h-4" />
               </Button>
             </>
-          ) : userRole === "apprentice" && !item.confirmedByApprentice ? (
+          ) : !item.confirmedByApprentice && canConfirm ? (
             <Button
               size="sm"
               className="bg-warning text-warning-foreground"

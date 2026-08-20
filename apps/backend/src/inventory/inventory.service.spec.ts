@@ -1,4 +1,8 @@
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InventoryService, calculateStatus } from './inventory.service';
 import { InventoryRepository } from './inventory.repository';
@@ -35,7 +39,7 @@ describe('InventoryService', () => {
   };
   let eventEmitter: { emit: jest.Mock };
 
-  const user = { id: 'u1', businessId: 'b1' };
+  const user = { id: 'u1', businessId: 'b1', role: 'apprentice' };
   const item = {
     id: 'i1',
     businessId: 'b1',
@@ -132,7 +136,7 @@ describe('InventoryService', () => {
     });
 
     it('returns the item enriched with the creator name', async () => {
-      repository.findByIdAndBusiness.mockResolvedValue(item);
+      repository.findByIdAndBusiness.mockResolvedValue({ ...item });
       repository.resolveCreatorNames.mockResolvedValue(
         new Map([['u1', 'Ada Lovelace']]),
       );
@@ -200,6 +204,133 @@ describe('InventoryService', () => {
       );
       expect(repository.save).toHaveBeenCalled();
     });
+
+    it('auto-confirms an item created by the owner', async () => {
+      const dto = {
+        name: 'Widget',
+        sellingPrice: 10,
+        wholesalePrice: 5,
+        quantity: 2,
+      };
+      repository.create.mockReturnValue({});
+      repository.save.mockImplementation((e: InventoryItem) =>
+        Promise.resolve({ ...e, id: 'i1' }),
+      );
+
+      await service.create(
+        { id: 'owner1', businessId: 'b1', role: 'owner' },
+        dto,
+      );
+
+      expect(repository.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          confirmedBy: 'owner1',
+          confirmedAt: expect.any(Date) as Date,
+          confirmedByApprentice: true,
+        }),
+      );
+    });
+  });
+
+  describe('confirm', () => {
+    it('throws NotFoundException when item is missing', async () => {
+      repository.findByIdAndBusiness.mockResolvedValue(null);
+
+      await expect(
+        service.confirm(
+          { id: 'u1', businessId: 'b1', role: 'owner' },
+          'missing',
+        ),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('throws BadRequestException when the item is already confirmed', async () => {
+      repository.findByIdAndBusiness.mockResolvedValue({
+        ...item,
+        confirmedBy: 'u2',
+        confirmedAt: new Date(),
+      });
+
+      await expect(
+        service.confirm({ id: 'u1', businessId: 'b1', role: 'owner' }, 'i1'),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(repository.save).not.toHaveBeenCalled();
+    });
+
+    it('confirms any item for an owner', async () => {
+      repository.findByIdAndBusiness.mockResolvedValue({ ...item });
+      repository.save.mockImplementation((e: InventoryItem) =>
+        Promise.resolve(e),
+      );
+
+      const result = await service.confirm(
+        { id: 'owner1', businessId: 'b1', role: 'owner' },
+        'i1',
+      );
+
+      expect(repository.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          confirmedBy: 'owner1',
+          confirmedByApprentice: true,
+        }),
+      );
+      expect(result.confirmedAt).toBeInstanceOf(Date);
+    });
+
+    it('lets a manager confirm an item created by someone else', async () => {
+      repository.findByIdAndBusiness.mockResolvedValue({ ...item });
+      repository.save.mockImplementation((e: InventoryItem) =>
+        Promise.resolve(e),
+      );
+
+      const result = await service.confirm(
+        { id: 'm1', businessId: 'b1', role: 'manager' },
+        'i1',
+      );
+
+      expect(repository.save).toHaveBeenCalledWith(
+        expect.objectContaining({ confirmedBy: 'm1' }),
+      );
+      expect(result.confirmedByApprentice).toBe(true);
+    });
+
+    it('blocks a manager from confirming their own entry', async () => {
+      repository.findByIdAndBusiness.mockResolvedValue({ ...item });
+
+      await expect(
+        service.confirm({ id: 'u1', businessId: 'b1', role: 'manager' }, 'i1'),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+      expect(repository.save).not.toHaveBeenCalled();
+    });
+
+    it('lets an apprentice confirm an item they created', async () => {
+      repository.findByIdAndBusiness.mockResolvedValue({ ...item });
+      repository.save.mockImplementation((e: InventoryItem) =>
+        Promise.resolve(e),
+      );
+
+      const result = await service.confirm(
+        { id: 'u1', businessId: 'b1', role: 'apprentice' },
+        'i1',
+      );
+
+      expect(repository.save).toHaveBeenCalledWith(
+        expect.objectContaining({ confirmedBy: 'u1' }),
+      );
+      expect(result.confirmedByApprentice).toBe(true);
+    });
+
+    it('blocks an apprentice from confirming someone else item', async () => {
+      repository.findByIdAndBusiness.mockResolvedValue({ ...item });
+
+      await expect(
+        service.confirm(
+          { id: 'other', businessId: 'b1', role: 'apprentice' },
+          'i1',
+        ),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+      expect(repository.save).not.toHaveBeenCalled();
+    });
   });
 
   describe('update', () => {
@@ -212,7 +343,7 @@ describe('InventoryService', () => {
     });
 
     it('updates fields and recalculates status', async () => {
-      repository.findByIdAndBusiness.mockResolvedValue(item);
+      repository.findByIdAndBusiness.mockResolvedValue({ ...item });
       repository.save.mockImplementation((e: InventoryItem) =>
         Promise.resolve(e),
       );
@@ -230,7 +361,7 @@ describe('InventoryService', () => {
     });
 
     it('persists image, lastRestocked, confirmedByApprentice and recalculates status', async () => {
-      repository.findByIdAndBusiness.mockResolvedValue(item);
+      repository.findByIdAndBusiness.mockResolvedValue({ ...item });
       repository.save.mockImplementation((e: InventoryItem) =>
         Promise.resolve(e),
       );
@@ -259,7 +390,7 @@ describe('InventoryService', () => {
     });
 
     it('removes the item and returns a confirmation', async () => {
-      repository.findByIdAndBusiness.mockResolvedValue(item);
+      repository.findByIdAndBusiness.mockResolvedValue({ ...item });
 
       const result = await service.remove(user, 'i1');
 

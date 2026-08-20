@@ -71,6 +71,12 @@ export class InventoryItem {
   @Column({ default: false })
   confirmedByApprentice!: boolean;
 
+  @Column({ type: 'uuid', nullable: true })
+  confirmedBy?: string;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  confirmedAt?: Date;
+
   @CreateDateColumn()
   createdAt!: Date;
 

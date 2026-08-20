@@ -526,6 +526,7 @@ export default function Inventory() {
                   item={item}
                   index={index}
                   userRole={userRole}
+                  currentUserId={user?.id}
                   onEdit={handleEditItem}
                   onDelete={setDeleteTarget}
                   onConfirmReceipt={handleConfirmReceipt}
@@ -578,6 +579,7 @@ export default function Inventory() {
                         key={item.id}
                         item={item}
                         userRole={userRole}
+                        currentUserId={user?.id}
                         onEdit={handleEditItem}
                         onDelete={setDeleteTarget}
                         onConfirmReceipt={handleConfirmReceipt}
