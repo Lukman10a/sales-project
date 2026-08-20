@@ -27,6 +27,7 @@ const salesAssistant = user({
 });
 const checkout = user({ role: "apprentice", staffRole: "checkout" });
 const inventoryStaff = user({ role: "apprentice", staffRole: "inventory" });
+const investor = user({ role: "apprentice", staffRole: "investor" });
 
 describe("guardForPath", () => {
   it("returns no guard for public routes", () => {
@@ -159,6 +160,23 @@ describe("canAccessPath", () => {
     expect(canAccessPath("/staff-profile", salesAssistant)).toBe(true);
   });
 
+  it("grants an invited investor the investor pages but not owner surfaces", () => {
+    expect(canAccessPath("/investor-dashboard", investor)).toBe(true);
+    expect(canAccessPath("/investor-insights", investor)).toBe(true);
+    expect(canAccessPath("/investor-profile", investor)).toBe(true);
+    expect(canAccessPath("/investors", investor)).toBe(false);
+    expect(canAccessPath("/notifications", investor)).toBe(true);
+    expect(canAccessPath("/settings", investor)).toBe(true);
+    expect(canAccessPath("/dashboard", investor)).toBe(false);
+    expect(canAccessPath("/team", investor)).toBe(false);
+  });
+
+  it("keeps the investor pages out of reach of other staff roles", () => {
+    expect(canAccessPath("/investor-dashboard", salesAssistant)).toBe(false);
+    expect(canAccessPath("/investor-insights", manager)).toBe(false);
+    expect(canAccessPath("/investor-profile", inventoryStaff)).toBe(false);
+  });
+
   it("denies every guarded route to an anonymous visitor", () => {
     expect(canAccessPath("/dashboard", null)).toBe(false);
     expect(canAccessPath("/notifications", null)).toBe(false);
@@ -207,6 +225,10 @@ describe("safeLandingPath", () => {
   it("falls back to notifications for staff with no feature access", () => {
     const noPerms = user({ permissions: [] });
     expect(safeLandingPath(noPerms)).toBe("/notifications");
+  });
+
+  it("sends an invited investor to the investor dashboard", () => {
+    expect(safeLandingPath(investor)).toBe("/investor-dashboard");
   });
 
   it("falls back to /auth/login for an anonymous visitor", () => {

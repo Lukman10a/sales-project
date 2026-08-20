@@ -21,7 +21,7 @@ A stockable product the business sells or tracks.
 _Avoid_: Product, stock entry
 
 **Staff role**:
-The access level granted to a team member. Canonical roles: `owner`, `manager`, `apprentice`.
+The access level granted to a team member. Login accounts are canonical `owner`, `manager`, `apprentice`; a separate `staffRole` column on the user record refines team accounts (`sales-assistant`, `manager`, `checkout`, `inventory`, `investor`). Team roles map to a login account: `manager` → `manager`, everything else → `apprentice` with `staffRole` carrying the team role. Kept in sync when a member's role changes.
 _Avoid_: Role, permission (see Permission)
 
 **Permission**:

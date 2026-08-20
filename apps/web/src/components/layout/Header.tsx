@@ -12,6 +12,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUI } from "@/contexts/UIContext";
 import { useNotifications } from "@/contexts/NotificationContext";
+import { isInvestor } from "@/lib/api/roles";
 
 interface HeaderProps {
   userRole: "owner" | "apprentice" | "investor";
@@ -41,20 +42,21 @@ const Header = ({ userRole, sidebarWidth }: HeaderProps) => {
 
   const displayName = user ? `${user.firstName} ${user.lastName}` : "User";
   const initials = user ? `${user.firstName[0]}${user.lastName[0]}` : "U";
+  const isInvestorUser = isInvestor(user);
   const roleLabel =
     userRole === "owner"
       ? t("Owner")
-      : userRole === "investor"
+      : isInvestorUser
         ? t("Investor")
         : t("Staff");
 
-  // Determine profile route based on role
-  const profileRoute =
-    userRole === "investor"
-      ? "/investor-profile"
-      : userRole === "apprentice"
-        ? "/staff-profile"
-        : "/profile";
+  // A team-invited investor logs in as an apprentice account with
+  // staffRole = "investor"; give them the investor chrome.
+  const profileRoute = isInvestorUser
+    ? "/investor-profile"
+    : userRole === "apprentice"
+      ? "/staff-profile"
+      : "/profile";
 
   return (
     <motion.header
@@ -135,7 +137,7 @@ const Header = ({ userRole, sidebarWidth }: HeaderProps) => {
               className={
                 userRole === "owner"
                   ? "bg-accent/10 text-accent text-xs"
-                  : userRole === "investor"
+                  : isInvestorUser
                     ? "bg-green-500/10 text-green-500 text-xs"
                     : "bg-primary/10 text-primary text-xs"
               }

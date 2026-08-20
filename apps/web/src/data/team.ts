@@ -114,6 +114,8 @@ export const rolePermissions: Record<TeamRole, Permission[]> = {
   "sales-assistant": ["view-products", "record-sales"],
   checkout: ["view-products", "record-sales"],
   inventory: ["view-inventory", "edit-inventory"],
+  // Investors have no staff workspace permissions; their screens are mock-only.
+  investor: [],
 };
 
 export const permissionDescriptions = {

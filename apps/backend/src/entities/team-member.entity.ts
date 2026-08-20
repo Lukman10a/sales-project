@@ -24,10 +24,23 @@ export class TeamMember {
 
   @Column({
     type: 'enum',
-    enum: ['owner', 'manager', 'sales-assistant', 'checkout', 'inventory'],
+    enum: [
+      'owner',
+      'manager',
+      'sales-assistant',
+      'checkout',
+      'inventory',
+      'investor',
+    ],
     default: 'sales-assistant',
   })
-  role!: 'owner' | 'manager' | 'sales-assistant' | 'checkout' | 'inventory';
+  role!:
+    | 'owner'
+    | 'manager'
+    | 'sales-assistant'
+    | 'checkout'
+    | 'inventory'
+    | 'investor';
 
   @Column({ type: 'text', array: true, default: () => "'{}'" })
   permissions!: string[];

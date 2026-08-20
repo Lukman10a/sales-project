@@ -42,7 +42,8 @@ export class User {
   role!: 'owner' | 'manager' | 'apprentice';
 
   @Column({ nullable: true })
-  staffRole?: 'sales-assistant' | 'manager' | 'checkout' | 'inventory';
+  staffRole?:
+    'sales-assistant' | 'manager' | 'checkout' | 'inventory' | 'investor';
 
   @Column({ nullable: true })
   avatar?: string;

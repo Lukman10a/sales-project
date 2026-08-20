@@ -72,6 +72,7 @@ export default function TeamFilters({
           </SelectItem>
           <SelectItem value="checkout">{t("Check Out")}</SelectItem>
           <SelectItem value="inventory">{t("Inventory")}</SelectItem>
+          <SelectItem value="investor">{t("Investor")}</SelectItem>
         </SelectContent>
       </Select>
     </div>

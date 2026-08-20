@@ -7,7 +7,7 @@ import {
   cleanup,
 } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { TeamDataProvider, useTeamData } from "./TeamDataContext";
 import type { BackendTeamMember } from "@/lib/adapters/team.adapter";
 import type { TeamMember } from "@/types/teamTypes";
@@ -72,6 +72,7 @@ function Harness() {
     updatePermissions,
     removeMember,
   } = useTeamData();
+  const [invitePassword, setInvitePassword] = useState("");
 
   return (
     <div>
@@ -83,7 +84,16 @@ function Harness() {
       <span data-testid="permissions">
         {teamMembers.map((m) => m.permissions.join("|")).join(",")}
       </span>
-      <button onClick={() => inviteMember(newInvite)}>invite</button>
+      <span data-testid="invite-password">{invitePassword}</span>
+      <button
+        onClick={() =>
+          inviteMember(newInvite)
+            .then((result) => setInvitePassword(result.temporaryPassword))
+            .catch(() => {})
+        }
+      >
+        invite
+      </button>
       <button
         onClick={() => updateMember("m1", { role: "checkout", status: "active" })}
       >
@@ -172,6 +182,30 @@ describe("TeamDataContext", () => {
     expect(body.permissions).not.toContain("checkout-sales");
     expect(body.phone).toBeUndefined();
     expect(body.status).toBeUndefined();
+  });
+
+  it("inviteMember resolves with the one-time temporary password", async () => {
+    apiMock.post.mockResolvedValue({
+      id: "m3",
+      email: "ada@luxa.com",
+      name: "Ada Lovelace",
+      role: "checkout",
+      status: "invited",
+      message: "Invitation created",
+      temporaryPassword: "a1b2c3d4e5f60718",
+    });
+    renderContext(<Harness />);
+    await waitFor(() =>
+      expect(screen.getByTestId("names").textContent).toContain("Jane Doe"),
+    );
+
+    fireEvent.click(screen.getByText("invite"));
+
+    await waitFor(() =>
+      expect(screen.getByTestId("invite-password").textContent).toBe(
+        "a1b2c3d4e5f60718",
+      ),
+    );
   });
 
   it("updateMember patches /team/:id", async () => {

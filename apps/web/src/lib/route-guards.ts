@@ -1,4 +1,4 @@
-import type { AppRole, AppUser } from "@/lib/api/roles";
+import { isInvestor, type AppRole, type AppUser } from "@/lib/api/roles";
 import type { Permission } from "@/types/teamTypes";
 import { isPublicPath } from "@/lib/middleware-guard";
 import {
@@ -18,7 +18,8 @@ export type RouteAccessSpec =
   | { kind: "manager-or-owner" }
   | { kind: "any-staff" }
   | { kind: "any-permission"; permissions: Permission[] }
-  | { kind: "app-role"; appRoles: AppRole[] };
+  | { kind: "app-role"; appRoles: AppRole[] }
+  | { kind: "investor-or-owner" };
 
 interface RouteGuardEntry {
   path: string;
@@ -30,15 +31,18 @@ const ROUTE_GUARDS: RouteGuardEntry[] = [
   { path: "/dashboard", spec: { kind: "manager-or-owner" } },
   { path: "/analytics", spec: { kind: "manager-or-owner" } },
 
-  // Owner-only pages (investor and data-management surfaces are mock).
+  // Owner-only pages (data-management surfaces are mock).
   { path: "/insights", spec: { kind: "owner" } },
   { path: "/reports", spec: { kind: "owner" } },
   { path: "/data", spec: { kind: "owner" } },
   { path: "/withdrawals", spec: { kind: "owner" } },
   { path: "/investors", spec: { kind: "owner" } },
-  { path: "/investor-dashboard", spec: { kind: "owner" } },
-  { path: "/investor-insights", spec: { kind: "owner" } },
-  { path: "/investor-profile", spec: { kind: "owner" } },
+
+  // Investor-facing pages: owners plus team-invited investors. Investor
+  // screens stay mock/coming-soon (T13); invited investors may still land here.
+  { path: "/investor-dashboard", spec: { kind: "investor-or-owner" } },
+  { path: "/investor-insights", spec: { kind: "investor-or-owner" } },
+  { path: "/investor-profile", spec: { kind: "investor-or-owner" } },
 
   // Permission-gated workspace pages. Matches the Backend's OR-style
   // @RequirePermissions lists.
@@ -102,6 +106,8 @@ export function canAccessSpec(
       );
     case "app-role":
       return user !== null && spec.appRoles.includes(user.role);
+    case "investor-or-owner":
+      return user?.role === "owner" || isInvestor(user);
   }
 }
 
@@ -122,6 +128,7 @@ export function canAccessPath(
  */
 export function safeLandingPath(user: AppUser | null): string {
   if (!user) return "/auth/login";
+  if (isInvestor(user)) return "/investor-dashboard";
   if (canViewReports(user)) return "/dashboard";
   if (
     hasEffectivePermission(user, "record-sales") ||

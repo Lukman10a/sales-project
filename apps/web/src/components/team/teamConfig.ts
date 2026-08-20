@@ -30,6 +30,7 @@ export const roleConfig: Record<TeamRole, { label: string; color: string }> =
     },
     checkout: { label: "Check Out", color: "text-cyan-600" },
     inventory: { label: "Inventory", color: "text-orange-600" },
+    investor: { label: "Investor", color: "text-emerald-600" },
   };
 
 export interface TeamStats {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import dynamic from "next/dynamic";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { usePermissions } from "@/hooks/usePermissions";
@@ -11,7 +11,11 @@ import { Plus, Users, Activity } from "lucide-react";
 import { toast } from "@/components/ui/sonner";
 import { TeamMember, TeamRole, Permission } from "@/types/teamTypes";
 import { rolePermissions } from "@/data/team";
-import { useTeamData, TeamUpdateData } from "@/contexts/TeamDataContext";
+import {
+  useTeamData,
+  TeamUpdateData,
+  InviteResult,
+} from "@/contexts/TeamDataContext";
 import TeamFilters from "@/components/team/TeamFilters";
 import StatsGrid from "@/components/team/StatsGrid";
 const TeamMembersGrid = dynamic(
@@ -79,6 +83,14 @@ export default function TeamManagement() {
   const [deleteTarget, setDeleteTarget] = useState<TeamMember | null>(null);
   const [newMember, setNewMember] =
     useState<Omit<TeamMember, "id" | "joinedDate">>(emptyNewMember);
+  const [invitedCredentials, setInvitedCredentials] =
+    useState<InviteResult | null>(null);
+  // The one-time password must only be shown while the invite dialog is open;
+  // if the owner closes it while the invite is in flight, drop the result.
+  const isAddOpenRef = useRef(isAddOpen);
+  useEffect(() => {
+    isAddOpenRef.current = isAddOpen;
+  }, [isAddOpen]);
 
   const filteredMembers = useMemo(() => {
     let members = teamMembers.filter(
@@ -112,26 +124,27 @@ export default function TeamManagement() {
     );
   }
 
-  const handleAddMember = () => {
+  const handleAddMember = async () => {
     if (!newMember.name.trim() || !newMember.email.trim()) {
       toast(t("Please fill in all required fields"));
       return;
     }
 
-    inviteMember({
-      name: newMember.name,
-      email: newMember.email,
-      role: newMember.role,
-      permissions:
-        newMember.permissions.length > 0
-          ? newMember.permissions
-          : rolePermissions[newMember.role],
-      department: newMember.department || undefined,
-    });
-
-    setNewMember(emptyNewMember);
-    setIsAddOpen(false);
-    toast(t("Team member invited successfully"));
+    try {
+      const result = await inviteMember({
+        name: newMember.name,
+        email: newMember.email,
+        role: newMember.role,
+        permissions:
+          newMember.permissions.length > 0
+            ? newMember.permissions
+            : rolePermissions[newMember.role],
+        department: newMember.department || undefined,
+      });
+      if (isAddOpenRef.current) setInvitedCredentials(result);
+    } catch {
+      toast(t("Failed to invite team member. Please try again."));
+    }
   };
 
   const handleEditMember = (member: TeamMember) => {
@@ -268,7 +281,9 @@ export default function TeamManagement() {
         onClose={() => {
           setIsAddOpen(false);
           setNewMember(emptyNewMember);
+          setInvitedCredentials(null);
         }}
+        invitedCredentials={invitedCredentials}
       />
 
       {/* Edit Member Dialog */}

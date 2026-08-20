@@ -60,53 +60,6 @@ export default function EditMemberDialog({
         <div className="grid gap-4 py-2">
           <div className="grid grid-cols-2 gap-4">
             <div className="grid gap-2">
-              <Label htmlFor="edit-name">{t("Full Name")}</Label>
-              <Input
-                id="edit-name"
-                value={editingMember.name}
-                onChange={(e) =>
-                  onMemberChange({ ...editingMember, name: e.target.value })
-                }
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="edit-email">{t("Email")}</Label>
-              <Input
-                id="edit-email"
-                value={editingMember.email}
-                onChange={(e) =>
-                  onMemberChange({ ...editingMember, email: e.target.value })
-                }
-              />
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="grid gap-2">
-              <Label htmlFor="edit-phone">{t("Phone")}</Label>
-              <Input
-                id="edit-phone"
-                value={editingMember.phone || ""}
-                onChange={(e) =>
-                  onMemberChange({ ...editingMember, phone: e.target.value })
-                }
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="edit-department">{t("Department")}</Label>
-              <Input
-                id="edit-department"
-                value={editingMember.department || ""}
-                onChange={(e) =>
-                  onMemberChange({
-                    ...editingMember,
-                    department: e.target.value,
-                  })
-                }
-              />
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="grid gap-2">
               <Label htmlFor="edit-role">{t("Role")}</Label>
               <Select
                 value={editingMember.role}
@@ -124,6 +77,7 @@ export default function EditMemberDialog({
                   </SelectItem>
                   <SelectItem value="checkout">{t("Check Out")}</SelectItem>
                   <SelectItem value="inventory">{t("Inventory")}</SelectItem>
+                  <SelectItem value="investor">{t("Investor")}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -148,6 +102,19 @@ export default function EditMemberDialog({
                 </SelectContent>
               </Select>
             </div>
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="edit-department">{t("Department")}</Label>
+            <Input
+              id="edit-department"
+              value={editingMember.department || ""}
+              onChange={(e) =>
+                onMemberChange({
+                  ...editingMember,
+                  department: e.target.value,
+                })
+              }
+            />
           </div>
           <div className="grid gap-2">
             <Label>{t("Permissions")}</Label>

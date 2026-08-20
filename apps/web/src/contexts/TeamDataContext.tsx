@@ -24,6 +24,18 @@ interface TeamInviteData {
   department?: string;
 }
 
+/** The POST /team response. `temporaryPassword` is a one-time plaintext value
+ * the owner must share with the invited member; it is never returned again. */
+export interface InviteResult {
+  id: string;
+  email: string;
+  name: string;
+  role: TeamRole;
+  status: TeamStatus;
+  message: string;
+  temporaryPassword: string;
+}
+
 export interface TeamUpdateData {
   role?: TeamRole;
   status?: TeamStatus;
@@ -34,7 +46,7 @@ interface TeamDataContextType {
   teamMembers: TeamMember[];
   isLoading: boolean;
   isError: boolean;
-  inviteMember: (member: TeamInviteData) => void;
+  inviteMember: (member: TeamInviteData) => Promise<InviteResult>;
   updateMember: (id: string, updates: TeamUpdateData) => void;
   updatePermissions: (id: string, permissions: Permission[]) => void;
   removeMember: (id: string) => void;
@@ -63,7 +75,7 @@ export function TeamDataProvider({ children }: { children: React.ReactNode }) {
 
   const inviteMutation = useMutation({
     mutationFn: (member: TeamInviteData) =>
-      api.post<{ id: string; message: string }>("/team", {
+      api.post<InviteResult>("/team", {
         email: member.email,
         name: member.name,
         role: member.role,
@@ -94,7 +106,7 @@ export function TeamDataProvider({ children }: { children: React.ReactNode }) {
   });
 
   const inviteMember = useCallback(
-    (member: TeamInviteData) => inviteMutation.mutate(member),
+    (member: TeamInviteData) => inviteMutation.mutateAsync(member),
     [inviteMutation],
   );
 

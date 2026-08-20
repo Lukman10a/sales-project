@@ -17,11 +17,11 @@ A granular capability a staff role may exercise. UI unions use aliases that Back
 _Avoid_: `checkout-sales`, `view-out-of-stock` (deprecated aliases)
 
 **Staff role**:
-The access level shown to a signed-in member. `owner`, `manager`, `apprentice`.
+The access level shown to a signed-in member. Login accounts are `owner` or `apprentice`; a separate `staffRole` (`sales-assistant`, `manager`, `checkout`, `inventory`, `investor`) refines the access level for invited team members.
 _Avoid_: Role
 
 **Investor**:
-An external party who views reports and ROI projections. Fully mock — no Backend module exists; investor login is blocked with a "coming soon" message.
+An external party who views reports and ROI projections. Invited investors log in through a normal `apprentice` account carrying `staffRole = "investor"` and land on the mock/coming-soon investor pages; the manual "Investor" choice on the login form stays blocked. No Backend investor module exists.
 _Avoid_: Partner, stakeholder
 
 **Notification type**:

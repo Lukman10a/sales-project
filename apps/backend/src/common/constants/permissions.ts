@@ -26,4 +26,6 @@ export const ROLE_DEFAULT_PERMISSIONS: Record<string, string[]> = {
   'sales-assistant': ['view-products', 'record-sales'],
   checkout: ['view-products', 'record-sales'],
   inventory: ['view-inventory', 'edit-inventory'],
+  // Investors have no staff workspace permissions; their screens are mock-only.
+  investor: [],
 };

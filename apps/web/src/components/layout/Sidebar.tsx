@@ -100,9 +100,12 @@ const getNavigation = (
     | "sales-assistant"
     | "manager"
     | "checkout"
-    | "inventory" = "sales-assistant",
+    | "inventory"
+    | "investor" = "sales-assistant",
 ) => {
-  if (role === "investor") return investorNavigation;
+  // A team-invited investor logs in as an apprentice account with
+  // staffRole = "investor"; give them the investor navigation.
+  if (role === "investor" || staffRole === "investor") return investorNavigation;
   if (role === "apprentice") return staffNavigation[staffRole];
   return ownerNavigation;
 };
@@ -375,7 +378,7 @@ const Sidebar = ({ userRole: propUserRole, onRoleChange }: SidebarProps) => {
         <div className="p-4 border-t border-sidebar-border space-y-2">
           <Link
             href={
-              userRole === "investor"
+              userRole === "investor" || staffRole === "investor"
                 ? "/investor-profile"
                 : userRole === "apprentice"
                   ? "/staff-profile"

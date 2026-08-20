@@ -3,7 +3,8 @@ export type TeamRole =
   | "manager"
   | "sales-assistant"
   | "checkout"
-  | "inventory";
+  | "inventory"
+  | "investor";
 export type TeamStatus = "active" | "inactive" | "invited";
 export type Permission =
   | "view-products"

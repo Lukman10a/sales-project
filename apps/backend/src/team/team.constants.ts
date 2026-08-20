@@ -3,6 +3,7 @@ export const TEAM_ROLES = [
   'sales-assistant',
   'checkout',
   'inventory',
+  'investor',
 ] as const;
 
 export const TEAM_PERMISSIONS = [

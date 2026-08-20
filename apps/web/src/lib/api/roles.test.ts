@@ -3,6 +3,7 @@ import {
   backendRoleToUserRole,
   mapAuthUser,
   assertStaffRole,
+  isInvestor,
   INVESTOR_COMING_SOON,
 } from "@/lib/api/roles";
 import type { AuthUser } from "@/lib/api/types";
@@ -125,5 +126,40 @@ describe("roles", () => {
   it("assertStaffRole allows owner and apprentice", () => {
     expect(() => assertStaffRole("owner")).not.toThrow();
     expect(() => assertStaffRole("apprentice")).not.toThrow();
+  });
+
+  it("mapAuthUser carries an invited investor through as staffRole investor", () => {
+    const backend: AuthUser = {
+      id: "u9",
+      email: "inv@luxa.com",
+      firstName: "Ada",
+      lastName: "Investor",
+      businessName: "LUXA",
+      businessId: "b1",
+      role: "apprentice",
+      staffRole: "investor",
+    };
+
+    expect(mapAuthUser(backend)).toMatchObject({
+      role: "apprentice",
+      staffRole: "investor",
+    });
+  });
+
+  it("isInvestor is true only for a staffRole of investor", () => {
+    const appUser = mapAuthUser({
+      id: "u9",
+      email: "inv@luxa.com",
+      firstName: "Ada",
+      lastName: "Investor",
+      businessName: "LUXA",
+      businessId: "b1",
+      role: "apprentice",
+      staffRole: "investor",
+    });
+
+    expect(isInvestor(appUser)).toBe(true);
+    expect(isInvestor({ ...appUser, staffRole: "manager" })).toBe(false);
+    expect(isInvestor(null)).toBe(false);
   });
 });

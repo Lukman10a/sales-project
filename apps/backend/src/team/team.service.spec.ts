@@ -26,7 +26,11 @@ describe('TeamService', () => {
     removeMember: jest.Mock;
     updatePermissions: jest.Mock;
   };
-  let usersRepository: { findByEmail: jest.Mock };
+  let usersRepository: {
+    findByEmail: jest.Mock;
+    findById: jest.Mock;
+    save: jest.Mock;
+  };
 
   const ownerUser = {
     id: 'u1',
@@ -49,7 +53,11 @@ describe('TeamService', () => {
       removeMember: jest.fn(),
       updatePermissions: jest.fn(),
     };
-    usersRepository = { findByEmail: jest.fn() };
+    usersRepository = {
+      findByEmail: jest.fn(),
+      findById: jest.fn(),
+      save: jest.fn(),
+    };
 
     (bcrypt.hash as jest.Mock).mockResolvedValue('hashed-temp-password');
 
@@ -183,8 +191,97 @@ describe('TeamService', () => {
         name: 'Jane Doe',
         role: 'sales-assistant',
         status: 'invited',
-        message: 'Invitation sent to email',
+        message: 'Invitation created',
+        temporaryPassword: expect.stringMatching(/^[0-9a-f]{16}$/) as string,
       });
+    });
+
+    it('returns the plaintext temporary password once and stores only its hash', async () => {
+      usersRepository.findByEmail.mockResolvedValue(null);
+      let plaintext = '';
+      (bcrypt.hash as jest.Mock).mockImplementation((value: string) => {
+        plaintext = value;
+        return `hashed:${value}`;
+      });
+      const newUser = { id: 'u2', email: 'staff@luxa.com' } as unknown as User;
+      const newMember = {
+        id: 'm1',
+        name: 'Jane Doe',
+        role: 'sales-assistant',
+        status: 'invited',
+      } as unknown as TeamMember;
+
+      teamRepository.createUser.mockReturnValue(newUser);
+      teamRepository.saveUser.mockResolvedValue(newUser);
+      teamRepository.createMember.mockReturnValue(newMember);
+      teamRepository.saveMember.mockResolvedValue(newMember);
+      teamRepository.transaction.mockImplementation(
+        async (fn: (manager: never) => Promise<unknown>) => fn({} as never),
+      );
+
+      const result = await service.inviteMember(ownerUser, dto);
+
+      expect(plaintext).toMatch(/^[0-9a-f]{16}$/);
+      expect(result.temporaryPassword).toBe(plaintext);
+      expect(teamRepository.createUser).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ password: `hashed:${plaintext}` }),
+      );
+      expect(result.temporaryPassword).not.toBe(`hashed:${plaintext}`);
+    });
+
+    it('stores a hash the one-time password verifies against, so the invitee can log in', async () => {
+      const realBcrypt = jest.requireActual<typeof bcrypt>('bcrypt');
+      usersRepository.findByEmail.mockResolvedValue(null);
+      (bcrypt.hash as jest.Mock).mockImplementation(
+        (value: string, rounds: number) => realBcrypt.hash(value, rounds),
+      );
+      let storedHash = '';
+      teamRepository.createUser.mockImplementation(
+        (_manager: never, data: { password: string }) => {
+          storedHash = data.password;
+          return { id: 'u2' };
+        },
+      );
+      teamRepository.saveUser.mockResolvedValue({ id: 'u2' });
+      teamRepository.createMember.mockReturnValue({ id: 'm1' });
+      teamRepository.saveMember.mockResolvedValue({ id: 'm1' });
+      teamRepository.transaction.mockImplementation(
+        async (fn: (manager: never) => Promise<unknown>) => fn({} as never),
+      );
+
+      const result = await service.inviteMember(ownerUser, dto);
+
+      const verified = await realBcrypt.compare(
+        result.temporaryPassword,
+        storedHash,
+      );
+      expect(verified).toBe(true);
+    });
+
+    it('maps investor invitations to an apprentice user role with investor staffRole', async () => {
+      usersRepository.findByEmail.mockResolvedValue(null);
+      teamRepository.createUser.mockReturnValue({ id: 'u2' });
+      teamRepository.saveUser.mockResolvedValue({ id: 'u2' });
+      teamRepository.createMember.mockReturnValue({ id: 'm1' });
+      teamRepository.saveMember.mockResolvedValue({ id: 'm1' });
+      teamRepository.transaction.mockImplementation(
+        async (fn: (manager: never) => Promise<unknown>) => fn({} as never),
+      );
+
+      await service.inviteMember(ownerUser, {
+        ...dto,
+        role: 'investor',
+      });
+
+      expect(teamRepository.createUser).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ role: 'apprentice', staffRole: 'investor' }),
+      );
+      expect(teamRepository.createMember).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ role: 'investor' }),
+      );
     });
 
     it('maps manager invitations to the manager user role', async () => {
@@ -250,7 +347,7 @@ describe('TeamService', () => {
     });
 
     it('updates the provided fields and delegates to the repository', async () => {
-      const member = { id: 'm1' } as unknown as TeamMember;
+      const member = { id: 'm1', userId: 'u2' } as unknown as TeamMember;
       const saved = {
         id: 'm1',
         role: 'manager',
@@ -258,6 +355,7 @@ describe('TeamService', () => {
       } as unknown as TeamMember;
       teamRepository.findByIdAndBusiness.mockResolvedValue(member);
       teamRepository.updateMember.mockResolvedValue(saved);
+      usersRepository.findById.mockResolvedValue({ id: 'u2' });
 
       const result = await service.updateMember(ownerUser, 'm1', {
         role: 'manager',
@@ -269,6 +367,28 @@ describe('TeamService', () => {
         status: 'active',
       });
       expect(result).toBe(saved);
+    });
+
+    it('syncs the linked user login record when the role changes', async () => {
+      const member = { id: 'm1', userId: 'u2' } as unknown as TeamMember;
+      const user = {
+        id: 'u2',
+        role: 'apprentice',
+        staffRole: 'sales-assistant',
+      } as unknown as User;
+      teamRepository.findByIdAndBusiness.mockResolvedValue(member);
+      teamRepository.updateMember.mockResolvedValue({
+        ...member,
+        role: 'investor',
+      });
+      usersRepository.findById.mockResolvedValue(user);
+      usersRepository.save.mockResolvedValue(user);
+
+      await service.updateMember(ownerUser, 'm1', { role: 'investor' });
+
+      expect(user.role).toBe('apprentice');
+      expect(user.staffRole).toBe('investor');
+      expect(usersRepository.save).toHaveBeenCalledWith(user);
     });
 
     it('omits undefined fields from the update data', async () => {

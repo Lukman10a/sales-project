@@ -43,7 +43,8 @@ export class TeamRepository extends Repository<TeamMember> {
       businessName: string;
       businessId: string;
       role: 'manager' | 'apprentice';
-      staffRole: 'sales-assistant' | 'manager' | 'checkout' | 'inventory';
+      staffRole:
+        'sales-assistant' | 'manager' | 'checkout' | 'inventory' | 'investor';
       status: 'invited';
     },
   ): User {
