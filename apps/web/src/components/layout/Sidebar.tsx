@@ -75,6 +75,7 @@ const staffNavigation: Record<
   ],
   checkout: [
     { name: "Sales", href: "/sales", icon: ShoppingCart },
+    { name: "Inventory", href: "/inventory", icon: Package },
     { name: "Notifications", href: "/notifications", icon: Bell },
   ],
   inventory: [

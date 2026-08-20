@@ -120,18 +120,30 @@ describe("AuthService", () => {
     expect(authApi.getMe).not.toHaveBeenCalled();
   });
 
-  it("landingPathFor sends apprentice to /sales and owner/manager to /dashboard", () => {
-    const apprentice = { ...backendUser, role: "apprentice" } as User;
+  it("landingPathFor sends owner/manager to /dashboard and apprentices to an allowed page", () => {
     const manager = {
       ...backendUser,
       role: "apprentice",
       staffRole: "manager",
     } as User;
     const owner = { ...backendUser, role: "owner" } as User;
+    const salesApprentice = {
+      ...backendUser,
+      role: "apprentice",
+      staffRole: "sales-assistant",
+    } as User;
+    const inventoryApprentice = {
+      ...backendUser,
+      role: "apprentice",
+      staffRole: "inventory",
+    } as User;
+    const bareApprentice = { ...backendUser, role: "apprentice" } as User;
 
-    expect(landingPathFor(apprentice)).toBe("/sales");
     expect(landingPathFor(manager)).toBe("/dashboard");
     expect(landingPathFor(owner)).toBe("/dashboard");
+    expect(landingPathFor(salesApprentice)).toBe("/sales");
+    expect(landingPathFor(inventoryApprentice)).toBe("/inventory");
+    expect(landingPathFor(bareApprentice)).toBe("/notifications");
   });
 
   it("login surfaces the backend permission array on the mapped user", async () => {

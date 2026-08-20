@@ -1,19 +1,21 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 import Sidebar from "./Sidebar";
 import Header from "./Header";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useUI } from "@/contexts/UIContext";
+import { canAccessPath } from "@/lib/route-guards";
 
 interface MainLayoutProps {
   children: React.ReactNode;
-  requireRole?: "owner" | "apprentice" | "investor";
 }
 
-const MainLayout = ({ children, requireRole }: MainLayoutProps) => {
+const MainLayout = ({ children }: MainLayoutProps) => {
+  const pathname = usePathname();
   const {
     sidebarCollapsed,
     setSidebarCollapsed,
@@ -39,7 +41,7 @@ const MainLayout = ({ children, requireRole }: MainLayoutProps) => {
   }, []);
 
   return (
-    <ProtectedRoute requireRole={requireRole}>
+    <ProtectedRoute access={(user) => canAccessPath(pathname ?? "", user)}>
       <div className="min-h-screen bg-background relative font-sans selection:bg-accent selection:text-foreground">
         {/* Ambient Grid for Premium Dashboard */}
         <div className="fixed inset-0 pointer-events-none bg-[linear-gradient(to_bottom,transparent,theme(colors.background))] z-0" />

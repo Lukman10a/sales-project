@@ -6,7 +6,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { investorInsights } from "@/data/investorAiInsights";
 import { useLanguage } from "@/contexts/LanguageContext";
-import MainLayout from "@/components/layout/MainLayout";
 
 const priorityColors = {
   high: "bg-red-500/10 text-red-500 border-red-500/20",

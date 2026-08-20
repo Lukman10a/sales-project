@@ -3,7 +3,6 @@
 import { use, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
-import MainLayout from "@/components/layout/MainLayout";
 import { useAuth } from "@/contexts/AuthContext";
 import { useInventoryData } from "@/contexts/InventoryDataContext";
 import { Button } from "@/components/ui/button";

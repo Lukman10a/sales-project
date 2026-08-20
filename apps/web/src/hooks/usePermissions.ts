@@ -1,6 +1,6 @@
 import { useAuth } from "../contexts/AuthContext";
 import { Permission } from "../types/teamTypes";
-import { rolePermissions } from "../data/team";
+import { canViewReports, hasEffectivePermission } from "../lib/permissions";
 
 /**
  * Hook to check if the current user has specific permissions
@@ -13,24 +13,7 @@ export const usePermissions = () => {
    * Check if user has a specific permission
    */
   const hasPermission = (permission: Permission): boolean => {
-    if (!user) return false;
-
-    // Owners have all permissions
-    if (user.role === "owner") return true;
-
-    // Consult the real permission set from the backend payload when present.
-    if (Array.isArray(user.permissions)) {
-      return user.permissions.includes(permission);
-    }
-
-    // Fall back to the role map for staff whose token predates the new
-    // permissions payload (undefined, not an empty array).
-    if (user.role === "apprentice" && user.staffRole) {
-      const permissions = rolePermissions[user.staffRole];
-      return permissions.includes(permission);
-    }
-
-    return false;
+    return hasEffectivePermission(user, permission);
   };
 
   /**
@@ -54,20 +37,11 @@ export const usePermissions = () => {
     return user?.role === "owner";
   };
 
-  /**
-   * Coarse access gate: dashboard, analytics, and refunds are restricted to
-   * owners and managers (backend `manager` maps to apprentice with
-   * `staffRole === "manager"`).
-   */
-  const canViewReports = (): boolean => {
-    return user?.role === "owner" || user?.staffRole === "manager";
-  };
-
   return {
     hasPermission,
     hasAnyPermission,
     hasAllPermissions,
     isOwner,
-    canViewReports,
+    canViewReports: () => canViewReports(user),
   };
 };

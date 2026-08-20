@@ -14,6 +14,7 @@ import {
 } from "@/lib/api/tokens";
 import { mapAuthUser, assertStaffRole, type AppUser } from "@/lib/api/roles";
 import { AUTH_COOKIE_NAME } from "@/lib/middleware-guard";
+import { safeLandingPath } from "@/lib/route-guards";
 
 export type User = AppUser;
 
@@ -114,9 +115,8 @@ export class AuthService {
 }
 
 export function landingPathFor(user: User): string {
-  // Managers get the same coarse dashboard/analytics access as owners.
-  if (user.role === "owner" || user.staffRole === "manager") {
-    return "/dashboard";
-  }
-  return "/sales";
+  // Route to a page the user is guaranteed access to. Delegating to the route
+  // guard's safe landing means managers land on /dashboard while apprentices
+  // land somewhere their permissions allow (never a page the guard denies).
+  return safeLandingPath(user);
 }

@@ -25,6 +25,15 @@ describe("middleware-guard", () => {
     expect(shouldAllow("/dashboard", true)).toBe(true);
   });
 
+  it("stays role-blind at the edge: the cookie alone decides, never the role", () => {
+    // Role/permission enforcement is a client-side concern; the middleware
+    // must never decide access based on a forgeable cookie value.
+    expect(shouldAllow("/data", true)).toBe(true);
+    expect(shouldAllow("/withdrawals", true)).toBe(true);
+    expect(shouldAllow("/investors", true)).toBe(true);
+    expect(shouldAllow("/dashboard", true)).toBe(true);
+  });
+
   it("treats the cookie name as public-facing", () => {
     expect(AUTH_COOKIE_NAME).toBe("luxa_auth");
     expect(isPublicPath("/auth/login")).toBe(true);

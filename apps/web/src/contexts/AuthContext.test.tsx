@@ -151,7 +151,7 @@ describe("AuthContext", () => {
   });
 
   it("redirects an apprentice to /sales after login", async () => {
-    apiMock.post.mockResolvedValue(authResponse("apprentice"));
+    apiMock.post.mockResolvedValue(authResponse("apprentice", "sales-assistant"));
 
     render(
       <AuthProvider>

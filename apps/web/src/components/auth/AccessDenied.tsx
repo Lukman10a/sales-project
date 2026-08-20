@@ -1,7 +1,11 @@
+"use client";
+
 import React from "react";
 import { ShieldAlert } from "lucide-react";
 import { Button } from "../ui/button";
 import { useRouter } from "next/navigation";
+import { useAuth } from "@/contexts/AuthContext";
+import { safeLandingPath } from "@/lib/route-guards";
 
 interface AccessDeniedProps {
   message?: string;
@@ -9,13 +13,17 @@ interface AccessDeniedProps {
 }
 
 /**
- * Component displayed when user lacks permission to access a page or feature
+ * Component displayed when user lacks permission to access a page or feature.
+ * The primary action routes to the user's safe landing page (never the page
+ * they were just denied from), so it cannot loop back onto itself.
  */
 export const AccessDenied: React.FC<AccessDeniedProps> = ({
   message = "You don't have permission to access this page",
   requiredPermission,
 }) => {
   const router = useRouter();
+  const { user } = useAuth();
+  const landing = safeLandingPath(user);
 
   return (
     <div className="flex min-h-[60vh] items-center justify-center p-6">
@@ -42,16 +50,13 @@ export const AccessDenied: React.FC<AccessDeniedProps> = ({
             Go Back
           </Button>
           <Button
-            onClick={() => router.push("/dashboard")}
+            onClick={() => router.push(landing)}
             className="bg-primary text-primary-foreground hover:bg-primary/90"
           >
-            Go to Dashboard
+            {landing === "/auth/login" ? "Go to Login" : "Go to Home"}
           </Button>
         </div>
       </div>
     </div>
   );
 };
-
-
-

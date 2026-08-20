@@ -9,6 +9,10 @@ vi.mock("@/contexts/LanguageContext", () => ({
   useLanguage: () => ({ t: (k: string) => k, isRTL: false }),
 }));
 
+vi.mock("@/components/auth/AccessDenied", () => ({
+  AccessDenied: () => <div>ACCESS_DENIED_MARKER</div>,
+}));
+
 const routerMocks = vi.hoisted(() => ({
   push: vi.fn(),
   replace: vi.fn(),
@@ -20,6 +24,9 @@ vi.mock("next/navigation", () => ({
 }));
 
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
+
+const alwaysAllow = () => true;
+const alwaysDeny = () => false;
 
 describe("ProtectedRoute", () => {
   beforeEach(() => {
@@ -63,7 +70,7 @@ describe("ProtectedRoute", () => {
     expect(routerMocks.replace).not.toHaveBeenCalled();
   });
 
-  it("redirects to / when requireRole does not match the user role", () => {
+  it("renders children when authenticated and the access check passes", () => {
     useAuthMock.mockReturnValue({
       isAuthenticated: true,
       isLoading: false,
@@ -71,16 +78,15 @@ describe("ProtectedRoute", () => {
     });
 
     render(
-      <ProtectedRoute requireRole="owner">
+      <ProtectedRoute access={alwaysAllow}>
         <div>protected</div>
       </ProtectedRoute>,
     );
 
-    expect(routerMocks.replace).toHaveBeenCalledWith("/");
-    expect(screen.queryByText("protected")).not.toBeInTheDocument();
+    expect(screen.getByText("protected")).toBeInTheDocument();
   });
 
-  it("renders children when authenticated", () => {
+  it("renders children when authenticated with no access prop", () => {
     useAuthMock.mockReturnValue({
       isAuthenticated: true,
       isLoading: false,
@@ -94,5 +100,23 @@ describe("ProtectedRoute", () => {
     );
 
     expect(screen.getByText("protected")).toBeInTheDocument();
+  });
+
+  it("shows AccessDenied instead of redirecting when the access check fails", () => {
+    useAuthMock.mockReturnValue({
+      isAuthenticated: true,
+      isLoading: false,
+      user: { role: "apprentice" },
+    });
+
+    render(
+      <ProtectedRoute access={alwaysDeny}>
+        <div>protected</div>
+      </ProtectedRoute>,
+    );
+
+    expect(screen.getByText("ACCESS_DENIED_MARKER")).toBeInTheDocument();
+    expect(screen.queryByText("protected")).not.toBeInTheDocument();
+    expect(routerMocks.replace).not.toHaveBeenCalled();
   });
 });

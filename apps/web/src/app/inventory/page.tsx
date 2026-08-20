@@ -207,7 +207,9 @@ export default function Inventory() {
   }, [inventory]);
 
   // Permission guard: Check if user has permission to view inventory
-  if (!isOwner() && !hasPermission("view-inventory")) {
+  // (Backend allows view-inventory OR view-products so sales staff who can
+  // search products also reach the list).
+  if (!isOwner() && !hasPermission("view-inventory") && !hasPermission("view-products")) {
     return (
       <AccessDenied
         message="You don't have permission to view the inventory"
