@@ -8,38 +8,31 @@
 
 ## 0.1 Backend CORS fallback
 
-**Why:** `main.ts:9` defaults CORS to `http://localhost:5173` (old Vite). The primary dev path is the Next.js rewrite (below) which never hits CORS, but keep the backend permissive as a fallback.
+**Why:** `main.ts:9` defaults CORS to `http://localhost:5173` (old Vite). The primary dev path is the direct `:4000` contract (below) which needs no CORS, but keep the backend permissive as a fallback.
 
 **Task:**
 - In `apps/backend/.env` set `FRONTEND_URL=http://localhost:3000`.
 - Do not touch `main.ts` logic.
 
-**VERIFY (manual):** `npm run start:dev` in `apps/backend/`; a request from a browser on `:3000` to `http://localhost:3001/api` succeeds with credentials enabled.
+**VERIFY (manual):** `npm run start:dev` in `apps/backend/`; `curl http://localhost:4000` returns `{"Hello":"World"}` and a browser on `:3000` can call the backend directly.
 
 ---
 
-## 0.2 Frontend env + Next.js rewrite
+## 0.2 Frontend env + direct backend contract
 
-**Why:** A relative base URL + server-side rewrite means the browser never makes cross-origin calls â†’ no CORS, no preflight.
+**Why:** A direct base URL (`http://localhost:4000`) means the browser talks straight to the backend with no proxy and no CORS, because the backend already allows `http://localhost:3000`.
 
 **Tasks:**
 1. Create `apps/web/.env.local` (new, gitignored):
    ```
-   NEXT_PUBLIC_API_URL=/api
+   NEXT_PUBLIC_API_URL=http://localhost:4000
    ```
-   > Do **not** use `http://localhost:3001/api` â€” that would bypass the rewrite and re-introduce CORS. (This corrects the original plan's B6.)
-2. Edit `apps/web/next.config.ts` â€” add a `rewrites()` export:
-   ```ts
-   async rewrites() {
-     return [{ source: "/api/:path*", destination: "http://localhost:3001/api/:path*" }];
-   }
-   ```
-   Keep existing config keys intact.
+2. Do not add a rewrite — the backend serves every route at the root (no `/api` prefix).
 
 **VERIFY (manual, ordered):**
 1. `npm run dev` in `apps/web/`.
-2. `curl http://localhost:3000/api` â†’ `{"Hello":"World"}` (proves rewrite + backend prefix work together).
-3. Note: `src/middleware.ts` already excludes `/api` from its matcher â€” do not change that.
+2. `curl http://localhost:4000` → `{"Hello":"World"}` (proves the backend is reachable at `:4000`).
+3. Note: `src/middleware.ts` excludes `/api` from its matcher — do not change that.
 
 ---
 
@@ -113,14 +106,14 @@ export interface AuthResponse {
 
 export interface SalesSummary { totalSales: number; totalTransactions: number; averageTransaction: number; }
 
-// GET /api/sales adds `summary` on top of the standard envelope
+// GET /sales adds `summary` on top of the standard envelope
 export interface SalesListEnvelope<T> extends ApiEnvelope<T[]> { summary: SalesSummary; }
 
 export interface RefreshResponse { access_token: string; refresh_token: string; }
 export interface MeResponse { id: string; email: string; role: string; businessName: string; businessId: string; permissions?: string[]; staffRole?: string; }
 ```
 
-> Note: `GET /api/sales` returns `{ data, pagination, summary }` â€” this is why `SalesListEnvelope` exists alongside `ApiEnvelope` (corrects original plan's "all envelopes are `{ data, pagination }`").
+> Note: `GET /sales` returns `{ data, pagination, summary }` â€” this is why `SalesListEnvelope` exists alongside `ApiEnvelope` (corrects original plan's "all envelopes are `{ data, pagination }`").
 
 **VERIFY:** `npm run build` passes with the new module imported nowhere yet (or with a temporary import). Type-only task; confirmed by `tsc` via `next build`.
 
@@ -128,10 +121,10 @@ export interface MeResponse { id: string; email: string; role: string; businessN
 
 ## Acceptance criteria (Phase 0)
 
-1. `curl http://localhost:3000/api` returns `{"Hello":"World"}`.
+1. `curl http://localhost:4000` returns `{"Hello":"World"}`.
 2. `npm run test` in `apps/web/` runs Vitest and passes the harness test.
 3. `apps/web/src/lib/api/types.ts` exists and compiles.
 4. `npm run lint && npm run build` in `apps/web/` pass.
 
 ## Commit
-Commit in both repos: `phase-0: env contract, rewrite, vitest harness, api types`.
+Commit in both repos: `phase-0: env contract, direct backend (:4000), vitest harness, api types`.

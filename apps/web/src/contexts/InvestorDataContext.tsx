@@ -5,7 +5,6 @@ import React, {
   useCallback,
   useContext,
   useMemo,
-  useRef,
   useState,
 } from "react";
 import { mockInvestors, mockWithdrawalRecords } from "@/data/investor";
@@ -31,53 +30,6 @@ export function InvestorDataProvider({
   const [withdrawals, setWithdrawals] = useState<WithdrawalRecord[]>(
     mockWithdrawalRecords,
   );
-  const [isHydrated, setIsHydrated] = useState(false);
-  const investorsSaveRef = useRef<NodeJS.Timeout | null>(null);
-  const withdrawalsSaveRef = useRef<NodeJS.Timeout | null>(null);
-
-  React.useEffect(() => {
-    const storedInvestors = localStorage.getItem("luxa_investors");
-    const storedWithdrawals = localStorage.getItem("luxa_withdrawals");
-
-    if (storedInvestors) setInvestors(JSON.parse(storedInvestors));
-    if (storedWithdrawals) setWithdrawals(JSON.parse(storedWithdrawals));
-
-    setIsHydrated(true);
-  }, []);
-
-  React.useEffect(() => {
-    if (!isHydrated) return;
-
-    if (investorsSaveRef.current) {
-      clearTimeout(investorsSaveRef.current);
-    }
-    investorsSaveRef.current = setTimeout(() => {
-      localStorage.setItem("luxa_investors", JSON.stringify(investors));
-    }, 250);
-
-    return () => {
-      if (investorsSaveRef.current) {
-        clearTimeout(investorsSaveRef.current);
-      }
-    };
-  }, [investors, isHydrated]);
-
-  React.useEffect(() => {
-    if (!isHydrated) return;
-
-    if (withdrawalsSaveRef.current) {
-      clearTimeout(withdrawalsSaveRef.current);
-    }
-    withdrawalsSaveRef.current = setTimeout(() => {
-      localStorage.setItem("luxa_withdrawals", JSON.stringify(withdrawals));
-    }, 250);
-
-    return () => {
-      if (withdrawalsSaveRef.current) {
-        clearTimeout(withdrawalsSaveRef.current);
-      }
-    };
-  }, [withdrawals, isHydrated]);
 
   const updateInvestor = useCallback(
     (id: string, updates: Partial<Investor>) => {

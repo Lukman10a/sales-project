@@ -9,6 +9,7 @@ import { useInventoryData } from "@/contexts/InventoryDataContext";
 import { useSalesData } from "@/contexts/SalesDataContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { usePermissions } from "@/hooks/usePermissions";
+import { routeRefund } from "@/lib/refund";
 import { categories } from "@/data/inventory";
 import ProductSearchBar from "@/components/sales/ProductSearchBar";
 import CategoryFilters from "@/components/sales/CategoryFilters";
@@ -56,7 +57,7 @@ export default function Sales() {
   const { user } = useAuth();
   const { hasPermission, isOwner, canViewReports } = usePermissions();
   const { inventory: allProducts, decrementInventory } = useInventoryData();
-  const { addSaleRecord, recentSales } = useSalesData();
+  const { addSaleRecord, refundSale, recentSales } = useSalesData();
   const canRefund = canViewReports();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
@@ -204,24 +205,14 @@ export default function Sales() {
     refundAmount: number,
     reason: string,
   ) => {
-    // Find the original sale and process refund
-    const originalSale = recentSales.find((s) => s.id === saleId);
-    if (originalSale) {
-      const refundRecord = {
-        id: String(Date.now()),
-        items: originalSale.items,
-        total: refundAmount,
-        soldBy: originalSale.soldBy,
-        time: "just now",
-        status:
-          refundAmount >= originalSale.total
-            ? ("refunded" as const)
-            : ("partial-refund" as const),
-        refundReason: reason,
-        refundAmount: refundAmount,
-        originalSaleId: saleId,
-      };
-      addSaleRecord(refundRecord);
+    const routed = routeRefund({
+      saleId,
+      refundAmount,
+      reason,
+      recentSales,
+      refundSale,
+    });
+    if (routed) {
       toast(t("Refund processed successfully"));
     }
   };

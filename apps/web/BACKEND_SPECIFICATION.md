@@ -1763,8 +1763,8 @@ JWT_REFRESH_EXPIRATION=604800 # 7 days
 
 # Server
 NODE_ENV=development
-PORT=3001
-APP_URL=http://localhost:3001
+PORT=4000
+APP_URL=http://localhost:4000
 
 # Frontend
 FRONTEND_URL=http://localhost:3000

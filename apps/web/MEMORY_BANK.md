@@ -88,7 +88,6 @@ src/
 │   ├── Settings.tsx
 │   └── NotFound.tsx
 ├── index.css                    # Global styles & CSS variables
-└── vite-env.d.ts               # Vite types (legacy, can be removed)
 
 Config Files:
 ├── next.config.ts              # Next.js configuration
@@ -96,8 +95,6 @@ Config Files:
 ├── tailwind.config.ts          # Tailwind CSS theme & colors
 ├── postcss.config.js           # PostCSS configuration
 ├── components.json             # shadcn/ui CLI configuration
-├── .eslintrc.json             # ESLint configuration
-└── index.html                  # HTML entry point
 ```
 
 ---

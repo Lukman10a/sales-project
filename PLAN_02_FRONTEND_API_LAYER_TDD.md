@@ -31,7 +31,7 @@ Per task: **RED** (`*.test.ts(x)`, run via `npx vitest run <path>`, confirm fail
 ## 2.2 `src/lib/api/client.ts`
 
 **Contract:**
-- Base URL from `process.env.NEXT_PUBLIC_API_URL` (Phase 0 â†’ `/api`).
+- Base URL from `process.env.NEXT_PUBLIC_API_URL` (Phase 0 â†’ `http://localhost:4000`).
 - Sets `Content-Type: application/json`, `Accept: application/json`; injects `Authorization: Bearer <access>` when a token exists.
 - **401 handling:** single-flight refresh â€” while a refresh is in flight, concurrent 401s queue and retry after it resolves. Refresh via `POST /auth/refresh` with `{ refreshToken }`; on success store new tokens and retry the original request; on failure `clearTokens()`.
 - Non-2xx: parse `{ message, errors[] }` â†’ throw `ApiError` with `message` and `errors` fields.

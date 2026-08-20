@@ -31,7 +31,7 @@
 2. **Core now, extras deferred.** Wire: auth, profile, inventory, sales (+ held), team, notifications, analytics/dashboard.
    Defer: investors, withdrawals, reports, data management, AI insights, activity logs, dashboard customisation.
 3. **Investors stay fully mock** â€” no backend investor module exists. Block investor login with a friendly "coming soon" message.
-4. **Use the Next.js rewrite + relative `/api` base URL.** This eliminates CORS entirely in dev. `NEXT_PUBLIC_API_URL=/api` (relative), `rewrites()` in `next.config.ts`. `FRONTEND_URL` in the backend `.env` is updated anyway as a fallback.
+4. **Direct backend contract.** `NEXT_PUBLIC_API_URL=http://localhost:4000`, backend on `:4000` with no `/api` prefix, no rewrite. `FRONTEND_URL` in the backend `.env` is updated anyway as a fallback.
 5. **TDD is mandatory.** RED â†’ GREEN â†’ VERIFY for every task in Phases 1â€“4. Frontend gets a Vitest harness in Phase 0 (no test framework exists today).
 6. **Required backend gaps only.** No new columns for `sms` (frontend strips it), `lastActive`, or `invitedBy` (frontend uses `undefined` placeholders).
 
@@ -41,7 +41,7 @@
 
 | Fact | Source |
 |---|---|
-| Backend runs on `:3001`, prefix `/api`, CORS allows `http://localhost:5173` (must update to `:3000`) | `main.ts:9`, `.env.example:18` |
+| Backend runs on `:4000`, no `/api` prefix, CORS allows `http://localhost:3000` | `main.ts:9`, `.env.example:18` |
 | Frontend is Next.js 15 (App Router), runs on `:3000` | `package.json`, `next.config.ts` |
 | `@tanstack/react-query` v5 installed; `@tanstack/react-query-devtools` is **NOT** | `package.json:40` |
 | `QueryClientProvider` mounted; `new QueryClient()` with zero config | `providers.tsx:18,21` |
