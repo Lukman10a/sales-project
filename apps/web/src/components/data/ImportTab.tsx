@@ -1,10 +1,8 @@
 import { useState } from "react";
-import { motion } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
 import {
   Select,
   SelectContent,
@@ -24,16 +22,41 @@ import {
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { TabsContent } from "@/components/ui/tabs";
 import { Upload, CheckCircle2, AlertTriangle } from "lucide-react";
-import { format } from "date-fns";
-import { getStatusColor, formatFileSize } from "@/lib/dataUtils";
+import { useInventoryData } from "@/contexts/InventoryDataContext";
 import type { ImportRecord } from "@/types/dataManagementTypes";
 
 interface ImportTabProps {
-  importRecords: ImportRecord[];
+  importRecords?: ImportRecord[];
 }
 
-export default function ImportTab({ importRecords }: ImportTabProps) {
+export default function ImportTab(_props: ImportTabProps = {}) {
+  const { bulkImportInventory } = useInventoryData();
   const [importDialogOpen, setImportDialogOpen] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [result, setResult] = useState<{ imported: number; skipped: number; errors: string[] } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [isPending, setIsPending] = useState(false);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] ?? null;
+    setSelectedFile(file);
+    setResult(null);
+    setError(null);
+  };
+
+  const handleImport = async () => {
+    if (!selectedFile) return;
+    setIsPending(true);
+    setError(null);
+    try {
+      const res = await bulkImportInventory(selectedFile);
+      setResult(res);
+    } catch (err: any) {
+      setError(err?.message ?? "Upload failed");
+    } finally {
+      setIsPending(false);
+    }
+  };
 
   return (
     <TabsContent value="import" className="space-y-4">
@@ -51,9 +74,7 @@ export default function ImportTab({ importRecords }: ImportTabProps) {
               <DialogContent>
                 <DialogHeader>
                   <DialogTitle>Import Data</DialogTitle>
-                  <DialogDescription>
-                    Upload a file to import data
-                  </DialogDescription>
+                  <DialogDescription>Upload a file to import data</DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4 py-4">
                   <div className="space-y-2">
@@ -71,29 +92,42 @@ export default function ImportTab({ importRecords }: ImportTabProps) {
                   </div>
                   <div className="space-y-2">
                     <Label>Choose File</Label>
-                    <Input type="file" accept=".csv,.xlsx,.json" />
-                    <p className="text-xs text-muted-foreground">
-                      Supported formats: CSV, XLSX, JSON
-                    </p>
+                    <Input type="file" accept=".csv,.xlsx,.json" onChange={handleFileChange} />
+                    {selectedFile && (
+                      <p className="text-xs text-muted-foreground">{selectedFile.name}</p>
+                    )}
+                    <p className="text-xs text-muted-foreground">Supported formats: CSV, XLSX, JSON</p>
                   </div>
+                  {result && (
+                    <div className="p-3 border rounded-lg text-sm space-y-1">
+                      <p className="flex items-center gap-1 text-success">
+                        <CheckCircle2 className="w-4 h-4" />
+                        {result.imported} imported, {result.skipped} skipped
+                      </p>
+                      {result.errors.length > 0 && (
+                        <div className="text-destructive text-xs">
+                          {result.errors.map((e, i) => (
+                            <div key={i}>• {e}</div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  {error && (
+                    <p className="text-sm text-destructive">{error}</p>
+                  )}
                   <Alert>
                     <AlertTriangle className="w-4 h-4" />
                     <AlertTitle>Warning</AlertTitle>
-                    <AlertDescription>
-                      Importing data may overwrite existing records. Always
-                      backup before importing.
-                    </AlertDescription>
+                    <AlertDescription>Importing data may overwrite existing records. Always backup before importing.</AlertDescription>
                   </Alert>
                 </div>
                 <DialogFooter>
-                  <Button
-                    variant="outline"
-                    onClick={() => setImportDialogOpen(false)}
-                  >
+                  <Button variant="outline" onClick={() => setImportDialogOpen(false)}>
                     Cancel
                   </Button>
-                  <Button onClick={() => setImportDialogOpen(false)}>
-                    Start Import
+                  <Button onClick={handleImport} disabled={!selectedFile || isPending}>
+                    {isPending ? "Importing..." : "Start Import"}
                   </Button>
                 </DialogFooter>
               </DialogContent>
@@ -101,65 +135,25 @@ export default function ImportTab({ importRecords }: ImportTabProps) {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="space-y-3">
-            {importRecords.map((record) => (
-              <motion.div
-                key={record.id}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="p-4 border rounded-lg hover:bg-muted/50 transition-colors"
-              >
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3">
-                      <h3 className="font-semibold">{record.fileName}</h3>
-                      <Badge
-                        variant="outline"
-                        className={getStatusColor(record.status)}
-                      >
-                        {record.status}
-                      </Badge>
-                    </div>
-                    <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
-                      <span>
-                        {format(record.uploadedAt, "MMM dd, yyyy HH:mm")}
-                      </span>
-                      <span>{formatFileSize(record.fileSize)}</span>
-                      <span>By {record.importedBy}</span>
-                    </div>
-                    {record.status === "completed" && (
-                      <div className="mt-3 flex items-center gap-4 text-xs">
-                        <span className="text-success flex items-center gap-1">
-                          <CheckCircle2 className="w-3 h-3" />
-                          {record.successfulRecords} successful
-                        </span>
-                        {record.failedRecords > 0 && (
-                          <span className="text-destructive flex items-center gap-1">
-                            <AlertTriangle className="w-3 h-3" />
-                            {record.failedRecords} failed
-                          </span>
-                        )}
-                      </div>
-                    )}
-                    {record.errors && record.errors.length > 0 && (
-                      <div className="mt-2 text-xs text-destructive">
-                        {record.errors.slice(0, 2).map((error, i) => (
-                          <div key={i}>• {error}</div>
-                        ))}
-                        {record.errors.length > 2 && (
-                          <div>...and {record.errors.length - 2} more</div>
-                        )}
-                      </div>
-                    )}
-                  </div>
+          {result ? (
+            <div className="p-4 border rounded-lg space-y-2">
+              <p className="text-sm font-medium">
+                Last import: {result.imported} imported, {result.skipped} skipped
+              </p>
+              {result.errors.length > 0 && (
+                <div className="text-xs text-destructive">
+                  {result.errors.map((e, i) => (
+                    <div key={i}>• {e}</div>
+                  ))}
                 </div>
-              </motion.div>
-            ))}
-          </div>
+              )}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">No import history — import a file to see results</p>
+          )}
+          {error && <p className="text-sm text-destructive mt-2">{error}</p>}
         </CardContent>
       </Card>
     </TabsContent>
   );
 }
-
-

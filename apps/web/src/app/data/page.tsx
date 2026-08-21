@@ -10,15 +10,6 @@ import DatabaseTab from "@/components/data/DatabaseTab";
 import IntegrityTab from "@/components/data/IntegrityTab";
 import { Database } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  backups,
-  backupSchedule,
-  exportRequests,
-  importRecords,
-  databaseStats,
-  dataCleanup,
-  integrityChecks,
-} from "@/data/dataManagement";
 
 export default function DataManagementPage() {
   const [selectedTab, setSelectedTab] = useState("backups");
@@ -43,11 +34,7 @@ export default function DataManagementPage() {
       </div>
 
       {/* Database Statistics Overview */}
-      <DataStats
-        databaseStats={databaseStats}
-        backupSchedule={backupSchedule}
-        integrityChecks={integrityChecks}
-      />
+      <DataStats />
 
       {/* Main Content Tabs */}
       <Tabs value={selectedTab} onValueChange={setSelectedTab}>
@@ -59,14 +46,12 @@ export default function DataManagementPage() {
           <TabsTrigger value="integrity">Integrity</TabsTrigger>
         </TabsList>
 
-        <BackupsTab backups={backups} backupSchedule={backupSchedule} />
-        <ExportTab exportRequests={exportRequests} />
-        <ImportTab importRecords={importRecords} />
-        <DatabaseTab databaseStats={databaseStats} dataCleanup={dataCleanup} />
-        <IntegrityTab integrityChecks={integrityChecks} />
+        <BackupsTab />
+        <ExportTab />
+        <ImportTab />
+        <DatabaseTab />
+        <IntegrityTab />
       </Tabs>
     </motion.div>
   );
 }
-
-
