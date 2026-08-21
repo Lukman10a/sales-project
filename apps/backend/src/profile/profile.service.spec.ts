@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { ProfileService } from './profile.service';
@@ -239,6 +240,76 @@ describe('ProfileService', () => {
       expect(profilesRepository.create).not.toHaveBeenCalled();
       expect(result.appearanceSettings).toEqual(
         expect.objectContaining({ theme: 'dark', compactMode: true }),
+      );
+    });
+
+    it('merges dashboardSettings into the existing profile', async () => {
+      const profileWithDashboard = {
+        ...profile,
+        dashboardSettings: {
+          layout: 'default',
+          showWelcomeMessage: true,
+          showTips: true,
+          autoRefresh: true,
+          refreshInterval: '1m',
+          quickActions: [],
+        },
+      } as unknown as UserProfile;
+      profilesRepository.findByUserId.mockResolvedValue(profileWithDashboard);
+
+      const result = await service.updatePreferences('u1', {
+        dashboardSettings: { showTips: false },
+      });
+
+      expect(profilesRepository.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          dashboardSettings: expect.objectContaining({
+            showTips: false,
+            layout: 'default',
+          }),
+        }),
+      );
+
+      expect(result.dashboardSettings.showTips).toBe(false);
+
+      expect(result.dashboardSettings.layout).toBe('default');
+    });
+
+    it('creates dashboardSettings when profile is missing', async () => {
+      profilesRepository.findByUserId.mockResolvedValue(null);
+
+      const result = await service.updatePreferences('u1', {
+        dashboardSettings: { layout: 'compact', refreshInterval: '5m' },
+      });
+
+      expect(profilesRepository.create).toHaveBeenCalledWith({ userId: 'u1' });
+
+      expect(result.dashboardSettings.layout).toBe('compact');
+
+      expect(result.dashboardSettings.refreshInterval).toBe('5m');
+    });
+  });
+
+  describe('getProfile dashboardSettings', () => {
+    it('returns dashboardSettings with defaults', async () => {
+      const profileWithDashboard = {
+        ...profile,
+        dashboardSettings: {
+          layout: 'default',
+          showWelcomeMessage: true,
+          showTips: true,
+          autoRefresh: true,
+          refreshInterval: '1m',
+          quickActions: [],
+        },
+      } as unknown as UserProfile;
+      usersRepository.findById.mockResolvedValue(user);
+      profilesRepository.findByUserId.mockResolvedValue(profileWithDashboard);
+
+      const result = await service.getProfile('u1');
+
+      expect(result.preferences.dashboardSettings).toEqual(
+        expect.objectContaining({ layout: 'default', showTips: true }),
       );
     });
   });

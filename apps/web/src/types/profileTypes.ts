@@ -48,3 +48,12 @@ export interface AppearanceSettings {
   timeFormat: "12h" | "24h";
   compactMode: boolean;
 }
+
+export interface DashboardSettings {
+  layout: string;
+  showWelcomeMessage: boolean;
+  showTips: boolean;
+  autoRefresh: boolean;
+  refreshInterval: string;
+  quickActions?: unknown[];
+}

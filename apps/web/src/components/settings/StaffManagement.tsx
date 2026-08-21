@@ -7,25 +7,61 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { StaffMember } from "./settingsConfig";
+import { useTeamData } from "@/contexts/TeamDataContext";
+import type { TeamMember } from "@/types/teamTypes";
 
 interface StaffManagementProps {
-  staff: StaffMember[];
+  staff?: StaffMember[] | TeamMember[];
   onAddStaff?: (name: string, email: string) => void;
+  onRemoveMember?: (id: string) => void;
 }
 
 export default function StaffManagement({
   staff,
   onAddStaff,
+  onRemoveMember,
 }: StaffManagementProps) {
   const { t } = useLanguage();
+  const { teamMembers, inviteMember, removeMember } = useTeamData();
   const [newStaffName, setNewStaffName] = useState("");
   const [newStaffEmail, setNewStaffEmail] = useState("");
 
+  const displayMembers: Array<{
+    id: string;
+    name: string;
+    email: string;
+    status: string;
+  }> =
+    staff && staff.length > 0
+      ? (staff as Array<{ id: string; name: string; email: string; status: string }>)
+      : (teamMembers as unknown as Array<{
+          id: string;
+          name: string;
+          email: string;
+          status: string;
+        }>);
+
   const handleSendInvitation = () => {
-    if (onAddStaff && newStaffName && newStaffEmail) {
+    if (!newStaffName || !newStaffEmail) return;
+    if (onAddStaff) {
       onAddStaff(newStaffName, newStaffEmail);
-      setNewStaffName("");
-      setNewStaffEmail("");
+    } else {
+      inviteMember({
+        name: newStaffName,
+        email: newStaffEmail,
+        role: "inventory" as unknown as import("@/types/teamTypes").TeamRole,
+        permissions: [],
+      }).catch(() => {});
+    }
+    setNewStaffName("");
+    setNewStaffEmail("");
+  };
+
+  const handleRemove = (id: string) => {
+    if (onRemoveMember) {
+      onRemoveMember(id);
+    } else {
+      removeMember(id);
     }
   };
 
@@ -41,7 +77,7 @@ export default function StaffManagement({
       </div>
       <Separator />
       <div className="space-y-4">
-        {staff.map((member) => (
+        {displayMembers.map((member) => (
           <div
             key={member.id}
             className="flex items-center justify-between p-3 border rounded-lg"
@@ -50,11 +86,20 @@ export default function StaffManagement({
               <p className="font-medium">{member.name}</p>
               <p className="text-sm text-muted-foreground">{member.email}</p>
             </div>
-            <Badge
-              variant={member.status === "active" ? "default" : "secondary"}
-            >
-              {member.status}
-            </Badge>
+            <div className="flex items-center gap-2">
+              <Badge
+                variant={member.status === "active" ? "default" : "secondary"}
+              >
+                {member.status}
+              </Badge>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleRemove(member.id)}
+              >
+                {t("Remove")}
+              </Button>
+            </div>
           </div>
         ))}
         <Separator />

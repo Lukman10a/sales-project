@@ -7,6 +7,7 @@ import type {
 import type { Permission } from "@/types/teamTypes";
 import type {
   AppearanceSettings,
+  DashboardSettings,
   NotificationPreferences,
 } from "@/types/profileTypes";
 
@@ -166,11 +167,13 @@ export interface NotificationPreferencesPayload {
 export interface PreferencesUpdatePayload {
   notificationPreferences?: NotificationPreferencesPayload;
   appearanceSettings?: AppearanceSettings;
+  dashboardSettings?: DashboardSettings;
 }
 
 export function toPreferencesUpdate(preferences: {
   notificationPreferences?: NotificationPreferences;
   appearanceSettings?: AppearanceSettings;
+  dashboardSettings?: DashboardSettings;
 }): PreferencesUpdatePayload {
   const payload: PreferencesUpdatePayload = {};
 
@@ -182,6 +185,10 @@ export function toPreferencesUpdate(preferences: {
 
   if (preferences.appearanceSettings) {
     payload.appearanceSettings = { ...preferences.appearanceSettings };
+  }
+
+  if (preferences.dashboardSettings) {
+    payload.dashboardSettings = { ...preferences.dashboardSettings };
   }
 
   return payload;

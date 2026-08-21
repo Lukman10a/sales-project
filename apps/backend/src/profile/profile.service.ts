@@ -10,6 +10,18 @@ import { UpdateProfileDto } from './dto/update-profile.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { UpdatePreferencesDto } from './dto/update-preferences.dto';
 import { UpdateAvatarDto } from './dto/update-avatar.dto';
+import type { UserProfile } from '../entities/user-profile.entity';
+
+type DashboardSettings = UserProfile['dashboardSettings'];
+
+const DEFAULT_DASHBOARD_SETTINGS: DashboardSettings = {
+  layout: 'default',
+  showWelcomeMessage: true,
+  showTips: true,
+  autoRefresh: true,
+  refreshInterval: '1m',
+  quickActions: [],
+};
 
 @Injectable()
 export class ProfileService {
@@ -57,6 +69,8 @@ export class ProfileService {
       preferences: {
         notificationPreferences: profile.notificationPreferences,
         appearanceSettings: profile.appearanceSettings,
+        dashboardSettings:
+          profile.dashboardSettings ?? DEFAULT_DASHBOARD_SETTINGS,
       },
     };
   }
@@ -173,11 +187,22 @@ export class ProfileService {
       };
     }
 
+    // Merge dashboard settings
+    if (updatePreferencesDto.dashboardSettings) {
+      const current = profile.dashboardSettings ?? DEFAULT_DASHBOARD_SETTINGS;
+      profile.dashboardSettings = {
+        ...current,
+        ...updatePreferencesDto.dashboardSettings,
+      } as DashboardSettings;
+    }
+
     await this.profilesRepository.save(profile);
 
     return {
       notificationPreferences: profile.notificationPreferences,
       appearanceSettings: profile.appearanceSettings,
+      dashboardSettings:
+        profile.dashboardSettings ?? DEFAULT_DASHBOARD_SETTINGS,
       message: 'Preferences updated successfully',
     };
   }

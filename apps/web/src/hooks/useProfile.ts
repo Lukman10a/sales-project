@@ -12,6 +12,7 @@ import {
 } from "@/lib/api/payloads";
 import type {
   AppearanceSettings,
+  DashboardSettings,
   NotificationPreferences,
   UserProfile,
 } from "@/types/profileTypes";
@@ -36,12 +37,23 @@ const DEFAULT_APPEARANCE: AppearanceSettings = {
   compactMode: false,
 };
 
+const DEFAULT_DASHBOARD_SETTINGS: DashboardSettings = {
+  layout: "default",
+  showWelcomeMessage: true,
+  showTips: true,
+  autoRefresh: true,
+  refreshInterval: "1m",
+  quickActions: [],
+};
+
 export function useProfile() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [notificationPreferences, setNotificationPreferences] =
     useState<NotificationPreferences>(DEFAULT_PREFERENCES);
   const [appearanceSettings, setAppearanceSettings] =
     useState<AppearanceSettings>(DEFAULT_APPEARANCE);
+  const [dashboardSettings, setDashboardSettings] =
+    useState<DashboardSettings>(DEFAULT_DASHBOARD_SETTINGS);
   const [isLoading, setIsLoading] = useState(true);
   const [isError, setIsError] = useState(false);
 
@@ -55,6 +67,7 @@ export function useProfile() {
         setProfile(adapted.profile);
         setNotificationPreferences(adapted.notificationPreferences);
         setAppearanceSettings(adapted.appearanceSettings);
+        setDashboardSettings(adapted.dashboardSettings);
       })
       .catch(() => {
         if (active) setIsError(true);
@@ -86,6 +99,13 @@ export function useProfile() {
     );
   }, [appearanceSettings]);
 
+  const saveDashboardSettings = useCallback(async () => {
+    await api.patch<{ message: string }>(
+      "/profile/preferences",
+      toPreferencesUpdate({ dashboardSettings }),
+    );
+  }, [dashboardSettings]);
+
   const uploadAvatar = useCallback(async (dataUrl: string) => {
     await api.post<{ avatar: string }>("/profile/avatar", { dataUrl });
     setProfile((prev) => (prev ? { ...prev, avatar: dataUrl } : prev));
@@ -105,14 +125,17 @@ export function useProfile() {
     profile,
     notificationPreferences,
     appearanceSettings,
+    dashboardSettings,
     isLoading,
     isError,
     setProfile,
     setNotificationPreferences,
     setAppearanceSettings,
+    setDashboardSettings,
     saveProfile,
     saveNotificationPreferences,
     saveAppearanceSettings,
+    saveDashboardSettings,
     uploadAvatar,
     changePassword,
   };

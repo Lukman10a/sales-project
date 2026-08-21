@@ -83,6 +83,27 @@ export class UserProfile {
     compactMode: boolean;
   };
 
+  // Dashboard Settings (stored as JSON)
+  @Column({
+    type: 'json',
+    default: {
+      layout: 'default',
+      showWelcomeMessage: true,
+      showTips: true,
+      autoRefresh: true,
+      refreshInterval: '1m',
+      quickActions: [],
+    },
+  })
+  dashboardSettings!: {
+    layout: string;
+    showWelcomeMessage: boolean;
+    showTips: boolean;
+    autoRefresh: boolean;
+    refreshInterval: string;
+    quickActions: Record<string, unknown>[];
+  };
+
   @CreateDateColumn()
   createdAt!: Date;
 

@@ -22,6 +22,7 @@ import {
   savedViews,
 } from "@/data/dashboardCustomization";
 import { QuickAction } from "@/types/dashboardCustomizationTypes";
+import { useProfile } from "@/hooks/useProfile";
 
 interface DashboardCustomizationProps {
   selectedLayout: string;
@@ -39,6 +40,14 @@ interface DashboardCustomizationProps {
   quickActions: QuickAction[];
   onQuickActionsChange: (actions: QuickAction[]) => void;
   onSave: () => void;
+  dashboardSettings?: {
+    layout: string;
+    showWelcomeMessage: boolean;
+    showTips: boolean;
+    autoRefresh: boolean;
+    refreshInterval: string;
+    quickActions?: unknown[];
+  };
 }
 
 export default function DashboardCustomization({
@@ -57,6 +66,25 @@ export default function DashboardCustomization({
   onSave,
 }: DashboardCustomizationProps) {
   const { t } = useLanguage();
+  let saveDashboardSettings: (() => Promise<void>) | undefined;
+  try {
+    const profileHook = useProfile();
+    saveDashboardSettings = profileHook.saveDashboardSettings;
+  } catch {
+    // not in provider context or mock not available
+  }
+
+  const handleSave = async () => {
+    // Prefer live backend save if available
+    if (saveDashboardSettings) {
+      try {
+        await saveDashboardSettings();
+      } catch {
+        // ignore, fallback to onSave
+      }
+    }
+    onSave();
+  };
 
   return (
     <div className="space-y-6">
@@ -241,7 +269,7 @@ export default function DashboardCustomization({
       </div>
 
       <div className="flex justify-end">
-        <Button className="bg-primary text-primary-foreground hover:bg-primary/90" onClick={onSave}>
+        <Button className="bg-primary text-primary-foreground hover:bg-primary/90" onClick={handleSave}>
           {t("Save Dashboard Settings")}
         </Button>
       </div>

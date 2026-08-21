@@ -23,10 +23,22 @@ const AppearanceSettingsSchema = z
   })
   .strict();
 
+const DashboardSettingsSchema = z
+  .object({
+    layout: z.string().optional(),
+    showWelcomeMessage: z.boolean().optional(),
+    showTips: z.boolean().optional(),
+    autoRefresh: z.boolean().optional(),
+    refreshInterval: z.string().optional(),
+    quickActions: z.array(z.unknown()).optional(),
+  })
+  .strict();
+
 export const UpdatePreferencesDtoSchema = z
   .object({
     notificationPreferences: NotificationPreferencesSchema.optional(),
     appearanceSettings: AppearanceSettingsSchema.optional(),
+    dashboardSettings: DashboardSettingsSchema.optional(),
   })
   .strict();
 

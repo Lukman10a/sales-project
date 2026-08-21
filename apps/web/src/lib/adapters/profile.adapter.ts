@@ -1,5 +1,6 @@
 import type {
   AppearanceSettings,
+  DashboardSettings,
   NotificationPreferences,
   UserProfile,
 } from "@/types/profileTypes";
@@ -26,6 +27,7 @@ export interface BackendProfile {
   preferences: {
     notificationPreferences: Partial<NotificationPreferences>;
     appearanceSettings: AppearanceSettings;
+    dashboardSettings?: Partial<DashboardSettings>;
   };
 }
 
@@ -33,7 +35,17 @@ export interface ProfileViewModel {
   profile: UserProfile;
   notificationPreferences: NotificationPreferences;
   appearanceSettings: AppearanceSettings;
+  dashboardSettings: DashboardSettings;
 }
+
+const DEFAULT_DASHBOARD_SETTINGS: DashboardSettings = {
+  layout: "default",
+  showWelcomeMessage: true,
+  showTips: true,
+  autoRefresh: true,
+  refreshInterval: "1m",
+  quickActions: [],
+};
 
 export function toProfile(backend: BackendProfile): ProfileViewModel {
   const name =
@@ -55,6 +67,11 @@ export function toProfile(backend: BackendProfile): ProfileViewModel {
     aiInsights: prefs.aiInsights ?? true,
   };
 
+  const dashboardSettings: DashboardSettings = {
+    ...DEFAULT_DASHBOARD_SETTINGS,
+    ...(backend.preferences.dashboardSettings ?? {}),
+  };
+
   return {
     profile: {
       id: backend.user.id,
@@ -74,5 +91,6 @@ export function toProfile(backend: BackendProfile): ProfileViewModel {
     },
     notificationPreferences,
     appearanceSettings: backend.preferences.appearanceSettings,
+    dashboardSettings,
   };
 }

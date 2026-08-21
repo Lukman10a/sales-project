@@ -1,14 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/components/ui/sonner";
 import { useLanguage } from "@/contexts/LanguageContext";
-import {
-  settingSections,
-  StaffMember,
-} from "@/components/settings/settingsConfig";
+import { settingSections } from "@/components/settings/settingsConfig";
 import SettingsSidebar from "@/components/settings/SettingsSidebar";
 import NotificationSettings from "@/components/settings/NotificationSettings";
 import SecuritySettings from "@/components/settings/SecuritySettings";
@@ -21,46 +18,46 @@ import {
   userPreferences,
   defaultQuickActions,
 } from "@/data/dashboardCustomization";
-import { QuickAction } from "@/types/dashboardCustomizationTypes";
+import { useProfile } from "@/hooks/useProfile";
+import { useTeamData } from "@/contexts/TeamDataContext";
 
 export default function Settings() {
   const { t } = useLanguage();
   const [activeSection, setActiveSection] = useState("notifications");
   const { user } = useAuth();
   const userRole = user?.role || "owner";
+  const {
+    dashboardSettings,
+    setDashboardSettings,
+    saveDashboardSettings,
+    appearanceSettings,
+    setAppearanceSettings,
+    saveAppearanceSettings,
+  } = useProfile();
+  const { teamMembers, inviteMember } = useTeamData();
+
   const [theme, setTheme] = useState(() => {
     if (typeof window === "undefined") return "dark";
+    // prefer backend appearanceSettings when available, fallback to localStorage
     return localStorage.getItem("luxa_theme") || "dark";
   });
-  const [staff, setStaff] = useState<StaffMember[]>([
-    {
-      id: "1",
-      name: "Ibrahim Musa",
-      email: "ibrahim@luxa.com",
-      role: "admin",
-      status: "active",
-    },
-    {
-      id: "2",
-      name: "Salim Adeyemi",
-      email: "salim@luxa.com",
-      role: "admin",
-      status: "invited",
-    },
-  ]);
-  const [selectedLayout, setSelectedLayout] = useState(
-    userPreferences.defaultView,
-  );
-  const [welcomeMessage, setWelcomeMessage] = useState(
-    userPreferences.showWelcomeMessage,
-  );
-  const [showTips, setShowTips] = useState(userPreferences.showTips);
-  const [autoRefresh, setAutoRefresh] = useState(userPreferences.autoRefresh);
-  const [refreshInterval, setRefreshInterval] = useState(
-    userPreferences.refreshInterval,
-  );
-  const [quickActions, setQuickActions] =
-    useState<QuickAction[]>(defaultQuickActions);
+
+  useEffect(() => {
+    if (appearanceSettings?.theme) {
+      setTheme(appearanceSettings.theme === "system" ? "dark" : appearanceSettings.theme);
+    }
+  }, [appearanceSettings?.theme]);
+
+  const selectedLayout = dashboardSettings?.layout ?? userPreferences.defaultView;
+  const welcomeMessage = dashboardSettings?.showWelcomeMessage ?? userPreferences.showWelcomeMessage;
+  const showTips = dashboardSettings?.showTips ?? userPreferences.showTips;
+  const autoRefresh = dashboardSettings?.autoRefresh ?? userPreferences.autoRefresh;
+  const refreshInterval =
+    (dashboardSettings?.refreshInterval as "off" | "30s" | "1m" | "5m" | "15m" | "30m") ??
+    userPreferences.refreshInterval;
+  const quickActions =
+    (dashboardSettings?.quickActions as unknown as import("@/types/dashboardCustomizationTypes").QuickAction[]) ??
+    defaultQuickActions;
 
   // Filter settings sections based on user role
   const visibleSections = settingSections.filter((section) => {
@@ -74,10 +71,43 @@ export default function Settings() {
     setTheme(newTheme);
     document.documentElement.classList.toggle("dark", newTheme === "dark");
     localStorage.setItem("luxa_theme", newTheme);
+    const mappedTheme = newTheme === "auto" ? "system" : (newTheme as "light" | "dark" | "system");
+    setAppearanceSettings((prev) => ({ ...prev, theme: mappedTheme }));
+    saveAppearanceSettings().catch(() => {});
   };
 
-  const handleSaveDashboardSettings = () => {
-    toast(t("Dashboard settings saved locally (no backend yet)"));
+  const handleSaveDashboardSettings = async () => {
+    try {
+      await saveDashboardSettings();
+      toast(t("Dashboard settings saved"));
+    } catch {
+      toast(t("Failed to save dashboard settings"));
+    }
+  };
+
+  const handleAddStaff = (name: string, email: string) => {
+    inviteMember({ name, email, role: "inventory", permissions: [] })
+      .then(() => toast(t("Invitation sent")))
+      .catch(() => toast(t("Failed to send invitation")));
+  };
+
+  const handleLayoutChange = (layout: string) => {
+    setDashboardSettings((prev) => ({ ...prev, layout }));
+  };
+  const handleWelcomeMessageChange = (value: boolean) => {
+    setDashboardSettings((prev) => ({ ...prev, showWelcomeMessage: value }));
+  };
+  const handleShowTipsChange = (value: boolean) => {
+    setDashboardSettings((prev) => ({ ...prev, showTips: value }));
+  };
+  const handleAutoRefreshChange = (value: boolean) => {
+    setDashboardSettings((prev) => ({ ...prev, autoRefresh: value }));
+  };
+  const handleRefreshIntervalChange = (value: "off" | "30s" | "1m" | "5m" | "15m" | "30m") => {
+    setDashboardSettings((prev) => ({ ...prev, refreshInterval: value }));
+  };
+  const handleQuickActionsChange = (actions: import("@/types/dashboardCustomizationTypes").QuickAction[]) => {
+    setDashboardSettings((prev) => ({ ...prev, quickActions: actions }));
   };
 
   const handleExportAll = () => {
@@ -134,17 +164,17 @@ export default function Settings() {
             {activeSection === "dashboard" && (
               <DashboardCustomization
                 selectedLayout={selectedLayout}
-                onLayoutChange={setSelectedLayout}
+                onLayoutChange={handleLayoutChange}
                 welcomeMessage={welcomeMessage}
-                onWelcomeMessageChange={setWelcomeMessage}
+                onWelcomeMessageChange={handleWelcomeMessageChange}
                 showTips={showTips}
-                onShowTipsChange={setShowTips}
+                onShowTipsChange={handleShowTipsChange}
                 autoRefresh={autoRefresh}
-                onAutoRefreshChange={setAutoRefresh}
+                onAutoRefreshChange={handleAutoRefreshChange}
                 refreshInterval={refreshInterval}
-                onRefreshIntervalChange={setRefreshInterval}
+                onRefreshIntervalChange={handleRefreshIntervalChange}
                 quickActions={quickActions}
-                onQuickActionsChange={setQuickActions}
+                onQuickActionsChange={handleQuickActionsChange}
                 onSave={handleSaveDashboardSettings}
               />
             )}
@@ -161,7 +191,7 @@ export default function Settings() {
             )}
 
             {activeSection === "staff" && userRole === "owner" && (
-              <StaffManagement staff={staff} />
+              <StaffManagement staff={teamMembers as unknown as import("@/components/settings/settingsConfig").StaffMember[]} onAddStaff={handleAddStaff} />
             )}
           </motion.div>
         </div>
