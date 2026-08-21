@@ -7,9 +7,10 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { AccessDenied } from "@/components/auth/AccessDenied";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ReportFormat } from "@/types/reportTypes";
-import { reports, scheduledReports, reportTemplates } from "@/data/reports";
+import { CreateReportInput, ReportFormat, ReportTemplate } from "@/types/reportTypes";
+import { reportTemplates } from "@/data/reports";
 import { toast } from "@/components/ui/sonner";
+import { useReports } from "@/hooks/useReports";
 import TemplatesGrid from "@/components/reports/TemplatesGrid";
 import ReportHistory from "@/components/reports/ReportHistory";
 import ScheduledReports from "@/components/reports/ScheduledReports";
@@ -23,7 +24,8 @@ export default function Reports() {
   const { isOwner } = usePermissions();
   const { t } = useLanguage();
   const [isGenerateOpen, setIsGenerateOpen] = useState(false);
-  const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
+  const [selectedTemplate, setSelectedTemplate] = useState<ReportTemplate | null>(null);
+  const [isGenerating, setIsGenerating] = useState(false);
   const [generateForm, setGenerateForm] = useState({
     name: "",
     format: "pdf" as ReportFormat,
@@ -33,6 +35,12 @@ export default function Reports() {
     includeExpenses: true,
     includeStaff: true,
   });
+  const {
+    reports,
+    isLoading: isLoadingReports,
+    createReport,
+    deleteReport,
+  } = useReports();
 
   // Restrict reports to owners only (contains business figures and financial data)
   if (!isLoading && isAuthenticated && !isOwner()) {
@@ -44,8 +52,8 @@ export default function Reports() {
     );
   }
 
-  const handleSelectTemplate = (template: any) => {
-    setSelectedTemplate(template.id);
+  const handleSelectTemplate = (template: ReportTemplate) => {
+    setSelectedTemplate(template);
     setGenerateForm({
       ...generateForm,
       name: template.name,
@@ -53,15 +61,7 @@ export default function Reports() {
     setIsGenerateOpen(true);
   };
 
-  const handleGenerateReport = () => {
-    if (!selectedTemplate || !generateForm.name.trim()) {
-      toast(t("Please fill in all required fields"));
-      return;
-    }
-
-    toast(t("Report generation started..."));
-    setIsGenerateOpen(false);
-    setSelectedTemplate(null);
+  const resetGenerateForm = () => {
     setGenerateForm({
       name: "",
       format: "pdf",
@@ -71,6 +71,30 @@ export default function Reports() {
       includeExpenses: true,
       includeStaff: true,
     });
+  };
+
+  const handleGenerateReport = async (input: CreateReportInput) => {
+    setIsGenerating(true);
+    try {
+      await createReport(input);
+      toast(t("Report generated successfully"));
+      setIsGenerateOpen(false);
+      setSelectedTemplate(null);
+      resetGenerateForm();
+    } catch {
+      toast(t("Failed to generate report"));
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const handleDeleteReport = async (report: any) => {
+    try {
+      await deleteReport(report.id);
+      toast(t("Report deleted"));
+    } catch {
+      toast(t("Failed to delete report"));
+    }
   };
 
   return (
@@ -103,11 +127,15 @@ export default function Reports() {
           </TabsContent>
 
           <TabsContent value="history" className="space-y-4">
-            <ReportHistory reports={reports} />
+            {isLoadingReports ? (
+              <p className="text-sm text-muted-foreground">{t("Loading reports...")}</p>
+            ) : (
+              <ReportHistory reports={reports} onDelete={handleDeleteReport} />
+            )}
           </TabsContent>
 
           <TabsContent value="scheduled" className="space-y-4">
-            <ScheduledReports scheduledReports={scheduledReports} />
+            <ScheduledReports reports={reports} />
           </TabsContent>
         </Tabs>
       </div>
@@ -120,9 +148,8 @@ export default function Reports() {
         form={generateForm}
         onFormChange={setGenerateForm}
         onSubmit={handleGenerateReport}
+        isSubmitting={isGenerating}
       />
     </>
   );
 }
-
-

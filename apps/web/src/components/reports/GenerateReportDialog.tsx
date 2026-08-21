@@ -20,12 +20,16 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { ReportFormat } from "@/types/reportTypes";
+import {
+  CreateReportInput,
+  ReportFormat,
+  ReportTemplate,
+} from "@/types/reportTypes";
 
 interface GenerateReportDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  selectedTemplate: string | null;
+  selectedTemplate: ReportTemplate | null;
   form: {
     name: string;
     format: ReportFormat;
@@ -36,7 +40,8 @@ interface GenerateReportDialogProps {
     includeStaff: boolean;
   };
   onFormChange: (form: any) => void;
-  onSubmit: () => void;
+  onSubmit: (input: CreateReportInput) => Promise<void>;
+  isSubmitting?: boolean;
 }
 
 export default function GenerateReportDialog({
@@ -46,8 +51,24 @@ export default function GenerateReportDialog({
   form,
   onFormChange,
   onSubmit,
+  isSubmitting = false,
 }: GenerateReportDialogProps) {
   const { t } = useLanguage();
+
+  const handleGenerate = () => {
+    const end = form.dateEnd || new Date().toISOString().slice(0, 10);
+    const start =
+      form.dateStart || new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10);
+    onSubmit({
+      name: form.name,
+      type: selectedTemplate?.type ?? "custom",
+      format: form.format,
+      dateRange: { start, end },
+      includeCategories: form.includeCategories,
+      includeExpenses: form.includeExpenses,
+      includeStaff: form.includeStaff,
+    });
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -186,7 +207,10 @@ export default function GenerateReportDialog({
           >
             {t("Cancel")}
           </Button>
-          <Button onClick={onSubmit} disabled={!form.name.trim()}>
+          <Button
+            onClick={handleGenerate}
+            disabled={isSubmitting || !form.name.trim()}
+          >
             {t("Generate Report")}
           </Button>
         </DialogFooter>

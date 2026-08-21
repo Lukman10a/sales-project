@@ -8,6 +8,7 @@ import { HeldTransaction } from '../entities/held-transaction.entity';
 import { Notification } from '../entities/notification.entity';
 import { TeamMember } from '../entities/team-member.entity';
 import { UserProfile } from '../entities/user-profile.entity';
+import { Report } from '../entities/report.entity';
 
 export const getDatabaseConfig = (
   configService: ConfigService,
@@ -27,6 +28,7 @@ export const getDatabaseConfig = (
     HeldTransaction,
     Notification,
     TeamMember,
+    Report,
   ],
   synchronize: configService.get<string>('NODE_ENV') === 'development',
   logging: configService.get<string>('LOG_LEVEL') === 'debug',

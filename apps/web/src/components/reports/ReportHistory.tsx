@@ -1,24 +1,26 @@
 "use client";
 
-import { Download, Calendar, Clock } from "lucide-react";
+import { Download, Calendar, Clock, Trash2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { toast } from "@/components/ui/sonner";
 import { formatIcons, statusConfig } from "./reportConfig";
+import { downloadReportCsv } from "@/lib/reportsExportUtils";
 import { Report } from "@/types/reportTypes";
 
 interface ReportHistoryProps {
   reports: Report[];
+  onDelete?: (report: Report) => void;
 }
 
-export default function ReportHistory({ reports }: ReportHistoryProps) {
+export default function ReportHistory({ reports, onDelete }: ReportHistoryProps) {
   const { t } = useLanguage();
 
   const handleDownload = (report: Report) => {
-    if (report.fileUrl) {
-      toast(t("Downloading {name}...", { values: { name: report.name } }));
+    if (report.snapshot) {
+      downloadReportCsv(report);
     } else {
       toast(t("Report is still being generated"));
     }
@@ -76,7 +78,7 @@ export default function ReportHistory({ reports }: ReportHistoryProps) {
                           {new Date(report.createdAt).toLocaleString()}
                         </span>
                         <span>
-                          {t("by")} {report.createdBy}
+                          {t("by")} {report.createdByName ?? report.createdBy}
                         </span>
                         {report.fileSize && <span>{report.fileSize}</span>}
                       </div>
@@ -91,6 +93,18 @@ export default function ReportHistory({ reports }: ReportHistoryProps) {
                     >
                       <Download className="w-4 h-4 mr-2" />
                       {t("Download")}
+                    </Button>
+                  )}
+                  {onDelete && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => onDelete(report)}
+                      aria-label={t("Delete")}
+                      className="w-full sm:w-auto text-destructive hover:text-destructive"
+                    >
+                      <Trash2 className="w-4 h-4 mr-2" />
+                      {t("Delete")}
                     </Button>
                   )}
                 </div>

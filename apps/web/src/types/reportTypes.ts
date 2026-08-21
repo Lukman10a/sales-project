@@ -19,6 +19,7 @@ export interface Report {
   description?: string;
   createdAt: string;
   createdBy: string;
+  createdByName?: string;
   status: ReportStatus;
   format: ReportFormat;
   dateRange: {
@@ -26,8 +27,29 @@ export interface Report {
     end: string;
   };
   filters?: Record<string, any>;
+  snapshot?: Record<string, any>;
   fileUrl?: string;
   fileSize?: string;
+}
+
+export interface CreateReportInput {
+  name: string;
+  type: ReportType;
+  format: ReportFormat;
+  dateRange: {
+    start: string;
+    end: string;
+  };
+  includeCategories?: boolean;
+  includeExpenses?: boolean;
+  includeStaff?: boolean;
+}
+
+export interface ReportListResponse {
+  data: Report[];
+  total: number;
+  page: number;
+  limit: number;
 }
 
 export interface ScheduledReport {
