@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import { NotificationsRepository } from './notifications.repository';
 import type { EntityManager } from 'typeorm';
 import { Notification } from '../entities/notification.entity';
@@ -7,6 +8,7 @@ describe('NotificationsRepository', () => {
   let manager: EntityManager;
 
   const managerMock = {
+    find: jest.fn(),
     findOne: jest.fn(),
     create: jest.fn((_entity: unknown, data: unknown) => data),
     save: jest.fn(),
@@ -16,6 +18,7 @@ describe('NotificationsRepository', () => {
   };
 
   beforeEach(() => {
+    Object.values(managerMock).forEach((m) => (m as jest.Mock).mockClear());
     manager = managerMock as unknown as EntityManager;
     repository = new NotificationsRepository({
       createEntityManager: jest.fn().mockReturnValue(manager),
@@ -200,6 +203,43 @@ describe('NotificationsRepository', () => {
       expect(qb.andWhere).toHaveBeenCalledWith('notification.read = :read', {
         read: true,
       });
+    });
+  });
+
+  describe('findAiInsightRecipients', () => {
+    it('returns owner/manager ids where aiInsights is true', async () => {
+      managerMock.find
+        .mockResolvedValueOnce([{ id: 'u1' }, { id: 'u2' }] as never)
+        .mockResolvedValueOnce([
+          { userId: 'u1', notificationPreferences: { aiInsights: true } },
+          { userId: 'u2', notificationPreferences: { aiInsights: false } },
+        ] as never);
+
+      const ids = await repository.findAiInsightRecipients('b1');
+
+      expect(managerMock.find).toHaveBeenCalledWith(expect.anything(), {
+        where: expect.objectContaining({ businessId: 'b1' }),
+        select: ['id'],
+      });
+      expect(ids).toEqual(['u1']);
+    });
+
+    it('treats missing profile as opted-in', async () => {
+      managerMock.find
+        .mockResolvedValueOnce([{ id: 'u1' }] as never)
+        .mockResolvedValueOnce([] as never);
+
+      await expect(repository.findAiInsightRecipients('b1')).resolves.toEqual([
+        'u1',
+      ]);
+    });
+
+    it('returns empty when no owner/manager', async () => {
+      managerMock.find.mockResolvedValueOnce([] as never);
+
+      await expect(repository.findAiInsightRecipients('b1')).resolves.toEqual(
+        [],
+      );
     });
   });
 });
