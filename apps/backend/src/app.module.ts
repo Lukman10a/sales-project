@@ -12,6 +12,7 @@ import { AnalyticsModule } from './analytics/analytics.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { TeamModule } from './team/team.module';
 import { ReportsModule } from './reports/reports.module';
+import { InsightsModule } from './insights/insights.module';
 import { getDatabaseConfig } from './database/database.config';
 
 @Module({
@@ -35,6 +36,7 @@ import { getDatabaseConfig } from './database/database.config';
     NotificationsModule,
     TeamModule,
     ReportsModule,
+    InsightsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
