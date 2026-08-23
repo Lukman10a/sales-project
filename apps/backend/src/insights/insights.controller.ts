@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
 import {
   CurrentUser,
   JwtAuthGuard,
@@ -17,11 +17,18 @@ import type { QueryInsightsDto } from './dto/query-insights.dto';
 export class InsightsController {
   constructor(private readonly insightsService: InsightsService) {}
 
-  /**
-   * Live-computed prioritized insights
-   * GET /insights?limit=10&type=restock&priority=high
-   * Requires: owner | manager with view-reports
-   */
+  @Post('generate')
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
+  @Roles('owner', 'manager')
+  @RequirePermissions('view-reports')
+  generate(
+    @CurrentUser() user: CurrentUserPayload,
+    @Query(new ZodValidationPipe(QueryInsightsDtoSchema))
+    query: QueryInsightsDto,
+  ) {
+    return this.insightsService.generate(user, query);
+  }
+
   @Get()
   @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
   @Roles('owner', 'manager')
@@ -34,11 +41,6 @@ export class InsightsController {
     return this.insightsService.list(user, query);
   }
 
-  /**
-   * One insight with supporting numbers
-   * GET /insights/:id
-   * Requires: owner | manager with view-reports
-   */
   @Get(':id')
   @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
   @Roles('owner', 'manager')

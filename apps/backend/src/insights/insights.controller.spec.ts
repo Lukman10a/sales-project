@@ -4,12 +4,13 @@ import { InsightsService } from './insights.service';
 
 describe('InsightsController', () => {
   let controller: InsightsController;
-  let service: { list: jest.Mock; findOne: jest.Mock };
+  let service: { list: jest.Mock; findOne: jest.Mock; generate: jest.Mock };
 
   beforeEach(async () => {
     service = {
       list: jest.fn().mockResolvedValue([]),
       findOne: jest.fn().mockResolvedValue({}),
+      generate: jest.fn().mockResolvedValue([]),
     };
     const moduleRef = await Test.createTestingModule({
       controllers: [InsightsController],
@@ -26,6 +27,18 @@ describe('InsightsController', () => {
       { id: 'restock:p1' },
     ]);
     expect(service.list).toHaveBeenCalledWith(user, query);
+  });
+
+  it('delegates generate to service', async () => {
+    const user = { businessId: 'b1' } as never;
+    const query = { limit: 10 } as never;
+    service.generate.mockResolvedValue([
+      { id: 'restock:p1', description: 'AI' },
+    ]);
+    await expect(controller.generate(user, query)).resolves.toEqual([
+      { id: 'restock:p1', description: 'AI' },
+    ]);
+    expect(service.generate).toHaveBeenCalledWith(user, query);
   });
 
   it('delegates findOne to service', async () => {

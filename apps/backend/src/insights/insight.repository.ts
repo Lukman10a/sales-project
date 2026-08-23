@@ -4,6 +4,7 @@ import { DataSource, Repository } from 'typeorm';
 import { Sale } from '../entities/sale.entity';
 import { SaleItem } from '../entities/sale-item.entity';
 import { InventoryItem } from '../entities/inventory-item.entity';
+import { AiInsight } from '../entities/ai-insight.entity';
 import type {
   CoPurchasePair,
   InventoryFact,
@@ -146,5 +147,34 @@ export class InsightRepository extends Repository<Sale> {
       nameB: row.nameB,
       count: Number(row.count),
     }));
+  }
+
+  async saveNarratives(
+    businessId: string,
+    narratives: Map<string, string>,
+  ): Promise<void> {
+    for (const [insightId, narrative] of narratives) {
+      const existing = await this.manager.findOne(AiInsight, {
+        where: { businessId, insightId },
+      });
+      if (existing) {
+        existing.narrative = narrative;
+        await this.manager.save(existing);
+      } else {
+        const entity = this.manager.create(AiInsight, {
+          businessId,
+          insightId,
+          narrative,
+        });
+        await this.manager.save(entity);
+      }
+    }
+  }
+
+  async findNarratives(businessId: string): Promise<Map<string, string>> {
+    const rows = await this.manager.find(AiInsight, {
+      where: { businessId },
+    });
+    return new Map(rows.map((r) => [r.insightId, r.narrative]));
   }
 }
