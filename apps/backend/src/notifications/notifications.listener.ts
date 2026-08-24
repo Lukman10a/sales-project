@@ -3,6 +3,7 @@ import { OnEvent } from '@nestjs/event-emitter';
 import type { InventoryItem } from '../entities/inventory-item.entity';
 import type { Sale } from '../entities/sale.entity';
 import type { Insight } from '../insights/insight.types';
+import { selectTopAiInsight } from '../insights/insight.types';
 import { NotificationsService } from './notifications.service';
 import { NotificationsRepository } from './notifications.repository';
 
@@ -48,12 +49,8 @@ export class NotificationsListener {
     businessId: string;
     insights: Insight[];
   }): Promise<void> {
-    const order: Record<string, number> = { high: 3, medium: 2, low: 1 };
-    const highMedium = [...payload.insights]
-      .filter((i) => i.priority === 'high' || i.priority === 'medium')
-      .sort((a, b) => order[b.priority] - order[a.priority]);
-    if (highMedium.length === 0) return;
-    const top = highMedium[0];
+    const top = selectTopAiInsight(payload.insights);
+    if (!top) return;
     const recipients =
       await this.notificationsRepository.findAiInsightRecipients(
         payload.businessId,

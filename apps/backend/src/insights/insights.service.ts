@@ -107,17 +107,17 @@ export class InsightsService {
     } catch {
       // persistence failure should not 500 the whole batch (graceful)
     }
-    // emit for ai notifications (top priority insight)
+    const refreshed = await this.list(user, query);
+    // emit for ai notifications (top priority insight) with AI narrative
     try {
       this.eventEmitter?.emit('insights.generated', {
         businessId: user.businessId,
-        insights,
+        insights: refreshed,
       });
     } catch {
       // event failure should not break generate
     }
-    // return refreshed list (merged)
-    return this.list(user, query);
+    return refreshed;
   }
 }
 

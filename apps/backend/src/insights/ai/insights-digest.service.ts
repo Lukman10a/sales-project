@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { InsightsService } from '../insights.service';
+import { selectTopAiInsight } from '../insight.types';
 import { NotificationsRepository } from '../../notifications/notifications.repository';
 import { NotificationsService } from '../../notifications/notifications.service';
 
@@ -20,15 +21,11 @@ export class InsightsDigestService {
         { businessId },
         { limit: 10 },
       );
-      const order: Record<string, number> = { high: 3, medium: 2, low: 1 };
-      const highMedium = [...insights]
-        .filter((i) => i.priority === 'high' || i.priority === 'medium')
-        .sort((a, b) => order[b.priority] - order[a.priority]);
-      if (highMedium.length === 0) continue;
+      const top = selectTopAiInsight(insights);
+      if (!top) continue;
       const recipients =
         await this.notificationsRepository.findAiInsightRecipients(businessId);
       if (recipients.length === 0) continue;
-      const top = highMedium[0];
       for (const userId of recipients) {
         await this.notificationsService.create({
           businessId,
