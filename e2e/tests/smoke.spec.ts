@@ -17,4 +17,21 @@ test('a new owner can sign up and lands on the dashboard', async ({ page }) => {
   await expect(
     page.getByRole('heading', { level: 1, name: /, Ada!/ }),
   ).toBeVisible();
+
+  // The session lives in httpOnly cookies: nothing JWT-shaped is reachable
+  // from page scripts.
+  const exposed = await page.evaluate(() => ({
+    cookie: document.cookie,
+    storage: JSON.stringify({ ...localStorage, ...sessionStorage }),
+  }));
+  const jwt = /eyJ[\w-]+\.[\w-]+\.[\w-]+/;
+  expect(exposed.cookie).not.toMatch(jwt);
+  expect(exposed.storage).not.toMatch(jwt);
+  expect(exposed.cookie).toContain('luxa_csrf=');
+
+  // ...yet the browser still holds the httpOnly session cookies.
+  const names = (await page.context().cookies()).map((c) => c.name);
+  expect(names).toEqual(
+    expect.arrayContaining(['__Host-luxa_at', 'luxa_rt', 'luxa_csrf']),
+  );
 });

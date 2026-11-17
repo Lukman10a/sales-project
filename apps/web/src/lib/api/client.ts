@@ -1,9 +1,12 @@
-import {
-  getAccessToken,
-  getRefreshToken,
-  setTokens,
-  clearTokens,
-} from "./tokens";
+import { AUTH_COOKIE_NAME } from "@/lib/middleware-guard";
+
+/**
+ * API client for cookie sessions. The access and refresh tokens are httpOnly
+ * cookies set by the API, so this file never sees them. It only:
+ * - sends cookies (`credentials: "include"`),
+ * - echoes the readable `luxa_csrf` cookie as `x-csrf-token` (double submit),
+ * - refreshes once on a 401 and retries the request.
+ */
 
 export interface ApiErrorField {
   field?: string;
@@ -32,48 +35,83 @@ type FetchInit = {
   method?: string;
   headers: Record<string, string>;
   body?: string | FormData;
+  credentials: RequestCredentials;
 };
+
+export const CSRF_HEADER = "x-csrf-token";
 
 function baseUrl(): string {
   return process.env.NEXT_PUBLIC_API_URL ?? "/api";
 }
 
+export function readCookie(name: string): string | null {
+  if (typeof document === "undefined") return null;
+  for (const part of document.cookie.split(";")) {
+    const eq = part.indexOf("=");
+    if (eq < 0) continue;
+    if (part.slice(0, eq).trim() === name) {
+      const value = part.slice(eq + 1).trim();
+      return value ? decodeURIComponent(value) : null;
+    }
+  }
+  return null;
+}
+
+/** The CSRF cookie doubles as the "a session exists" marker. */
+export const csrfToken = () => readCookie(AUTH_COOKIE_NAME);
+export const hasSession = () => csrfToken() !== null;
+
+function csrfHeaders(): Record<string, string> {
+  const token = csrfToken();
+  return token ? { [CSRF_HEADER]: token } : {};
+}
+
+// A 401 here is about the credentials themselves, not an expired session.
+const NO_REFRESH_PATHS = new Set([
+  "/auth/login",
+  "/auth/register",
+  "/auth/refresh",
+]);
+
+/** Serialises refreshes across tabs where the Web Locks API exists. */
+function withRefreshLock<T>(fn: () => Promise<T>): Promise<T> {
+  const locks =
+    typeof navigator !== "undefined"
+      ? (navigator as Navigator & { locks?: LockManager }).locks
+      : undefined;
+  return locks
+    ? (locks.request("luxa-session-refresh", fn) as Promise<T>)
+    : fn();
+}
+
 let refreshPromise: Promise<boolean> | null = null;
 
-// A 401 here means invalid credentials, not an expired token.
-const NO_REFRESH_PATHS = new Set(["/auth/login"]);
-
-async function refreshTokens(): Promise<boolean> {
+/**
+ * Single-flight refresh. Refresh tokens are single-use (a replay revokes the
+ * session), so two tabs must never refresh with the same token. Each tab
+ * waits for the lock. If the CSRF cookie changed meanwhile, another tab has
+ * already rotated the shared cookies and there is nothing left to do.
+ */
+export function refreshSession(): Promise<boolean> {
   if (refreshPromise) return refreshPromise;
-  refreshPromise = (async () => {
-    const refreshToken = getRefreshToken();
-    if (!refreshToken) {
-      clearTokens();
-      return false;
-    }
-    try {
-      const res = await fetch(`${baseUrl()}/auth/refresh`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ refreshToken }),
-      });
-      if (!res.ok) {
-        clearTokens();
-        return false;
-      }
-      const data = (await res.json()) as {
-        access_token: string;
-        refresh_token: string;
-      };
-      setTokens(data.access_token, data.refresh_token);
-      return true;
-    } catch {
-      clearTokens();
-      return false;
-    } finally {
+  const before = csrfToken();
+  if (!before) return Promise.resolve(false);
+
+  refreshPromise = withRefreshLock(async () => {
+    const now = csrfToken();
+    if (now && now !== before) return true;
+    if (!now) return false;
+    const res = await fetch(`${baseUrl()}/auth/refresh`, {
+      method: "POST",
+      credentials: "include",
+      headers: { Accept: "application/json", ...csrfHeaders() },
+    });
+    return res.ok;
+  })
+    .catch(() => false)
+    .finally(() => {
       refreshPromise = null;
-    }
-  })();
+    });
   return refreshPromise;
 }
 
@@ -104,16 +142,15 @@ async function request<T>(
   options: RequestOptions = {},
   retryOnRefresh = true,
 ): Promise<T> {
-  const accessToken = getAccessToken();
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     Accept: "application/json",
   };
-  if (accessToken) {
-    headers.Authorization = `Bearer ${accessToken}`;
+  if (options.method && options.method !== "GET") {
+    Object.assign(headers, csrfHeaders());
   }
 
-  const init: FetchInit = { headers };
+  const init: FetchInit = { headers, credentials: "include" };
   if (options.method) {
     init.method = options.method;
   }
@@ -127,8 +164,7 @@ async function request<T>(
   const res = await fetch(`${baseUrl()}${path}`, init);
 
   if (res.status === 401 && retryOnRefresh && !NO_REFRESH_PATHS.has(path)) {
-    const refreshed = await refreshTokens();
-    if (refreshed) {
+    if (await refreshSession()) {
       return request<T>(path, options, false);
     }
     throw await toApiError(res);

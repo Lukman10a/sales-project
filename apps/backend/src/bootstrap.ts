@@ -4,6 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import helmet from 'helmet';
 import { HttpAdapterHost } from '@nestjs/core';
 import { HttpErrorsFilter } from './common/filters/http-errors.filter';
+import { csrfProtection } from './common/http/csrf.middleware';
 
 /**
  * HTTP hardening shared by `main.ts` and the e2e suite, so tests exercise
@@ -31,10 +32,11 @@ export function configureApp(app: INestApplication): void {
   express.useBodyParser('json', { limit: '1mb' });
   express.useBodyParser('urlencoded', { extended: true, limit: '1mb' });
 
-  app.enableCors({
-    origin: config.getOrThrow<string[]>('CORS_ORIGINS'),
-    credentials: true,
-  });
+  const origins = config.getOrThrow<string[]>('CORS_ORIGINS');
+  app.enableCors({ origin: origins, credentials: true });
+  // Cookie sessions: unsafe methods need an allowlisted Origin, plus a
+  // double-submit x-csrf-token when authenticated by cookie.
+  app.use(csrfProtection(origins));
 
   app.useGlobalFilters(
     new HttpErrorsFilter(app.get(HttpAdapterHost).httpAdapter),

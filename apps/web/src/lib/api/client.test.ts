@@ -1,19 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-
-const tokens = vi.hoisted(() => ({
-  getAccessToken: vi.fn(),
-  getRefreshToken: vi.fn(),
-  setTokens: vi.fn(),
-  clearTokens: vi.fn(),
-  isTokenExpired: vi.fn(),
-}));
-
-vi.mock("@/lib/api/tokens", () => tokens);
-
-import { api } from "@/lib/api/client";
+import { api, hasSession, readCookie, refreshSession } from "@/lib/api/client";
 
 const fetchMock = vi.fn();
-const callLog: Array<{ url: string; headers: Record<string, string> }> = [];
+const callLog: Array<{ url: string; init: RequestInit }> = [];
 
 function res(body: unknown, status = 200) {
   return {
@@ -23,49 +12,69 @@ function res(body: unknown, status = 200) {
   } as unknown as Response;
 }
 
-function installFetch() {
-  fetchMock.mockImplementation(
-    async (input: RequestInfo | URL, init?: RequestInit) => {
-      const url = String(input);
-      callLog.push({
-        url,
-        headers: (init?.headers ?? {}) as Record<string, string>,
-      });
-      return res({});
-    },
-  );
-  vi.stubGlobal("fetch", fetchMock);
+const headersOf = (i: number) =>
+  (callLog[i].init.headers ?? {}) as Record<string, string>;
+
+function setCookie(value: string) {
+  document.cookie = `luxa_csrf=${value}; path=/`;
+}
+
+function clearCookies() {
+  document.cookie = "luxa_csrf=; Max-Age=0; path=/";
+  document.cookie = "other=; Max-Age=0; path=/";
 }
 
 describe("api client", () => {
   beforeEach(() => {
     process.env.NEXT_PUBLIC_API_URL = "/api";
     callLog.length = 0;
+    clearCookies();
     fetchMock.mockReset();
-    installFetch();
-
-    tokens.getAccessToken.mockReset();
-    tokens.getRefreshToken.mockReset();
-    tokens.setTokens.mockReset();
-    tokens.clearTokens.mockReset();
-    tokens.getAccessToken.mockReturnValue(null);
-    tokens.getRefreshToken.mockReturnValue(null);
+    fetchMock.mockImplementation(
+      async (input: RequestInfo | URL, init?: RequestInit) => {
+        callLog.push({ url: String(input), init: init ?? {} });
+        return res({});
+      },
+    );
+    vi.stubGlobal("fetch", fetchMock);
   });
 
   afterEach(() => {
     vi.unstubAllGlobals();
+    clearCookies();
   });
 
-  it("sends the Authorization header when a token exists and omits it otherwise", async () => {
-    tokens.getAccessToken.mockReturnValue("tok-1");
+  it("sends cookies and never an Authorization header", async () => {
+    setCookie("csrf-1");
     await api.get("/data");
-    expect(callLog[0].url).toBe("/api/data");
-    expect(callLog[0].headers.Authorization).toBe("Bearer tok-1");
 
-    callLog.length = 0;
-    tokens.getAccessToken.mockReturnValue(null);
-    await api.get("/data");
-    expect(callLog[0].headers.Authorization).toBeUndefined();
+    expect(callLog[0].url).toBe("/api/data");
+    expect(callLog[0].init.credentials).toBe("include");
+    expect(headersOf(0).Authorization).toBeUndefined();
+  });
+
+  it("echoes the CSRF cookie on unsafe methods only", async () => {
+    setCookie("csrf-1");
+    await api.post("/sales", { a: 1 });
+    await api.get("/sales");
+
+    expect(headersOf(0)["x-csrf-token"]).toBe("csrf-1");
+    expect(headersOf(1)["x-csrf-token"]).toBeUndefined();
+  });
+
+  it("omits the CSRF header when there is no session", async () => {
+    await api.post("/auth/login", {});
+    expect(headersOf(0)["x-csrf-token"]).toBeUndefined();
+  });
+
+  it("reads cookies by exact name", () => {
+    document.cookie = "other=1; path=/";
+    setCookie("a%20b");
+    expect(readCookie("luxa_csrf")).toBe("a b");
+    expect(readCookie("luxa")).toBeNull();
+    expect(hasSession()).toBe(true);
+    clearCookies();
+    expect(hasSession()).toBe(false);
   });
 
   it("parses JSON and returns data on 2xx", async () => {
@@ -98,34 +107,24 @@ describe("api client", () => {
     );
 
     await expect(api.post("/data", {})).rejects.toMatchObject({
-      name: "ApiError",
       message: "first error, second error",
       status: 422,
     });
   });
 
-  it("single-flights concurrent 401s and retries with the new token", async () => {
-    tokens.getAccessToken.mockReturnValue("old-access");
-    tokens.getRefreshToken.mockReturnValue("old-refresh");
-    tokens.setTokens.mockImplementation((access: string) => {
-      tokens.getAccessToken.mockReturnValue(access);
-    });
-
+  it("single-flights concurrent 401s and retries after one refresh", async () => {
+    setCookie("csrf-old");
+    let refreshed = false;
     fetchMock.mockImplementation(
       async (input: RequestInfo | URL, init?: RequestInit) => {
         const url = String(input);
-        const headers = (init?.headers ?? {}) as Record<string, string>;
-        callLog.push({ url, headers });
+        callLog.push({ url, init: init ?? {} });
         if (url.endsWith("/auth/refresh")) {
-          return res({
-            access_token: "new-access",
-            refresh_token: "new-refresh",
-          });
+          refreshed = true;
+          setCookie("csrf-new");
+          return res({ user: {} });
         }
-        if (headers.Authorization === "Bearer new-access") {
-          return res({ ok: true });
-        }
-        return res({ message: "Unauthorized", statusCode: 401 }, 401);
+        return refreshed ? res({ ok: true }) : res({ message: "x" }, 401);
       },
     );
 
@@ -138,79 +137,75 @@ describe("api client", () => {
     expect(results).toEqual([{ ok: true }, { ok: true }, { ok: true }]);
     const refreshCalls = callLog.filter((c) => c.url.endsWith("/auth/refresh"));
     expect(refreshCalls).toHaveLength(1);
-    expect(tokens.setTokens).toHaveBeenCalledWith("new-access", "new-refresh");
+    expect(refreshCalls[0].init.credentials).toBe("include");
+    expect(
+      (refreshCalls[0].init.headers as Record<string, string>)["x-csrf-token"],
+    ).toBe("csrf-old");
+  });
+
+  it("skips the refresh call when another tab already rotated the session", async () => {
+    setCookie("csrf-old");
+    const request = vi.fn(
+      async (_name: string, fn: () => Promise<boolean>) => {
+        setCookie("csrf-from-other-tab");
+        return fn();
+      },
+    );
+    vi.stubGlobal("navigator", { locks: { request } });
+
+    await expect(refreshSession()).resolves.toBe(true);
+    expect(request).toHaveBeenCalledWith("luxa-session-refresh", expect.any(Function));
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("does not refresh without a session", async () => {
+    fetchMock.mockResolvedValue(res({ message: "Unauthorized" }, 401));
+
+    await expect(api.get("/data")).rejects.toMatchObject({ status: 401 });
+    expect(callLog.filter((c) => c.url.endsWith("/auth/refresh"))).toHaveLength(0);
   });
 
   it("does not attempt a refresh for a 401 on /auth/login", async () => {
-    tokens.getAccessToken.mockReturnValue("at-1");
-    tokens.getRefreshToken.mockReturnValue("rt-1");
-
+    setCookie("csrf-1");
     fetchMock.mockImplementation(
       async (input: RequestInfo | URL, init?: RequestInit) => {
-        const url = String(input);
-        callLog.push({
-          url,
-          headers: (init?.headers ?? {}) as Record<string, string>,
-        });
-        if (url.endsWith("/auth/login")) {
-          return res({ message: "Invalid credentials" }, 401);
-        }
-        return res({ ok: true });
+        callLog.push({ url: String(input), init: init ?? {} });
+        return res({ message: "Invalid credentials" }, 401);
       },
     );
 
     await expect(
       api.post("/auth/login", { email: "a@b.co", password: "nope" }),
-    ).rejects.toMatchObject({
-      name: "ApiError",
-      message: "Invalid credentials",
-      status: 401,
-    });
-    const refreshCalls = callLog.filter((c) => c.url.endsWith("/auth/refresh"));
-    expect(refreshCalls).toHaveLength(0);
+    ).rejects.toMatchObject({ message: "Invalid credentials", status: 401 });
+    expect(callLog.filter((c) => c.url.endsWith("/auth/refresh"))).toHaveLength(0);
   });
 
   it("posts multipart FormData without a Content-Type header", async () => {
-    tokens.getAccessToken.mockReturnValue("tok-1");
+    setCookie("csrf-1");
     const form = new FormData();
     form.append(
       "file",
-      new File(["name,sellingPrice\nA,10"], "data.csv", {
-        type: "text/csv",
-      }),
+      new File(["name,sellingPrice\nA,10"], "data.csv", { type: "text/csv" }),
     );
 
     await api.postForm("/inventory/bulk-import", form);
 
     expect(callLog[0].url).toBe("/api/inventory/bulk-import");
-    expect(callLog[0].headers["Content-Type"]).toBeUndefined();
-    expect(callLog[0].headers.Authorization).toBe("Bearer tok-1");
+    expect(headersOf(0)["Content-Type"]).toBeUndefined();
+    expect(headersOf(0)["x-csrf-token"]).toBe("csrf-1");
   });
 
-  it("clears tokens and rejects when the refresh fails without looping", async () => {
-    tokens.getAccessToken.mockReturnValue("old-access");
-    tokens.getRefreshToken.mockReturnValue("old-refresh");
-
+  it("rejects without looping when the refresh fails", async () => {
+    setCookie("csrf-1");
     fetchMock.mockImplementation(
       async (input: RequestInfo | URL, init?: RequestInit) => {
-        const url = String(input);
-        callLog.push({
-          url,
-          headers: (init?.headers ?? {}) as Record<string, string>,
-        });
-        if (url.endsWith("/auth/refresh")) {
-          return res({ message: "Invalid refresh token" }, 401);
-        }
-        return res({ message: "Unauthorized", statusCode: 401 }, 401);
+        callLog.push({ url: String(input), init: init ?? {} });
+        return res({ message: "Unauthorized" }, 401);
       },
     );
 
-    await expect(api.get("/data")).rejects.toMatchObject({
-      name: "ApiError",
-      status: 401,
-    });
-    expect(tokens.clearTokens).toHaveBeenCalled();
-    const refreshCalls = callLog.filter((c) => c.url.endsWith("/auth/refresh"));
-    expect(refreshCalls).toHaveLength(1);
+    await expect(api.get("/data")).rejects.toMatchObject({ status: 401 });
+    expect(callLog.filter((c) => c.url.endsWith("/auth/refresh"))).toHaveLength(1);
+    expect(callLog.filter((c) => c.url.endsWith("/data"))).toHaveLength(1);
   });
 });

@@ -29,6 +29,20 @@ describe('AuthService', () => {
     signAsync: jest.Mock<Promise<string>, [object, object]>;
     verify: jest.Mock;
   };
+  let sessionsService: {
+    start: jest.Mock;
+    rotate: jest.Mock;
+    revoke: jest.Mock;
+    revokeAll: jest.Mock;
+    list: jest.Mock;
+    revokeOne: jest.Mock;
+  };
+  const issued = {
+    refreshToken: 'opaque-rt',
+    familyId: 'sid-1',
+    persistent: false,
+    expiresAt: new Date('2030-01-01T00:00:00Z'),
+  };
   let configService: {
     get: jest.Mock<string | undefined, [string]>;
     getOrThrow: jest.Mock<string, [string]>;
@@ -74,12 +88,21 @@ describe('AuthService', () => {
 
     (bcrypt.hash as jest.Mock).mockResolvedValue('hashed-password');
     (bcrypt.compare as jest.Mock).mockResolvedValue(false);
+    sessionsService = {
+      start: jest.fn().mockResolvedValue(issued),
+      rotate: jest.fn().mockResolvedValue({ userId: 'u1', issued }),
+      revoke: jest.fn().mockResolvedValue(undefined),
+      revokeAll: jest.fn().mockResolvedValue(2),
+      list: jest.fn().mockResolvedValue([]),
+      revokeOne: jest.fn().mockResolvedValue(undefined),
+    };
 
     service = new AuthService(
       usersRepository as unknown as UsersRepository,
       jwtService as never,
       configService as never,
       teamMemberRepository as never,
+      sessionsService as never,
     );
   });
 
@@ -123,8 +146,19 @@ describe('AuthService', () => {
       expect(bcrypt.hash).toHaveBeenCalledWith(dto.password, 10);
       expect(result.message).toBe('User registered successfully');
       expect(result.user.businessId).toBe('u1');
-      expect(result.access_token).toBe('signed-token');
-      expect(result.refresh_token).toBe('signed-token');
+      expect(result.session).toEqual({
+        ...issued,
+        accessToken: 'signed-token',
+      });
+      expect(sessionsService.start).toHaveBeenCalledWith(
+        { id: 'u1', businessId: 'u1' },
+        {},
+        false,
+      );
+      expect(jwtService.signAsync).toHaveBeenCalledWith(
+        expect.objectContaining({ sub: 'u1', sid: 'sid-1' }),
+        expect.anything(),
+      );
     });
   });
 
@@ -154,9 +188,16 @@ describe('AuthService', () => {
         Promise.resolve(user),
       );
 
-      const result = await service.login(dto);
+      const ctx = { userAgent: 'UA', ip: '1.2.3.4' };
+      const result = await service.login({ ...dto, remember: true }, ctx);
 
-      expect(result.access_token).toBe('signed-token');
+      expect(result.session.accessToken).toBe('signed-token');
+      expect(result.session.refreshToken).toBe('opaque-rt');
+      expect(sessionsService.start).toHaveBeenCalledWith(
+        { id: 'u1', businessId: 'u1' },
+        ctx,
+        true,
+      );
       expect(result.user.id).toBe('u1');
       expect(usersRepository.save).toHaveBeenCalled();
       const savedArg = usersRepository.save.mock.calls[0][0];
@@ -164,71 +205,96 @@ describe('AuthService', () => {
     });
   });
 
-  describe('refreshToken', () => {
-    it('throws UnauthorizedException for an invalid token', async () => {
-      jwtService.verify.mockImplementation(() => {
-        throw new Error('invalid');
-      });
-
-      await expect(service.refreshToken('bad')).rejects.toBeInstanceOf(
+  describe('refresh', () => {
+    it('propagates a rejected rotation', async () => {
+      sessionsService.rotate.mockRejectedValue(
+        new UnauthorizedException('Invalid refresh token'),
+      );
+      await expect(service.refresh('bad')).rejects.toBeInstanceOf(
         UnauthorizedException,
       );
     });
 
-    it('throws UnauthorizedException when the user no longer exists', async () => {
-      jwtService.verify.mockReturnValue({ sub: 'u1', email: 'a@b.com' });
+    it('revokes the session when the user no longer exists', async () => {
       usersRepository.findById.mockResolvedValue(null);
 
-      await expect(service.refreshToken('token')).rejects.toBeInstanceOf(
+      await expect(service.refresh('token')).rejects.toBeInstanceOf(
         UnauthorizedException,
       );
+      expect(sessionsService.revoke).toHaveBeenCalledWith('sid-1');
     });
 
-    it('returns fresh tokens for a valid refresh token', async () => {
-      jwtService.verify.mockReturnValue({ sub: 'u1', email: 'a@b.com' });
+    it('revokes the session of a deactivated user', async () => {
+      usersRepository.findById.mockResolvedValue({
+        ...baseUser,
+        status: 'inactive',
+      });
+
+      await expect(service.refresh('token')).rejects.toBeInstanceOf(
+        UnauthorizedException,
+      );
+      expect(sessionsService.revoke).toHaveBeenCalledWith('sid-1');
+    });
+
+    it('returns the rotated session with a fresh access token', async () => {
       usersRepository.findById.mockResolvedValue(baseUser);
 
-      const result = await service.refreshToken('valid-token');
+      const result = await service.refresh('valid-token', { ip: '1.1.1.1' });
 
-      expect(result.access_token).toBe('signed-token');
+      expect(sessionsService.rotate).toHaveBeenCalledWith('valid-token', {
+        ip: '1.1.1.1',
+      });
+      expect(result.session).toEqual({
+        ...issued,
+        accessToken: 'signed-token',
+      });
       expect(result.user.id).toBe('u1');
     });
   });
 
   describe('logout', () => {
-    it('returns a logout message', () => {
-      expect(service.logout()).toEqual({
+    it('revokes the current session', async () => {
+      await expect(service.logout('sid-1')).resolves.toEqual({
         message: 'Logged out successfully',
       });
+      expect(sessionsService.revoke).toHaveBeenCalledWith('sid-1');
+    });
+
+    it('revokes every session on logout-all', async () => {
+      await expect(service.logoutAll('u1')).resolves.toEqual({
+        message: 'Logged out everywhere',
+        revoked: 2,
+      });
+      expect(sessionsService.revokeAll).toHaveBeenCalledWith('u1');
+    });
+
+    it('lists and revokes devices through the sessions service', async () => {
+      await service.listSessions('u1', 'sid-1');
+      expect(sessionsService.list).toHaveBeenCalledWith('u1', 'sid-1');
+
+      await service.revokeSession('u1', 'sid-2');
+      expect(sessionsService.revokeOne).toHaveBeenCalledWith('u1', 'sid-2');
     });
   });
 
-  describe('generateTokens', () => {
-    it('signs an access token and a refresh token', async () => {
-      const tokens = await (
+  describe('signAccessToken', () => {
+    it('signs an access token bound to the session', async () => {
+      const token = await (
         service as unknown as {
-          generateTokens: (u: User) => Promise<{
-            access_token: string;
-            refresh_token: string;
-          }>;
+          signAccessToken: (u: User, sid: string) => Promise<string>;
         }
-      ).generateTokens(baseUser);
+      ).signAccessToken(baseUser, 'sid-1');
 
-      expect(tokens.access_token).toBe('signed-token');
-      expect(tokens.refresh_token).toBe('signed-token');
-      expect(jwtService.signAsync).toHaveBeenNthCalledWith(
-        1,
+      expect(token).toBe('signed-token');
+      expect(jwtService.signAsync).toHaveBeenCalledTimes(1);
+      expect(jwtService.signAsync).toHaveBeenCalledWith(
         expect.objectContaining({
           sub: 'u1',
+          sid: 'sid-1',
           role: 'owner',
           permissions: [...ALL_PERMISSIONS],
         }),
-        expect.objectContaining({ expiresIn: '15m' }),
-      );
-      expect(jwtService.signAsync).toHaveBeenNthCalledWith(
-        2,
-        expect.objectContaining({ sub: 'u1' }),
-        expect.objectContaining({ expiresIn: '7d', secret: 'secret' }),
+        { expiresIn: '15m' },
       );
     });
 
@@ -239,12 +305,9 @@ describe('AuthService', () => {
 
       await (
         service as unknown as {
-          generateTokens: (u: User) => Promise<{
-            access_token: string;
-            refresh_token: string;
-          }>;
+          signAccessToken: (u: User, sid: string) => Promise<string>;
         }
-      ).generateTokens(baseUser);
+      ).signAccessToken(baseUser, 'sid-1');
 
       expect(jwtService.signAsync).toHaveBeenNthCalledWith(
         1,
@@ -262,12 +325,9 @@ describe('AuthService', () => {
 
       await (
         service as unknown as {
-          generateTokens: (u: User) => Promise<{
-            access_token: string;
-            refresh_token: string;
-          }>;
+          signAccessToken: (u: User, sid: string) => Promise<string>;
         }
-      ).generateTokens(staffUser);
+      ).signAccessToken(staffUser, 'sid-1');
 
       expect(jwtService.signAsync).toHaveBeenNthCalledWith(
         1,
@@ -285,15 +345,12 @@ describe('AuthService', () => {
       staffRole: 'manager',
     } as unknown as User;
 
-    const generateTokens = () =>
+    const signAccessToken = () =>
       (
         service as unknown as {
-          generateTokens: (u: User) => Promise<{
-            access_token: string;
-            refresh_token: string;
-          }>;
+          signAccessToken: (u: User, sid: string) => Promise<string>;
         }
-      ).generateTokens(managerUser);
+      ).signAccessToken(managerUser, 'sid-1');
 
     it('loads real permissions from the TeamMember row into the token for a non-owner', async () => {
       teamMemberRepository.findByBusinessAndUser.mockResolvedValue({
@@ -301,7 +358,7 @@ describe('AuthService', () => {
         permissions: ['record-sales', 'view-inventory'],
       } as unknown as TeamMember);
 
-      await generateTokens();
+      await signAccessToken();
 
       expect(teamMemberRepository.findByBusinessAndUser).toHaveBeenCalledWith(
         'b1',
@@ -322,7 +379,7 @@ describe('AuthService', () => {
         permissions: [],
       } as unknown as TeamMember);
 
-      await generateTokens();
+      await signAccessToken();
 
       expect(jwtService.signAsync).toHaveBeenNthCalledWith(
         1,
@@ -345,7 +402,7 @@ describe('AuthService', () => {
     it('keeps empty permissions for staff with no TeamMember row', async () => {
       teamMemberRepository.findByBusinessAndUser.mockResolvedValue(null);
 
-      await generateTokens();
+      await signAccessToken();
 
       expect(jwtService.signAsync).toHaveBeenNthCalledWith(
         1,
@@ -357,9 +414,9 @@ describe('AuthService', () => {
     it('never queries the TeamMember row for an owner', async () => {
       await (
         service as unknown as {
-          generateTokens: (u: User) => Promise<unknown>;
+          signAccessToken: (u: User, sid: string) => Promise<unknown>;
         }
-      ).generateTokens(baseUser);
+      ).signAccessToken(baseUser, 'sid-1');
 
       expect(teamMemberRepository.findByBusinessAndUser).not.toHaveBeenCalled();
     });

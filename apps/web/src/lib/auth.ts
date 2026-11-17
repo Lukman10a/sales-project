@@ -1,19 +1,13 @@
 // Real authentication service backed by the LUXA API.
 //
-// The public surface (login/register/logout/isAuthenticated/getLastRole) is
-// kept so callers change minimally. Sessions live in tokens
-// (`luxa_access_token`/`luxa_refresh_token`) + AuthContext state, plus the
-// opaque `luxa_auth` cookie that exists solely for the middleware redirect.
+// The session lives in httpOnly cookies set by the API: page scripts can
+// neither read nor store a token. The browser holds the cookies, AuthContext
+// holds the user, and the readable `luxa_csrf` cookie signals that a session
+// may exist (the API decides whether it really does).
 
 import { authApi } from "@/lib/api/auth";
-import {
-  getAccessToken,
-  setTokens,
-  clearTokens,
-  isTokenExpired,
-} from "@/lib/api/tokens";
+import { hasSession } from "@/lib/api/client";
 import { mapAuthUser, assertStaffRole, type AppUser } from "@/lib/api/roles";
-import { AUTH_COOKIE_NAME } from "@/lib/middleware-guard";
 import { safeLandingPath } from "@/lib/route-guards";
 
 export type User = AppUser;
@@ -22,6 +16,8 @@ export interface LoginCredentials {
   email: string;
   password: string;
   role: "owner" | "apprentice" | "investor";
+  /** 'Trust this device': keep the session for 30 days. */
+  remember?: boolean;
 }
 
 export interface SignupData {
@@ -35,25 +31,14 @@ export interface SignupData {
 
 const ROLE_STORAGE_KEY = "luxa_last_role";
 
-function setAuthCookie(): void {
-  if (typeof document === "undefined") return;
-  document.cookie = `${AUTH_COOKIE_NAME}=1; path=/; SameSite=Lax`;
-}
-
-function clearAuthCookie(): void {
-  if (typeof document === "undefined") return;
-  document.cookie = `${AUTH_COOKIE_NAME}=; Max-Age=0; path=/`;
-}
-
 export class AuthService {
   static async login(credentials: LoginCredentials): Promise<User> {
     assertStaffRole(credentials.role);
     const response = await authApi.login(
       credentials.email,
       credentials.password,
+      credentials.remember ?? false,
     );
-    setTokens(response.access_token, response.refresh_token);
-    setAuthCookie();
     return mapAuthUser(response.user);
   }
 
@@ -66,36 +51,31 @@ export class AuthService {
       lastName: data.lastName,
       businessName: data.businessName,
     });
-    setTokens(response.access_token, response.refresh_token);
-    setAuthCookie();
     return mapAuthUser(response.user);
   }
 
   static async logout(): Promise<void> {
     try {
+      // Revokes the session server-side and clears its cookies.
       await authApi.logout();
     } catch {
-      // Local session is cleared regardless of server-side outcome.
+      // Already signed out (expired or revoked): nothing left to clear.
     }
-    clearTokens();
-    clearAuthCookie();
   }
 
   static async getCurrentUser(): Promise<User | null> {
-    if (!getAccessToken()) return null;
+    if (!hasSession()) return null;
     try {
       const me = await authApi.getMe();
       return mapAuthUser(me);
     } catch {
-      clearTokens();
-      clearAuthCookie();
       return null;
     }
   }
 
+  /** Cheap hint for redirects; the API remains the authority. */
   static isAuthenticated(): boolean {
-    const token = getAccessToken();
-    return token !== null && !isTokenExpired(token);
+    return hasSession();
   }
 
   static getLastRole(): "owner" | "apprentice" | "investor" {

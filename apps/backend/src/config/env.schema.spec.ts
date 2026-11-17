@@ -114,6 +114,18 @@ describe('validateEnv', () => {
     );
   });
 
+  it('accepts a bare cookie domain and rejects a URL', () => {
+    expect(
+      validateEnv(valid({ COOKIE_DOMAIN: 'luxa.app' })).COOKIE_DOMAIN,
+    ).toBe('luxa.app');
+    expect(
+      validateEnv(valid({ COOKIE_DOMAIN: '' })).COOKIE_DOMAIN,
+    ).toBeUndefined();
+    expect(() =>
+      validateEnv(valid({ COOKIE_DOMAIN: 'https://luxa.app' })),
+    ).toThrow(/COOKIE_DOMAIN/);
+  });
+
   it('keeps unrelated variables such as AI settings', () => {
     const env = validateEnv(valid({ AI_MODEL: 'gpt-4o-mini' }));
     expect((env as Record<string, unknown>).AI_MODEL).toBe('gpt-4o-mini');

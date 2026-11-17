@@ -77,6 +77,16 @@ const schema = z
 
     FRONTEND_URL: z.url({ error: 'FRONTEND_URL must be a URL' }),
     CORS_ORIGINS: originList.optional(),
+    /** Parent domain for cookies the web app reads (e.g. luxa.app). */
+    COOKIE_DOMAIN: optionalString.pipe(
+      z
+        .string()
+        .regex(
+          /^[a-z0-9.-]+$/i,
+          'COOKIE_DOMAIN must be a bare domain such as luxa.app',
+        )
+        .optional(),
+    ),
   })
   .superRefine((env, ctx) => {
     if (

@@ -186,19 +186,22 @@ npm run format             # Format with Prettier
 ### Using cURL
 
 ```bash
+# Sessions are cookies, so keep them in a jar. Unsafe requests need an allowed
+# Origin and, once signed in, the luxa_csrf cookie echoed as x-csrf-token.
 # Register a new user
-curl -X POST http://localhost:4000/auth/register \
+curl -c jar.txt -X POST http://localhost:4000/auth/register \
+  -H "Origin: http://localhost:3000" \
   -H "Content-Type: application/json" \
   -d '{"email":"john@business.com","password":"Password123!","firstName":"John","lastName":"Doe","businessName":"Prime Store"}'
 
-# Login
-curl -X POST http://localhost:4000/auth/login \
+# Login ("remember": trust this device for 30 days)
+curl -c jar.txt -X POST http://localhost:4000/auth/login \
+  -H "Origin: http://localhost:3000" \
   -H "Content-Type: application/json" \
-  -d '{"email":"john@business.com","password":"Password123!"}'
+  -d '{"email":"john@business.com","password":"Password123!","remember":true}'
 
-# Get current user (requires token)
-curl -X GET http://localhost:4000/auth/me \
-  -H "Authorization: Bearer YOUR_ACCESS_TOKEN_HERE"
+# Get current user (sends the access cookie)
+curl -b jar.txt http://localhost:4000/auth/me
 ```
 
 ### Using Postman
@@ -233,9 +236,10 @@ Validated at boot by `src/config/env.schema.ts`. The app will not start if a req
 | `NODE_ENV` | no | `production` | `development`, `test` or `production`. Only `development` auto-syncs the schema. |
 | `PORT` | no | `4000` | |
 | `JWT_SECRET` | **yes** | – | At least 32 characters. Placeholder values are rejected. |
-| `JWT_REFRESH_SECRET` | **yes** | – | At least 32 characters and different from `JWT_SECRET`. |
-| `JWT_EXPIRES_IN` | no | `15m` | Access token lifetime. |
-| `JWT_REFRESH_EXPIRATION` | no | `7d` | Refresh token lifetime. |
+| `JWT_REFRESH_SECRET` | **yes** | – | At least 32 characters and different from `JWT_SECRET`. Reserved: refresh tokens are opaque and no longer signed with it. |
+| `JWT_EXPIRES_IN` | no | `15m` | Access token and access cookie lifetime. |
+| `JWT_REFRESH_EXPIRATION` | no | `7d` | Unused. Session lifetimes are fixed, see [Sessions](#sessions). |
+| `COOKIE_DOMAIN` | no | – | Parent domain for the `luxa_csrf` cookie, so the web app on `app.` can read the cookie set by `api.` (e.g. `luxa.app`). Leave unset locally. |
 | `DATABASE_URL` | yes* | – | Postgres connection string. Takes precedence over the fields below. |
 | `DATABASE_HOST` / `DATABASE_USERNAME` / `DATABASE_NAME` | yes* | – | *Either `DATABASE_URL` or these three are required. |
 | `DATABASE_PORT` | no | `5432` | |
@@ -263,14 +267,26 @@ Validated at boot by `src/config/env.schema.ts`. The app will not start if a req
 ## Security Features
 
 - ✅ Password hashing with bcrypt (10 salt rounds)
-- ✅ JWT access tokens (15min expiration)
-- ✅ JWT refresh tokens (7 day expiration)
-- ✅ CORS enabled for frontend
+- ✅ Cookie sessions with rotating, revocable refresh tokens (see [Sessions](#sessions))
+- ✅ CORS allowlist plus CSRF protection (Origin check and double-submit token)
 - ✅ Business data isolation (users can only access their own data)
-- ✅ Input validation with class-validator
+- ✅ Input validation with zod
 - ✅ SQL injection protection via TypeORM parameterized queries
 - 🔄 Rate limiting (coming in Phase 2)
-- 🔄 Token blacklist on logout (coming in Phase 2)
+
+### Sessions
+
+| Cookie | Contents | Flags |
+| --- | --- | --- |
+| `__Host-luxa_at` | Access JWT (15 min). Carries the session id `sid`. | HttpOnly, Secure, SameSite=Lax, host-only |
+| `luxa_rt` | Opaque refresh token. Only its SHA-256 is stored. | HttpOnly, Secure, SameSite=Lax, `Path=/auth/refresh` |
+| `luxa_csrf` | Random CSRF token. Also the web's "session exists" marker. | Secure, SameSite=Lax, `Domain=$COOKIE_DOMAIN` |
+
+- Trusted devices (`remember: true` on login) keep the session for 30 days. Otherwise the cookies end when the browser closes and the server caps the session at 24 h. Both lifetimes renew on every refresh.
+- Every refresh rotates the token. Presenting an already-rotated token revokes the whole session family and logs an `auth.refresh_token_reuse` audit event.
+- Every authenticated request checks that its session is still live. So `POST /auth/logout`, `POST /auth/logout-all` and `DELETE /auth/sessions/:id` take effect immediately. `GET /auth/sessions` lists the signed-in devices.
+- Unsafe methods must come from an allowlisted `Origin`. When cookie-authenticated, they must also send `x-csrf-token` matching the `luxa_csrf` cookie.
+- `Authorization: Bearer` is accepted outside production only, for tests and scripts.
 
 ## Error Handling
 

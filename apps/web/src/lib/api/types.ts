@@ -30,10 +30,21 @@ export interface AuthUser {
   permissions?: string[];
 }
 
+/** Tokens travel only in httpOnly cookies, never in the body. */
 export interface AuthResponse {
   user: AuthUser;
-  access_token: string;
-  refresh_token: string;
+}
+
+/** A signed-in device (GET /auth/sessions). */
+export interface AuthSession {
+  id: string;
+  deviceLabel: string | null;
+  userAgent: string | null;
+  ip: string | null;
+  createdAt: string;
+  lastUsedAt: string;
+  expiresAt: string;
+  current: boolean;
 }
 
 export interface SalesSummary {
@@ -45,11 +56,6 @@ export interface SalesSummary {
 // GET /sales adds `summary` on top of the standard envelope
 export interface SalesListEnvelope<T> extends ApiEnvelope<T[]> {
   summary: SalesSummary;
-}
-
-export interface RefreshResponse {
-  access_token: string;
-  refresh_token: string;
 }
 
 // GET /auth/me returns the full user shape (id, email, firstName, lastName,
