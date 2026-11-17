@@ -9,6 +9,13 @@ paths = [
   '''\.github/workflows/ci\.yml''',
   '''apps/backend/src/.*\.spec\.ts''',
   '''apps/web/src/.*\.test\.tsx?''',
+  '''e2e/tests/.*\.spec\.ts''',
+]
+# Documentation placeholders in old setup guides: truncated sample JWTs
+# ("eyJhbGciOiJIUzI1NiIs...", no signature) and "YOUR_..._HERE" tokens.
+regexes = [
+  '''eyJ[A-Za-z0-9_-]{10,60}\.{3}''',
+  '''^(YOUR_ACCESS_TOKEN_HERE|invalid_token_here)$''',
 ]
 # Commit 9249576 (2026-08-18) committed .env.original with the Supabase
 # database password. Allowlisted only so CI can scan everything after it.
