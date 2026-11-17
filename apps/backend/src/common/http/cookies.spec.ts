@@ -21,4 +21,13 @@ describe('parseCookies', () => {
   it('skips malformed pairs and keeps undecodable values raw', () => {
     expect(parseCookies('novalue; =x; c=%E0%A4%A')).toEqual({ c: '%E0%A4%A' });
   });
+
+  it('never lets a cookie name reach the prototype', () => {
+    const cookies = parseCookies('__proto__=polluted; constructor=x');
+    expect(Object.getPrototypeOf(cookies)).toBe(Object.prototype);
+    expect(({} as Record<string, unknown>).polluted).toBeUndefined();
+    expect(Object.prototype.hasOwnProperty.call(cookies, '__proto__')).toBe(
+      true,
+    );
+  });
 });

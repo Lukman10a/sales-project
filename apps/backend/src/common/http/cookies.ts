@@ -15,23 +15,30 @@ export const CSRF_COOKIE = 'luxa_csrf';
 export const CSRF_HEADER = 'x-csrf-token';
 export const REFRESH_COOKIE_PATH = '/auth/refresh';
 
-/** Parses a `Cookie` request header. Malformed pairs are skipped. */
+const decode = (raw: string) => {
+  try {
+    return decodeURIComponent(raw);
+  } catch {
+    return raw;
+  }
+};
+
+/**
+ * Parses a `Cookie` request header. Malformed pairs are skipped. Names are
+ * attacker-controlled, so they are collected in a Map and copied with
+ * Object.fromEntries (own data properties only): a `__proto__` cookie can
+ * never reach a prototype.
+ */
 export function parseCookies(
   header: string | undefined,
 ): Record<string, string> {
-  const out: Record<string, string> = {};
-  if (!header) return out;
-  for (const part of header.split(';')) {
+  const found = new Map<string, string>();
+  for (const part of header ? header.split(';') : []) {
     const eq = part.indexOf('=');
     if (eq <= 0) continue;
     const name = part.slice(0, eq).trim();
-    const raw = part.slice(eq + 1).trim();
-    if (!name || name in out) continue;
-    try {
-      out[name] = decodeURIComponent(raw);
-    } catch {
-      out[name] = raw;
-    }
+    if (!name || found.has(name)) continue;
+    found.set(name, decode(part.slice(eq + 1).trim()));
   }
-  return out;
+  return Object.fromEntries(found);
 }
