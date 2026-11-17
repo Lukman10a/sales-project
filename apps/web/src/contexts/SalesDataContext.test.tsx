@@ -264,7 +264,7 @@ describe("SalesDataContext", () => {
     const sale = await getSaleByIdRef!("s1");
     expect(apiMock.get).toHaveBeenCalledWith("/sales/s1");
     expect(sale).not.toBeNull();
-    expect(sale.items).toEqual([
+    expect(sale?.items).toEqual([
       { name: "Widget", quantity: 2, price: 50 },
     ]);
   });

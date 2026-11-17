@@ -4,6 +4,7 @@ import {
   NotFoundException,
   Optional,
 } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InsightRepository } from './insight.repository';
 import { generateInsights } from './insight.engine';
 import type { Insight } from './insight.types';
@@ -18,6 +19,7 @@ export class InsightsService {
     @Optional()
     @Inject('INSIGHT_LLM_PROVIDER')
     private readonly llmProvider?: InsightLlmProvider,
+    @Optional() private readonly eventEmitter?: EventEmitter2,
   ) {}
 
   private getProvider(): InsightLlmProvider {
@@ -105,8 +107,17 @@ export class InsightsService {
     } catch {
       // persistence failure should not 500 the whole batch (graceful)
     }
-    // return refreshed list (merged)
-    return this.list(user, query);
+    const refreshed = await this.list(user, query);
+    // emit for ai notifications (top priority insight) with AI narrative
+    try {
+      this.eventEmitter?.emit('insights.generated', {
+        businessId: user.businessId,
+        insights: refreshed,
+      });
+    } catch {
+      // event failure should not break generate
+    }
+    return refreshed;
   }
 }
 

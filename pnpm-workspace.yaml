@@ -1,7 +1,29 @@
 packages:
   - "apps/*"
+  - "e2e"
 
 onlyBuiltDependencies:
   - bcrypt
   - sharp
   - unrs-resolver
+# Only resolve versions published at least 14 days ago (supply-chain buffer).
+minimumReleaseAge: 20160
+
+# Patched transitive versions for advisories flagged by `pnpm audit --prod`.
+overrides:
+  "sharp@<0.35.0": "^0.35.0"
+  "postcss@<8.5.12": "^8.5.12"
+  "multer@<2.3.0": "^2.3.0"
+  "brace-expansion@>=2.0.0 <2.1.6": "^2.1.6"
+  "source-map-js@>=1.0.0 <1.2.2": "^1.2.2"
+  "proxy-addr@<2.0.8": "^2.0.8"
+  "body-parser@>=2.0.0 <2.4.0": "^2.4.0"
+
+auditConfig:
+  ignoreGhsas:
+    # picomatch ReDoS: no patched release exists; reached only through
+    # tailwindcss at build time, never with user input.
+    - GHSA-fc5q-39xc-vjpf
+    # zod 3 memory exhaustion: web uses zod 3 for client-side forms only (no
+    # server input). The API is on patched zod 4. Remove when web moves to zod 4.
+    - GHSA-mrhx-c7xc-m3w5

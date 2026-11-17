@@ -24,7 +24,7 @@ const sale = {
   soldBy: "Ada",
   time: "5 minutes ago",
   status: "completed" as const,
-  paymentMethod: "cash",
+  paymentMethod: "cash" as const,
   discount: 0,
 };
 

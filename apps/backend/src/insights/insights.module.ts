@@ -8,13 +8,16 @@ import { InsightsController } from './insights.controller';
 import { InsightsService } from './insights.service';
 import { InsightRepository } from './insight.repository';
 import { InsightLlmModule } from './ai/insight-llm.module';
+import { InsightsDigestService } from './ai/insights-digest.service';
+import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Sale, SaleItem, InventoryItem, AiInsight]),
     InsightLlmModule,
+    NotificationsModule,
   ],
   controllers: [InsightsController],
-  providers: [InsightsService, InsightRepository],
+  providers: [InsightsService, InsightRepository, InsightsDigestService],
 })
 export class InsightsModule {}

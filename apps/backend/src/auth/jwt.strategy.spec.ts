@@ -1,73 +1,81 @@
+import { UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { JwtStrategy } from './jwt.strategy';
+import type { Request } from 'express';
+import { JwtStrategy, fromAccessCookie } from './jwt.strategy';
+import type { SessionsService } from './sessions.service';
 
 describe('JwtStrategy', () => {
   let strategy: JwtStrategy;
-  const getMock = jest.fn((key: string) =>
-    key === 'JWT_SECRET' ? 'test-secret' : undefined,
-  ) as jest.Mock<string | undefined, [string]>;
-  const configService = { get: getMock } as unknown as ConfigService;
+  let isActive: jest.Mock<Promise<boolean>, [string]>;
+  const env: Record<string, string> = {
+    JWT_SECRET: 'test-secret',
+    NODE_ENV: 'test',
+  };
+  const getOrThrow = jest.fn((key: string) => env[key]);
+  const configService = {
+    get: jest.fn((key: string) => env[key]),
+    getOrThrow,
+  } as unknown as ConfigService;
+
+  const base = {
+    sub: 'u1',
+    sid: 'sid-1',
+    email: 'owner@luxa.com',
+    role: 'owner',
+    businessName: 'LUXA',
+    businessId: 'u1',
+  };
 
   beforeEach(() => {
-    getMock.mockClear();
-    strategy = new JwtStrategy(configService);
+    isActive = jest.fn<Promise<boolean>, [string]>().mockResolvedValue(true);
+    strategy = new JwtStrategy(configService, {
+      isActive,
+    } as unknown as SessionsService);
   });
 
   it('reads the JWT secret from config', () => {
-    expect(getMock).toHaveBeenCalledWith('JWT_SECRET');
+    expect(getOrThrow).toHaveBeenCalledWith('JWT_SECRET');
   });
 
-  it('maps the payload to the current-user shape', () => {
-    const payload = {
-      sub: 'u1',
-      email: 'owner@luxa.com',
-      role: 'owner',
-      businessName: 'LUXA',
-      businessId: 'u1',
-      permissions: ['view-products'],
-    };
+  it('extracts the access token from the __Host- cookie', () => {
+    const req = {
+      headers: { cookie: 'other=1; __Host-luxa_at=a.b.c' },
+    } as unknown as Request;
+    expect(fromAccessCookie(req)).toBe('a.b.c');
+    expect(fromAccessCookie({ headers: {} } as Request)).toBeNull();
+  });
 
-    expect(strategy.validate(payload)).toEqual({
+  it('maps the payload to the current-user shape, including the session', async () => {
+    await expect(
+      strategy.validate({ ...base, permissions: ['view-products'] }),
+    ).resolves.toEqual({
       id: 'u1',
       email: 'owner@luxa.com',
       role: 'owner',
       businessName: 'LUXA',
       businessId: 'u1',
       permissions: ['view-products'],
+      sessionId: 'sid-1',
     });
+    expect(isActive).toHaveBeenCalledWith('sid-1');
   });
 
-  it('carries permissions through when present', () => {
-    const payload = {
-      sub: 'u1',
-      email: 'owner@luxa.com',
-      role: 'owner',
-      businessName: 'LUXA',
-      businessId: 'u1',
-      permissions: ['record-sales', 'view-inventory'],
-    };
-
-    const result = strategy.validate(payload);
-    expect(result.permissions).toEqual(['record-sales', 'view-inventory']);
+  it('maps staffRole through', async () => {
+    const result = await strategy.validate({ ...base, staffRole: 'manager' });
+    expect(result.staffRole).toBe('manager');
   });
 
-  it('maps staffRole through to the current-user shape', () => {
-    const payload = {
-      sub: 'u2',
-      email: 'staff@luxa.com',
-      role: 'apprentice',
-      businessName: 'LUXA',
-      businessId: 'u1',
-      staffRole: 'manager',
-    };
+  it('rejects a token whose session was revoked', async () => {
+    isActive.mockResolvedValue(false);
+    await expect(strategy.validate(base)).rejects.toBeInstanceOf(
+      UnauthorizedException,
+    );
+  });
 
-    expect(strategy.validate(payload)).toEqual({
-      id: 'u2',
-      email: 'staff@luxa.com',
-      role: 'apprentice',
-      businessName: 'LUXA',
-      businessId: 'u1',
-      staffRole: 'manager',
-    });
+  it('rejects a legacy token without a session id', async () => {
+    await expect(
+      strategy.validate({ ...base, sid: undefined as unknown as string }),
+    ).rejects.toBeInstanceOf(UnauthorizedException);
+    expect(isActive).not.toHaveBeenCalled();
   });
 });

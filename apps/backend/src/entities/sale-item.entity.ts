@@ -1,3 +1,4 @@
+import { moneyColumn } from '../common/money/money';
 import {
   Entity,
   PrimaryGeneratedColumn,
@@ -24,10 +25,10 @@ export class SaleItem {
   @Column({ type: 'int' })
   quantity!: number;
 
-  @Column({ type: 'decimal', precision: 10, scale: 2 })
+  @Column(moneyColumn())
   price!: number;
 
-  @Column({ type: 'decimal', precision: 10, scale: 2 })
+  @Column(moneyColumn())
   total!: number;
 
   @CreateDateColumn()

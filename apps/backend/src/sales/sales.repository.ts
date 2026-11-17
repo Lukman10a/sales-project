@@ -1,3 +1,4 @@
+import { nairaSql } from '../common/money/money';
 import { Injectable } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, EntityManager, In, Repository } from 'typeorm';
@@ -206,7 +207,7 @@ export class SalesRepository extends Repository<Sale> {
       qb.andWhere('sale.status = :status', { status });
     }
 
-    qb.select('SUM(sale.total)', 'totalSales')
+    qb.select(nairaSql('SUM(sale.total)'), 'totalSales')
       .addSelect('COUNT(sale.id)', 'totalTransactions')
       .where('sale.businessId = :businessId', { businessId })
       .andWhere("sale.status != 'refunded'");

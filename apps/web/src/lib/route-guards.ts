@@ -7,7 +7,7 @@ import {
 } from "@/lib/permissions";
 
 /**
- * Route guard. The edge middleware only checks the opaque `luxa_auth` cookie
+ * Route guard. The edge middleware only checks the `luxa_csrf` session marker cookie
  * (role-blind); real role/permission enforcement lives here, client-side, so
  * every app route declares which staff may enter and everyone else is shown
  * AccessDenied. Public routes (/, /auth, /api) have no spec and always pass;

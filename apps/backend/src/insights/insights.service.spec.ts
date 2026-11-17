@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import { NotFoundException } from '@nestjs/common';
 import { InsightsService } from './insights.service';
 import { InsightRepository } from './insight.repository';
@@ -12,6 +13,7 @@ describe('InsightsService', () => {
     saveNarratives: jest.Mock;
   };
   let llm: { generateNarratives: jest.Mock };
+  let emitter: { emit: jest.Mock };
 
   beforeEach(() => {
     repo = {
@@ -22,7 +24,12 @@ describe('InsightsService', () => {
       saveNarratives: jest.fn().mockResolvedValue(undefined),
     };
     llm = { generateNarratives: jest.fn() };
-    service = new InsightsService(repo as unknown as InsightRepository, llm);
+    emitter = { emit: jest.fn() };
+    service = new InsightsService(
+      repo as unknown as InsightRepository,
+      llm,
+      emitter as never,
+    );
   });
 
   it('computes live insights scoped to businessId', async () => {
@@ -179,6 +186,8 @@ describe('InsightsService', () => {
     it('with disabled provider uses template text and does not call network', async () => {
       const svcNoProvider = new InsightsService(
         repo as unknown as InsightRepository,
+        undefined,
+        emitter as never,
       );
       repo.inventoryFacts.mockResolvedValue([
         {
@@ -199,8 +208,11 @@ describe('InsightsService', () => {
         { limit: 10 },
       );
       expect(out.length).toBeGreaterThan(0);
-      // Noop provider returns template, persisted
       expect(repo.saveNarratives).toHaveBeenCalled();
+      expect(emitter.emit).toHaveBeenCalledWith(
+        'insights.generated',
+        expect.objectContaining({ businessId: 'b1' }),
+      );
     });
 
     it('persists narratives from provider and returns refreshed list', async () => {
@@ -221,9 +233,9 @@ describe('InsightsService', () => {
       llm.generateNarratives.mockResolvedValue(
         new Map([['restock:p1', 'Generated narrative']]),
       );
-      // second list call after save returns narrative
       repo.findNarratives
         .mockResolvedValueOnce(new Map())
+        .mockResolvedValueOnce(new Map([['restock:p1', 'Generated narrative']]))
         .mockResolvedValueOnce(
           new Map([['restock:p1', 'Generated narrative']]),
         );
@@ -233,7 +245,6 @@ describe('InsightsService', () => {
       const arg = llm.generateNarratives.mock.calls[0][0] as {
         description: string;
       }[];
-      // Ensure only aggregated facts sent (no customer names)
       expect(JSON.stringify(arg)).not.toContain('customer');
       expect(repo.saveNarratives).toHaveBeenCalledWith('b1', expect.any(Map));
       expect(out.some((i) => i.description === 'Generated narrative')).toBe(
@@ -284,6 +295,39 @@ describe('InsightsService', () => {
       const serialized = JSON.stringify(insightsArg);
       expect(serialized).not.toMatch(/customer/i);
       expect(serialized).not.toMatch(/John Doe/);
+    });
+
+    it('emits refreshed insights with AI narrative', async () => {
+      repo.inventoryFacts.mockResolvedValue([
+        {
+          productId: 'p1',
+          name: 'Widget',
+          quantity: 1,
+          reorderPoint: 5,
+          wholesalePrice: 10,
+          sellingPrice: 20,
+          category: [],
+        },
+      ]);
+      repo.salesVelocity.mockResolvedValue([
+        { productId: 'p1', unitsSold30d: 30, unitsSoldPrev30d: 10 },
+      ]);
+      llm.generateNarratives.mockResolvedValue(
+        new Map([['restock:p1', 'AI refreshed']]),
+      );
+      repo.findNarratives
+        .mockResolvedValueOnce(new Map())
+        .mockResolvedValueOnce(new Map([['restock:p1', 'AI refreshed']]));
+      await service.generate({ businessId: 'b1' }, { limit: 10 });
+      expect(emitter.emit).toHaveBeenCalledWith(
+        'insights.generated',
+        expect.objectContaining({
+          businessId: 'b1',
+          insights: expect.arrayContaining([
+            expect.objectContaining({ description: 'AI refreshed' }),
+          ]),
+        }),
+      );
     });
   });
 });

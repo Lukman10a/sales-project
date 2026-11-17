@@ -23,7 +23,13 @@
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
-    "test:e2e": "jest --config ./test/jest-e2e.json"
+    "test:e2e": "jest --config ./test/jest-e2e.json",
+    "typeorm": "typeorm-ts-node-commonjs -d src/database/data-source.ts",
+    "migration:generate": "npm run typeorm -- migration:generate",
+    "migration:run": "npm run typeorm -- migration:run",
+    "migration:revert": "npm run typeorm -- migration:revert",
+    "migration:check": "npm run typeorm -- migration:generate src/database/migrations/Pending --check --dryrun",
+    "db:seed": "ts-node src/database/seed.ts"
   },
   "lint-staged": {
     "*.ts": [
@@ -39,11 +45,13 @@
     "@nestjs/jwt": "^11.0.2",
     "@nestjs/passport": "^11.0.5",
     "@nestjs/platform-express": "^11.0.1",
+    "@nestjs/schedule": "^6.1.3",
     "@nestjs/swagger": "^11.2.6",
     "@nestjs/typeorm": "^11.0.0",
     "bcrypt": "^6.0.0",
+    "cron": "^4.4.0",
     "csv-parse": "^7.0.2",
-    "joi": "^18.0.2",
+    "helmet": "^8.1.0",
     "openai": "^7.5.0",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
@@ -51,7 +59,7 @@
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
     "typeorm": "^0.3.28",
-    "zod": "^4.4.3"
+    "zod": "^4.6.6"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.2.0",

@@ -28,8 +28,6 @@ describe("auth api", () => {
   it("login posts exactly email and password without role", async () => {
     apiMock.post.mockResolvedValue({
       user: { id: "u1", email: "a@b.co" },
-      access_token: "at",
-      refresh_token: "rt",
     });
 
     await authApi.login("a@b.co", "secret");
@@ -43,8 +41,6 @@ describe("auth api", () => {
   it("register posts the register payload without role", async () => {
     apiMock.post.mockResolvedValue({
       user: { id: "u1", email: "a@b.co" },
-      access_token: "at",
-      refresh_token: "rt",
     });
 
     await authApi.register({
@@ -62,6 +58,32 @@ describe("auth api", () => {
       lastName: "Lovelace",
       businessName: "LUXA",
     });
+  });
+
+  it("login adds remember only for a trusted device", async () => {
+    apiMock.post.mockResolvedValue({ user: { id: "u1" } });
+
+    await authApi.login("a@b.co", "secret", true);
+
+    expect(apiMock.post).toHaveBeenCalledWith("/auth/login", {
+      email: "a@b.co",
+      password: "secret",
+      remember: true,
+    });
+  });
+
+  it("lists, revokes and signs out every session", async () => {
+    apiMock.get.mockResolvedValue([]);
+    apiMock.post.mockResolvedValue({ revoked: 2 });
+    apiMock.delete.mockResolvedValue({ message: "Session revoked" });
+
+    await authApi.sessions();
+    await authApi.revokeSession("s/1");
+    await authApi.logoutAll();
+
+    expect(apiMock.get).toHaveBeenCalledWith("/auth/sessions");
+    expect(apiMock.delete).toHaveBeenCalledWith("/auth/sessions/s%2F1");
+    expect(apiMock.post).toHaveBeenCalledWith("/auth/logout-all");
   });
 
   it("logout posts to /auth/logout", async () => {

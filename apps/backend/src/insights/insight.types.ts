@@ -56,3 +56,13 @@ export const INSIGHT_PRIORITY_ORDER: Record<InsightPriority, number> = {
   medium: 2,
   low: 1,
 };
+
+export function selectTopAiInsight(insights: Insight[]): Insight | null {
+  const highMedium = [...insights]
+    .filter((i) => i.priority === 'high' || i.priority === 'medium')
+    .sort(
+      (a, b) =>
+        INSIGHT_PRIORITY_ORDER[b.priority] - INSIGHT_PRIORITY_ORDER[a.priority],
+    );
+  return highMedium[0] ?? null;
+}

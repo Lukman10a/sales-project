@@ -32,6 +32,8 @@ const cartItem: CartItem = {
   image: "/shoes.png",
   actualPrice: 100,
   quantity: 2,
+  sellingPrice: 100,
+  availableQty: 10,
 };
 
 const baseProps = {

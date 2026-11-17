@@ -35,7 +35,7 @@ describe("middleware-guard", () => {
   });
 
   it("treats the cookie name as public-facing", () => {
-    expect(AUTH_COOKIE_NAME).toBe("luxa_auth");
+    expect(AUTH_COOKIE_NAME).toBe("luxa_csrf");
     expect(isPublicPath("/auth/login")).toBe(true);
     expect(isPublicPath("/dashboard")).toBe(false);
   });

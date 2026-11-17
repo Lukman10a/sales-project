@@ -13,25 +13,36 @@ import { JwtStrategy } from './jwt.strategy';
 import { UsersRepository } from './users.repository';
 import { TeamMemberRepository } from './team-members.repository';
 import { User } from '../entities/user.entity';
+import { Session } from '../entities/session.entity';
+import { SessionsRepository } from './sessions.repository';
+import { SessionsService } from './sessions.service';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User]),
+    TypeOrmModule.forFeature([User, Session]),
     PassportModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
       useFactory: (configService: ConfigService): JwtModuleOptions => ({
-        secret: configService.get<string>('JWT_SECRET') || 'default-secret',
+        secret: configService.getOrThrow<string>('JWT_SECRET'),
         signOptions: {
-          expiresIn: (configService.get<string>('JWT_EXPIRES_IN') ||
-            '15m') as JwtSignOptions['expiresIn'],
+          expiresIn: configService.getOrThrow<string>(
+            'JWT_EXPIRES_IN',
+          ) as JwtSignOptions['expiresIn'],
         },
       }),
       inject: [ConfigService],
     }),
   ],
-  providers: [AuthService, JwtStrategy, UsersRepository, TeamMemberRepository],
+  providers: [
+    AuthService,
+    JwtStrategy,
+    UsersRepository,
+    TeamMemberRepository,
+    SessionsRepository,
+    SessionsService,
+  ],
   controllers: [AuthController],
-  exports: [AuthService, JwtModule, UsersRepository],
+  exports: [AuthService, JwtModule, UsersRepository, SessionsService],
 })
 export class AuthModule {}

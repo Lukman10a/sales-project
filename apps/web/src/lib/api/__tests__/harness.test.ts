@@ -17,9 +17,7 @@ describe("test harness", () => {
         businessId: "b1",
         role: "owner",
       },
-      access_token: "access",
-      refresh_token: "refresh",
     };
-    expect(auth.access_token).toBe("access");
+    expect(auth.user.id).toBe("u1");
   });
 });

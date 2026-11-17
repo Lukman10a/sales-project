@@ -1,18 +1,21 @@
+import { Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
+import { configureApp } from './bootstrap';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  configureApp(app);
 
-  // Enable CORS for frontend
-  app.enableCors({
-    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
-    credentials: true,
-  });
-
-  const port = process.env.PORT || 4000;
+  const port = app.get(ConfigService).getOrThrow<number>('PORT');
   await app.listen(port);
 
-  console.log(`🚀 Server running on http://localhost:${port}`);
+  Logger.log(`API listening on port ${port}`, 'Bootstrap');
 }
-void bootstrap();
+
+bootstrap().catch((err: unknown) => {
+  // Invalid env lands here: print the reason and exit non-zero.
+  console.error(err instanceof Error ? err.message : err);
+  process.exit(1);
+});

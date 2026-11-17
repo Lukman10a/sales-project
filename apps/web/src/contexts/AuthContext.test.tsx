@@ -17,7 +17,12 @@ const apiMock = vi.hoisted(() => ({
   delete: vi.fn(),
 }));
 
-vi.mock("@/lib/api/client", () => ({ api: apiMock }));
+const session = vi.hoisted(() => ({ active: false }));
+
+vi.mock("@/lib/api/client", () => ({
+  api: apiMock,
+  hasSession: () => session.active,
+}));
 
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 
@@ -47,8 +52,6 @@ function authResponse(
       role,
       staffRole,
     },
-    access_token: "at",
-    refresh_token: "rt",
   };
 }
 
@@ -90,13 +93,13 @@ describe("AuthContext", () => {
     routerMocks.push.mockReset();
     routerMocks.replace.mockReset();
     localStorage.clear();
-    document.cookie = "";
+    session.active = false;
   });
 
   afterEach(() => cleanup());
 
-  it("hydrates the session from getMe when a token exists", async () => {
-    localStorage.setItem("luxa_access_token", "valid-token");
+  it("hydrates the session from getMe when a session cookie exists", async () => {
+    session.active = true;
     apiMock.get.mockResolvedValue(meResponse);
 
     render(
@@ -117,7 +120,7 @@ describe("AuthContext", () => {
   });
 
   it("never reads the old luxa_auth_user localStorage key", async () => {
-    localStorage.setItem("luxa_access_token", "valid-token");
+    session.active = true;
     apiMock.get.mockResolvedValue(meResponse);
     const getItemSpy = vi.spyOn(Storage.prototype, "getItem");
 
@@ -208,6 +211,6 @@ describe("AuthContext", () => {
       expect(routerMocks.push).toHaveBeenCalledWith("/auth/login"),
     );
     expect(screen.getByTestId("auth").textContent).toBe("false");
-    expect(localStorage.getItem("luxa_access_token")).toBeNull();
+    expect(apiMock.post).toHaveBeenCalledWith("/auth/logout");
   });
 });

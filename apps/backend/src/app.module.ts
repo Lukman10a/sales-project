@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { EventEmitterModule } from '@nestjs/event-emitter';
+import { ScheduleModule } from '@nestjs/schedule';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AppController } from './app.controller';
@@ -14,13 +15,11 @@ import { TeamModule } from './team/team.module';
 import { ReportsModule } from './reports/reports.module';
 import { InsightsModule } from './insights/insights.module';
 import { getDatabaseConfig } from './database/database.config';
+import { configModuleOptions } from './config/config.options';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({
-      isGlobal: true,
-      envFilePath: '.env',
-    }),
+    ConfigModule.forRoot(configModuleOptions),
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) =>
@@ -28,6 +27,7 @@ import { getDatabaseConfig } from './database/database.config';
       inject: [ConfigService],
     }),
     EventEmitterModule.forRoot(),
+    ScheduleModule.forRoot(),
     AuthModule,
     ProfileModule,
     InventoryModule,

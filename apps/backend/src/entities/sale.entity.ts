@@ -1,3 +1,4 @@
+import { moneyColumn, splitPaymentsTransformer } from '../common/money/money';
 import {
   Entity,
   PrimaryGeneratedColumn,
@@ -17,7 +18,7 @@ export class Sale {
   @Column({ type: 'uuid' })
   businessId!: string;
 
-  @Column({ type: 'decimal', precision: 12, scale: 2 })
+  @Column(moneyColumn())
   total!: number;
 
   @Column({
@@ -49,16 +50,20 @@ export class Sale {
   @Column({ type: 'decimal', precision: 5, scale: 2, default: 0 })
   discountPercent!: number;
 
-  @Column({ type: 'jsonb', nullable: true })
+  @Column({
+    type: 'jsonb',
+    nullable: true,
+    transformer: splitPaymentsTransformer,
+  })
   splitPayments?: Array<{ method: string; amount: number }>;
 
   @Column({ type: 'int', nullable: true })
   loyaltyPointsUsed?: number;
 
-  @Column({ type: 'decimal', precision: 12, scale: 2, nullable: true })
+  @Column(moneyColumn({ nullable: true }))
   accountCredit?: number;
 
-  @Column({ type: 'decimal', precision: 12, scale: 2, nullable: true })
+  @Column(moneyColumn({ nullable: true }))
   refundAmount?: number;
 
   @Column({ nullable: true })

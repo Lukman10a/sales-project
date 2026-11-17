@@ -1,3 +1,4 @@
+import { nairaSql } from '../common/money/money';
 import { Injectable } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, EntityManager, Repository } from 'typeorm';
@@ -73,10 +74,12 @@ export class AnalyticsRepository extends Repository<Sale> {
         'ii',
         'ii.id = si.productId AND ii.businessId = :businessId',
       )
-      .select('COALESCE(SUM(si.price * si.quantity), 0)', 'revenue')
+      .select(nairaSql('COALESCE(SUM(si.price * si.quantity), 0)'), 'revenue')
       .addSelect('COUNT(DISTINCT s.id)', 'orders')
       .addSelect(
-        'COALESCE(SUM((si.price - COALESCE(ii.wholesalePrice, 0)) * si.quantity), 0)',
+        nairaSql(
+          'COALESCE(SUM((si.price - COALESCE(ii.wholesalePrice, 0)) * si.quantity), 0)',
+        ),
         'netProfit',
       )
       .where('s.businessId = :businessId', { businessId })
@@ -115,7 +118,7 @@ export class AnalyticsRepository extends Repository<Sale> {
     const qb = this.createQueryBuilder('s')
       .innerJoin(SaleItem, 'si', 'si.saleId = s.id')
       .select(truncExpr, 'bucket')
-      .addSelect('SUM(si.price * si.quantity)', 'revenue')
+      .addSelect(nairaSql('SUM(si.price * si.quantity)'), 'revenue')
       .addSelect('COUNT(DISTINCT s.id)', 'orders')
       .where('s.businessId = :businessId', { businessId })
       .andWhere("s.status = 'completed'")
@@ -150,7 +153,7 @@ export class AnalyticsRepository extends Repository<Sale> {
       )
       .select('unnest(ii.category)', 'category')
       .addSelect('SUM(si.quantity)', 'units')
-      .addSelect('SUM(si.price * si.quantity)', 'revenue')
+      .addSelect(nairaSql('SUM(si.price * si.quantity)'), 'revenue')
       .addSelect('COUNT(DISTINCT s.id)', 'orders')
       .where('s.businessId = :businessId', { businessId })
       .andWhere("s.status = 'completed'")
@@ -189,7 +192,7 @@ export class AnalyticsRepository extends Repository<Sale> {
       .select('ii.id', 'productId')
       .addSelect('ii.name', 'name')
       .addSelect('SUM(si.quantity)', 'units')
-      .addSelect('SUM(si.price * si.quantity)', 'revenue')
+      .addSelect(nairaSql('SUM(si.price * si.quantity)'), 'revenue')
       .where('s.businessId = :businessId', { businessId })
       .andWhere("s.status = 'completed'")
       .groupBy('ii.id')
@@ -219,7 +222,7 @@ export class AnalyticsRepository extends Repository<Sale> {
   async recentSales(businessId: string, limit = 5): Promise<RecentSaleRow[]> {
     const raw = await this.createQueryBuilder('s')
       .select('s.id', 'id')
-      .addSelect('s.total', 'total')
+      .addSelect(nairaSql('s.total'), 'total')
       .addSelect('s.status', 'status')
       .addSelect('s.saleDate', 'saleDate')
       .addSelect('s.customerName', 'customerName')

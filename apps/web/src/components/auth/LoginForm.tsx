@@ -34,7 +34,7 @@ export function LoginForm() {
     setIsLoading(true);
 
     try {
-      await login({ email, password, role });
+      await login({ email, password, role, remember: rememberMe });
     } catch (err) {
       const fallback = t("Login failed. Please try again.");
       if (err instanceof Error) {

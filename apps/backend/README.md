@@ -50,6 +50,9 @@ backend/
 
 ### 2. Setup Database
 
+After creating the database, apply the schema with `pnpm migration:run`
+(and optionally `pnpm db:seed`).
+
 Using Docker (recommended):
 
 ```bash
@@ -80,15 +83,18 @@ npm install
 cp .env.example .env
 ```
 
-Edit `.env` with your database credentials:
+Edit `.env`. At minimum set a database, two **different** JWT secrets of 32+ characters, and the frontend URL. Generate each secret with `openssl rand -base64 48`.
 
 ```env
 DATABASE_URL=postgresql://postgres:password@localhost:5432/luxa_sales
-JWT_SECRET=your_super_secret_jwt_key_change_this_in_production
-JWT_REFRESH_SECRET=your_super_secret_refresh_key_change_this_in_production
-PORT=4000
+DATABASE_SSL=disable
+JWT_SECRET=<openssl rand -base64 48>
+JWT_REFRESH_SECRET=<a different openssl rand -base64 48>
 FRONTEND_URL=http://localhost:3000
+NODE_ENV=development
 ```
+
+The API validates its environment at startup (`src/config/env.schema.ts`) and exits with a list of problems if anything is missing or unsafe. The placeholder secrets from `.env.example` are rejected on purpose.
 
 ### 5. Run Development Server
 
@@ -180,19 +186,22 @@ npm run format             # Format with Prettier
 ### Using cURL
 
 ```bash
+# Sessions are cookies, so keep them in a jar. Unsafe requests need an allowed
+# Origin and, once signed in, the luxa_csrf cookie echoed as x-csrf-token.
 # Register a new user
-curl -X POST http://localhost:4000/auth/register \
+curl -c jar.txt -X POST http://localhost:4000/auth/register \
+  -H "Origin: http://localhost:3000" \
   -H "Content-Type: application/json" \
   -d '{"email":"john@business.com","password":"Password123!","firstName":"John","lastName":"Doe","businessName":"Prime Store"}'
 
-# Login
-curl -X POST http://localhost:4000/auth/login \
+# Login ("remember": trust this device for 30 days)
+curl -c jar.txt -X POST http://localhost:4000/auth/login \
+  -H "Origin: http://localhost:3000" \
   -H "Content-Type: application/json" \
-  -d '{"email":"john@business.com","password":"Password123!"}'
+  -d '{"email":"john@business.com","password":"Password123!","remember":true}'
 
-# Get current user (requires token)
-curl -X GET http://localhost:4000/auth/me \
-  -H "Authorization: Bearer YOUR_ACCESS_TOKEN_HERE"
+# Get current user (sends the access cookie)
+curl -b jar.txt http://localhost:4000/auth/me
 ```
 
 ### Using Postman
@@ -220,34 +229,64 @@ Import the Postman collection from [PHASE1_TESTING.md](./PHASE1_TESTING.md)
 
 ## Environment Variables
 
-| Variable                 | Description                             | Default               |
-| ------------------------ | --------------------------------------- | --------------------- |
-| `DATABASE_URL`           | PostgreSQL connection string            | -                     |
-| `DATABASE_HOST`          | Database host                           | localhost             |
-| `DATABASE_PORT`          | Database port                           | 5432                  |
-| `DATABASE_USERNAME`      | Database user                           | postgres              |
-| `DATABASE_PASSWORD`      | Database password                       | -                     |
-| `DATABASE_NAME`          | Database name                           | luxa_sales            |
-| `JWT_SECRET`             | JWT access token secret (min 32 chars)  | -                     |
-| `JWT_REFRESH_SECRET`     | JWT refresh token secret (min 32 chars) | -                     |
-| `JWT_EXPIRATION`         | Access token expiration                 | 15m                   |
-| `JWT_REFRESH_EXPIRATION` | Refresh token expiration                | 7d                    |
-| `PORT`                   | Server port                             | 4000                  |
-| `NODE_ENV`               | Environment mode                        | development           |
-| `FRONTEND_URL`           | Frontend URL for CORS                   | http://localhost:3000 |
-| `LOG_LEVEL`              | Logging level                           | debug                 |
+Validated at boot by `src/config/env.schema.ts`. The app will not start if a required value is missing or unsafe.
+
+| Variable | Required | Default | Notes |
+| --- | --- | --- | --- |
+| `NODE_ENV` | no | `production` | `development`, `test` or `production`. Only `development` auto-syncs the schema. |
+| `PORT` | no | `4000` | |
+| `JWT_SECRET` | **yes** | – | At least 32 characters. Placeholder values are rejected. |
+| `JWT_REFRESH_SECRET` | **yes** | – | At least 32 characters and different from `JWT_SECRET`. Reserved: refresh tokens are opaque and no longer signed with it. |
+| `JWT_EXPIRES_IN` | no | `15m` | Access token and access cookie lifetime. |
+| `JWT_REFRESH_EXPIRATION` | no | `7d` | Unused. Session lifetimes are fixed, see [Sessions](#sessions). |
+| `COOKIE_DOMAIN` | no | – | Parent domain for the `luxa_csrf` cookie, so the web app on `app.` can read the cookie set by `api.` (e.g. `luxa.app`). Leave unset locally. |
+| `DATABASE_URL` | yes* | – | Postgres connection string. Takes precedence over the fields below. |
+| `DATABASE_HOST` / `DATABASE_USERNAME` / `DATABASE_NAME` | yes* | – | *Either `DATABASE_URL` or these three are required. |
+| `DATABASE_PORT` | no | `5432` | |
+| `DATABASE_PASSWORD` | no | – | |
+| `DATABASE_SSL` | no | `require` in production, `no-verify` in development, `disable` in test | `require` verifies the server certificate. `no-verify` encrypts without verifying and is **refused in production**. `disable` uses no TLS. |
+| `DATABASE_CA` | no | – | PEM CA bundle for `require` when the provider uses a private CA (e.g. Supabase). |
+| `DB_MANUAL_INIT` | no | – | `true` builds the DataSource without connecting (used by the e2e suite). |
+| `FRONTEND_URL` | **yes** | – | Web app URL. Also the default CORS origin. |
+| `CORS_ORIGINS` | no | origin of `FRONTEND_URL` | Comma-separated allowlist of exact origins, e.g. `https://luxa.app,https://app.luxa.app`. `*` is not accepted. |
+| `LOG_LEVEL` | no | – | `debug` turns on SQL logging. |
+| `AI_INSIGHTS_ENABLED` | no | `false` | AI narrative layer for insights. |
+| `AI_PROVIDER_API_KEY` / `AI_MODEL` / `AI_BASE_URL` | no | `gpt-4o-mini` model | OpenAI-compatible provider settings. |
+| `AI_INSIGHTS_DIGEST_CRON` | no | `0 7 * * *` | Daily digest schedule. |
+
+### HTTP hardening
+
+`src/bootstrap.ts` applies, in production and in the e2e suite:
+
+- helmet security headers (API-only CSP `default-src 'none'`, HSTS, nosniff, frame protection)
+- `trust proxy` set to one hop (for Railway/Vercel)
+- a 1 MB limit on request bodies
+- a CORS allowlist with credentials
+- graceful shutdown hooks
 
 ## Security Features
 
 - ✅ Password hashing with bcrypt (10 salt rounds)
-- ✅ JWT access tokens (15min expiration)
-- ✅ JWT refresh tokens (7 day expiration)
-- ✅ CORS enabled for frontend
+- ✅ Cookie sessions with rotating, revocable refresh tokens (see [Sessions](#sessions))
+- ✅ CORS allowlist plus CSRF protection (Origin check and double-submit token)
 - ✅ Business data isolation (users can only access their own data)
-- ✅ Input validation with class-validator
+- ✅ Input validation with zod
 - ✅ SQL injection protection via TypeORM parameterized queries
 - 🔄 Rate limiting (coming in Phase 2)
-- 🔄 Token blacklist on logout (coming in Phase 2)
+
+### Sessions
+
+| Cookie | Contents | Flags |
+| --- | --- | --- |
+| `__Host-luxa_at` | Access JWT (15 min). Carries the session id `sid`. | HttpOnly, Secure, SameSite=Lax, host-only |
+| `luxa_rt` | Opaque refresh token. Only its SHA-256 is stored. | HttpOnly, Secure, SameSite=Lax, `Path=/auth/refresh` |
+| `luxa_csrf` | Random CSRF token. Also the web's "session exists" marker. | Secure, SameSite=Lax, `Domain=$COOKIE_DOMAIN` |
+
+- Trusted devices (`remember: true` on login) keep the session for 30 days. Otherwise the cookies end when the browser closes and the server caps the session at 24 h. Both lifetimes renew on every refresh.
+- Every refresh rotates the token. Presenting an already-rotated token revokes the whole session family and logs an `auth.refresh_token_reuse` audit event.
+- Every authenticated request checks that its session is still live. So `POST /auth/logout`, `POST /auth/logout-all` and `DELETE /auth/sessions/:id` take effect immediately. `GET /auth/sessions` lists the signed-in devices.
+- Unsafe methods must come from an allowlisted `Origin`. When cookie-authenticated, they must also send `x-csrf-token` matching the `luxa_csrf` cookie.
+- `Authorization: Bearer` is accepted outside production only, for tests and scripts.
 
 ## Error Handling
 
@@ -273,22 +312,53 @@ Common status codes:
 
 ## Database Migrations
 
-TypeORM synchronization is enabled in development mode:
-
-```typescript
-// database.config.ts
-synchronize: process.env.NODE_ENV === 'development';
-```
-
-**⚠️ Warning:** Disable `synchronize` in production and use proper migrations:
+Migrations are the **only** way the schema changes; `synchronize` is off in
+every environment. They live in `src/database/migrations/` and run through
+the TypeORM CLI (`src/database/data-source.ts`, which reads the same env as
+the app).
 
 ```bash
-# Generate migration
-npm run typeorm migration:generate -- -n MigrationName
-
-# Run migrations
-npm run typeorm migration:run
+pnpm migration:run                                   # apply pending migrations
+pnpm migration:revert                                # undo the last one
+pnpm migration:generate src/database/migrations/AddX # after changing an entity
+pnpm migration:check                                 # fails if an entity change has no migration
+pnpm db:seed                                         # demo business (idempotent)
 ```
+
+Workflow for a schema change: edit the entity, run `migration:generate`
+against a database that is up to date, read the generated SQL (TypeORM
+drops and re-adds a column when its type changes, so hand-write an
+`ALTER ... USING` when data must be kept, as in `MoneyToKobo`), then commit
+the entity and the migration together. CI runs every migration on an empty
+Postgres and then `migration:check`, so a missing migration fails the build.
+
+**Existing databases** created by the old `synchronize` setup: the
+`Baseline` migration notices the tables already exist and only records
+itself, then `MoneyToKobo` converts the money columns in place. Back up
+first, then run `pnpm migration:run`.
+
+### Money
+
+Money is stored as integer **kobo** (`bigint`, ₦1 = 100 kobo) so sums are
+exact. Entities and the API still use naira numbers: the column transformer
+in `src/common/money/money.ts` converts at the edge (`toKobo`, `fromKobo`,
+`formatNaira`). Raw SQL over money columns must wrap the expression in
+`nairaSql(...)` to return naira. The `items` snapshot inside
+`held_transactions` is an opaque cart copy and stays in naira.
+
+### Demo data
+
+`pnpm db:seed` creates *Ade Mart (demo)*: `owner@`, `manager@` and
+`cashier@demo.luxa.app`, 20 products and 30 days of sales. The password is
+`SEED_PASSWORD`, or `LuxaDemo#2026` when unset. Running it again changes
+nothing. It refuses `NODE_ENV=production` unless `SEED_ALLOW_PRODUCTION=true`
+(staging).
+
+### Tests against Postgres
+
+`test/database.e2e-spec.ts` runs the migrations on a real database and checks
+the kobo round-trip. It is skipped unless `TEST_DATABASE_URL` points at a
+**disposable** database (it is wiped); CI supplies one.
 
 ## Troubleshooting
 

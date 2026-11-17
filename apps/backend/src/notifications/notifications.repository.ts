@@ -1,7 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, In, Repository } from 'typeorm';
 import { Notification } from '../entities/notification.entity';
+import { User } from '../entities/user.entity';
+import { UserProfile } from '../entities/user-profile.entity';
 import { PaginatedResult } from '../common/interfaces/paginated-result.interface';
 
 export interface CreateNotificationData {
@@ -102,5 +104,37 @@ export class NotificationsRepository extends Repository<Notification> {
       },
       unreadCount,
     };
+  }
+
+  async findAiInsightRecipients(businessId: string): Promise<string[]> {
+    const users = await this.manager.find(User, {
+      where: { businessId, role: In(['owner', 'manager']) as never },
+      select: ['id'],
+    } as never);
+    if (users.length === 0) return [];
+    const ids = users.map((u) => u.id);
+    const profiles = await this.manager.find(UserProfile, {
+      where: { userId: In(ids) },
+    });
+    const prefMap = new Map(
+      profiles.map((p) => [p.userId, p.notificationPreferences?.aiInsights]),
+    );
+    return ids.filter((id) => {
+      const pref = prefMap.get(id);
+      // default true when no profile or undefined
+      return pref === undefined ? true : pref === true;
+    });
+  }
+
+  async findAllBusinessIds(): Promise<string[]> {
+    const rows = await this.manager
+      .getRepository(User)
+      .createQueryBuilder('u')
+      .select('DISTINCT u.businessId', 'businessId')
+      .where('u.businessId IS NOT NULL')
+      .getRawMany<{ businessId: string }>();
+    return rows
+      .map((r) => r.businessId)
+      .filter((id): id is string => Boolean(id));
   }
 }

@@ -12,6 +12,7 @@ import { TeamMemberRepository } from './team-members.repository';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { JwtPayload } from './interfaces/jwt-payload.interface';
+import { SessionsService, type ClientContext } from './sessions.service';
 import {
   ALL_PERMISSIONS,
   ROLE_DEFAULT_PERMISSIONS,
@@ -24,9 +25,10 @@ export class AuthService {
     private jwtService: JwtService,
     private configService: ConfigService,
     private teamMemberRepository: TeamMemberRepository,
+    private sessionsService: SessionsService,
   ) {}
 
-  async register(registerDto: RegisterDto) {
+  async register(registerDto: RegisterDto, ctx: ClientContext = {}) {
     const { email, password, firstName, lastName, businessName } = registerDto;
 
     // Check if user already exists
@@ -55,18 +57,15 @@ export class AuthService {
     user.businessId = user.id;
     await this.usersRepository.save(user);
 
-    // Generate tokens
-    const tokens = await this.generateTokens(user);
-
     return {
       message: 'User registered successfully',
       user: await this.toUserResponse(user),
-      ...tokens,
+      session: await this.signIn(user, ctx, false),
     };
   }
 
-  async login(loginDto: LoginDto) {
-    const { email, password } = loginDto;
+  async login(loginDto: LoginDto, ctx: ClientContext = {}) {
+    const { email, password, remember = false } = loginDto;
 
     // Find user
     const user = await this.usersRepository.findByEmail(email);
@@ -84,35 +83,30 @@ export class AuthService {
     user.lastLogin = new Date();
     await this.usersRepository.save(user);
 
-    // Generate tokens
-    const tokens = await this.generateTokens(user);
-
     return {
       user: await this.toUserResponse(user),
-      ...tokens,
+      session: await this.signIn(user, ctx, remember),
     };
   }
 
-  async refreshToken(refreshToken: string) {
-    try {
-      const refreshSecret =
-        this.configService.get<string>('JWT_REFRESH_SECRET') ||
-        'default-refresh-secret';
-      const payload = this.jwtService.verify<JwtPayload>(refreshToken, {
-        secret: refreshSecret,
-      });
-
-      const user = await this.findUserOrThrow(payload.sub);
-
-      const tokens = await this.generateTokens(user);
-
-      return {
-        user: await this.toUserResponse(user),
-        ...tokens,
-      };
-    } catch {
+  /** Rotates the refresh token (see SessionsService.rotate) and re-signs access. */
+  async refresh(refreshToken: string, ctx: ClientContext = {}) {
+    const { userId, issued } = await this.sessionsService.rotate(
+      refreshToken,
+      ctx,
+    );
+    const user = await this.usersRepository.findById(userId);
+    if (!user || user.status === 'inactive') {
+      await this.sessionsService.revoke(issued.familyId);
       throw new UnauthorizedException('Invalid refresh token');
     }
+    return {
+      user: await this.toUserResponse(user),
+      session: {
+        ...issued,
+        accessToken: await this.signAccessToken(user, issued.familyId),
+      },
+    };
   }
 
   async me(userId: string) {
@@ -121,8 +115,23 @@ export class AuthService {
     return this.toUserResponse(user);
   }
 
-  logout() {
+  async logout(sessionId: string | undefined) {
+    if (sessionId) await this.sessionsService.revoke(sessionId);
     return { message: 'Logged out successfully' };
+  }
+
+  async logoutAll(userId: string) {
+    const revoked = await this.sessionsService.revokeAll(userId);
+    return { message: 'Logged out everywhere', revoked };
+  }
+
+  listSessions(userId: string, currentSessionId?: string) {
+    return this.sessionsService.list(userId, currentSessionId);
+  }
+
+  async revokeSession(userId: string, sessionId: string) {
+    await this.sessionsService.revokeOne(userId, sessionId);
+    return { message: 'Session revoked' };
   }
 
   private async findUserOrThrow(userId: string): Promise<User> {
@@ -155,10 +164,24 @@ export class AuthService {
     return ROLE_DEFAULT_PERMISSIONS[member.role] ?? [];
   }
 
-  private async generateTokens(user: User) {
+  /** Starts a session family and signs the first access token for it. */
+  private async signIn(user: User, ctx: ClientContext, persistent: boolean) {
+    const issued = await this.sessionsService.start(
+      { id: user.id, businessId: user.businessId ?? user.id },
+      ctx,
+      persistent,
+    );
+    return {
+      ...issued,
+      accessToken: await this.signAccessToken(user, issued.familyId),
+    };
+  }
+
+  private async signAccessToken(user: User, sessionId: string) {
     const permissions = await this.loadEffectivePermissions(user);
     const payload: JwtPayload = {
       sub: user.id,
+      sid: sessionId,
       email: user.email,
       role: user.role,
       businessName: user.businessName,
@@ -167,26 +190,11 @@ export class AuthService {
       permissions,
     };
 
-    const accessExpiresIn: JwtSignOptions['expiresIn'] =
+    const expiresIn: JwtSignOptions['expiresIn'] =
       (this.configService.get<string>('JWT_EXPIRES_IN') ||
         '15m') as JwtSignOptions['expiresIn'];
-    const refreshExpiresIn: JwtSignOptions['expiresIn'] =
-      (this.configService.get<string>('JWT_REFRESH_EXPIRATION') ||
-        '7d') as JwtSignOptions['expiresIn'];
 
-    const accessToken = await this.jwtService.signAsync(payload, {
-      expiresIn: accessExpiresIn,
-    });
-
-    const refreshSecret =
-      this.configService.get<string>('JWT_REFRESH_SECRET') ||
-      'default-refresh-secret';
-    const refreshToken = await this.jwtService.signAsync(payload, {
-      secret: refreshSecret,
-      expiresIn: refreshExpiresIn,
-    });
-
-    return { access_token: accessToken, refresh_token: refreshToken };
+    return this.jwtService.signAsync(payload, { expiresIn });
   }
 
   private async toUserResponse(user: User) {

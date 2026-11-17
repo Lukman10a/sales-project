@@ -2,11 +2,17 @@ import { Injectable } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import type { InventoryItem } from '../entities/inventory-item.entity';
 import type { Sale } from '../entities/sale.entity';
+import type { Insight } from '../insights/insight.types';
+import { selectTopAiInsight } from '../insights/insight.types';
 import { NotificationsService } from './notifications.service';
+import { NotificationsRepository } from './notifications.repository';
 
 @Injectable()
 export class NotificationsListener {
-  constructor(private notificationsService: NotificationsService) {}
+  constructor(
+    private notificationsService: NotificationsService,
+    private notificationsRepository: NotificationsRepository,
+  ) {}
 
   @OnEvent('inventory.low-stock')
   async handleLowStockEvent(payload: {
@@ -36,5 +42,28 @@ export class NotificationsListener {
       message: `Sale #${payload.sale.id.slice(0, 8)} recorded for total ${payload.sale.total}.`,
       metadata: { saleId: payload.sale.id, total: payload.sale.total },
     });
+  }
+
+  @OnEvent('insights.generated')
+  async handleInsightsGenerated(payload: {
+    businessId: string;
+    insights: Insight[];
+  }): Promise<void> {
+    const top = selectTopAiInsight(payload.insights);
+    if (!top) return;
+    const recipients =
+      await this.notificationsRepository.findAiInsightRecipients(
+        payload.businessId,
+      );
+    for (const userId of recipients) {
+      await this.notificationsService.create({
+        businessId: payload.businessId,
+        userId,
+        type: 'ai',
+        title: top.title,
+        message: top.description,
+        metadata: { insightId: top.id, actionType: 'manage' },
+      });
+    }
   }
 }

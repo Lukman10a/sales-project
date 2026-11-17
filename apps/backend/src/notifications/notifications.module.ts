@@ -14,5 +14,6 @@ import { NotificationsListener } from './notifications.listener';
     NotificationsRepository,
     NotificationsListener,
   ],
+  exports: [NotificationsService, NotificationsRepository],
 })
 export class NotificationsModule {}
