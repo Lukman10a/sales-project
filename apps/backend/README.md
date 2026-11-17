@@ -80,15 +80,18 @@ npm install
 cp .env.example .env
 ```
 
-Edit `.env` with your database credentials:
+Edit `.env`. At minimum set a database, two **different** JWT secrets of 32+ characters, and the frontend URL. Generate each secret with `openssl rand -base64 48`.
 
 ```env
 DATABASE_URL=postgresql://postgres:password@localhost:5432/luxa_sales
-JWT_SECRET=your_super_secret_jwt_key_change_this_in_production
-JWT_REFRESH_SECRET=your_super_secret_refresh_key_change_this_in_production
-PORT=4000
+DATABASE_SSL=disable
+JWT_SECRET=<openssl rand -base64 48>
+JWT_REFRESH_SECRET=<a different openssl rand -base64 48>
 FRONTEND_URL=http://localhost:3000
+NODE_ENV=development
 ```
+
+The API validates its environment at startup (`src/config/env.schema.ts`) and exits with a list of problems if anything is missing or unsafe. The placeholder secrets from `.env.example` are rejected on purpose.
 
 ### 5. Run Development Server
 
@@ -220,22 +223,39 @@ Import the Postman collection from [PHASE1_TESTING.md](./PHASE1_TESTING.md)
 
 ## Environment Variables
 
-| Variable                 | Description                             | Default               |
-| ------------------------ | --------------------------------------- | --------------------- |
-| `DATABASE_URL`           | PostgreSQL connection string            | -                     |
-| `DATABASE_HOST`          | Database host                           | localhost             |
-| `DATABASE_PORT`          | Database port                           | 5432                  |
-| `DATABASE_USERNAME`      | Database user                           | postgres              |
-| `DATABASE_PASSWORD`      | Database password                       | -                     |
-| `DATABASE_NAME`          | Database name                           | luxa_sales            |
-| `JWT_SECRET`             | JWT access token secret (min 32 chars)  | -                     |
-| `JWT_REFRESH_SECRET`     | JWT refresh token secret (min 32 chars) | -                     |
-| `JWT_EXPIRATION`         | Access token expiration                 | 15m                   |
-| `JWT_REFRESH_EXPIRATION` | Refresh token expiration                | 7d                    |
-| `PORT`                   | Server port                             | 4000                  |
-| `NODE_ENV`               | Environment mode                        | development           |
-| `FRONTEND_URL`           | Frontend URL for CORS                   | http://localhost:3000 |
-| `LOG_LEVEL`              | Logging level                           | debug                 |
+Validated at boot by `src/config/env.schema.ts`. The app will not start if a required value is missing or unsafe.
+
+| Variable | Required | Default | Notes |
+| --- | --- | --- | --- |
+| `NODE_ENV` | no | `production` | `development`, `test` or `production`. Only `development` auto-syncs the schema. |
+| `PORT` | no | `4000` | |
+| `JWT_SECRET` | **yes** | – | At least 32 characters. Placeholder values are rejected. |
+| `JWT_REFRESH_SECRET` | **yes** | – | At least 32 characters and different from `JWT_SECRET`. |
+| `JWT_EXPIRES_IN` | no | `15m` | Access token lifetime. |
+| `JWT_REFRESH_EXPIRATION` | no | `7d` | Refresh token lifetime. |
+| `DATABASE_URL` | yes* | – | Postgres connection string. Takes precedence over the fields below. |
+| `DATABASE_HOST` / `DATABASE_USERNAME` / `DATABASE_NAME` | yes* | – | *Either `DATABASE_URL` or these three are required. |
+| `DATABASE_PORT` | no | `5432` | |
+| `DATABASE_PASSWORD` | no | – | |
+| `DATABASE_SSL` | no | `require` in production, `no-verify` in development, `disable` in test | `require` verifies the server certificate. `no-verify` encrypts without verifying and is **refused in production**. `disable` uses no TLS. |
+| `DATABASE_CA` | no | – | PEM CA bundle for `require` when the provider uses a private CA (e.g. Supabase). |
+| `DB_MANUAL_INIT` | no | – | `true` builds the DataSource without connecting (used by the e2e suite). |
+| `FRONTEND_URL` | **yes** | – | Web app URL. Also the default CORS origin. |
+| `CORS_ORIGINS` | no | origin of `FRONTEND_URL` | Comma-separated allowlist of exact origins, e.g. `https://luxa.app,https://app.luxa.app`. `*` is not accepted. |
+| `LOG_LEVEL` | no | – | `debug` turns on SQL logging. |
+| `AI_INSIGHTS_ENABLED` | no | `false` | AI narrative layer for insights. |
+| `AI_PROVIDER_API_KEY` / `AI_MODEL` / `AI_BASE_URL` | no | `gpt-4o-mini` model | OpenAI-compatible provider settings. |
+| `AI_INSIGHTS_DIGEST_CRON` | no | `0 7 * * *` | Daily digest schedule. |
+
+### HTTP hardening
+
+`src/bootstrap.ts` applies, in production and in the e2e suite:
+
+- helmet security headers (API-only CSP `default-src 'none'`, HSTS, nosniff, frame protection)
+- `trust proxy` set to one hop (for Railway/Vercel)
+- a 1 MB limit on request bodies
+- a CORS allowlist with credentials
+- graceful shutdown hooks
 
 ## Security Features
 

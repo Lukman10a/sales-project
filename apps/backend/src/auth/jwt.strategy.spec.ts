@@ -6,7 +6,7 @@ describe('JwtStrategy', () => {
   const getMock = jest.fn((key: string) =>
     key === 'JWT_SECRET' ? 'test-secret' : undefined,
   ) as jest.Mock<string | undefined, [string]>;
-  const configService = { get: getMock } as unknown as ConfigService;
+  const configService = { getOrThrow: getMock } as unknown as ConfigService;
 
   beforeEach(() => {
     getMock.mockClear();

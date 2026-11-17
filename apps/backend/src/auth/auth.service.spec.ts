@@ -29,7 +29,10 @@ describe('AuthService', () => {
     signAsync: jest.Mock<Promise<string>, [object, object]>;
     verify: jest.Mock;
   };
-  let configService: { get: jest.Mock<string | undefined, [string]> };
+  let configService: {
+    get: jest.Mock<string | undefined, [string]>;
+    getOrThrow: jest.Mock<string, [string]>;
+  };
 
   const baseUser = {
     id: 'u1',
@@ -62,9 +65,10 @@ describe('AuthService', () => {
       verify: jest.fn(),
     };
     configService = {
-      get: jest.fn((key: string) => {
+      get: jest.fn((_key: string): string | undefined => undefined),
+      getOrThrow: jest.fn((key: string) => {
         if (key === 'JWT_REFRESH_SECRET') return 'secret';
-        return undefined;
+        throw new Error(`missing ${key}`);
       }),
     };
 
