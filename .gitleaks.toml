@@ -1,0 +1,16 @@
+# gitleaks config: default rules plus an allowlist for test-only values.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Test fixtures and CI-only secrets that grant access to nothing"
+paths = [
+  '''apps/backend/test/setup-e2e\.ts''',
+  '''\.github/workflows/ci\.yml''',
+  '''apps/backend/src/.*\.spec\.ts''',
+  '''apps/web/src/.*\.test\.tsx?''',
+]
+# Commit 9249576 (2026-08-18) committed .env.original with the Supabase
+# database password. Allowlisted only so CI can scan everything after it.
+# The credential MUST be rotated in Supabase; see docs/agents/ci.md.
+commits = ["924957628fdadee6e4b0bf646497f00b9edf4cec"]
