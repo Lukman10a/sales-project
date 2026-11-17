@@ -1,3 +1,4 @@
+import { moneyColumn } from '../common/money/money';
 import {
   Entity,
   PrimaryGeneratedColumn,
@@ -31,10 +32,10 @@ export class InventoryItem {
   @Column({ nullable: true })
   description?: string;
 
-  @Column({ type: 'decimal', precision: 10, scale: 2 })
+  @Column(moneyColumn())
   wholesalePrice!: number;
 
-  @Column({ type: 'decimal', precision: 10, scale: 2 })
+  @Column(moneyColumn())
   sellingPrice!: number;
 
   @Column({ type: 'int', default: 0 })
@@ -55,7 +56,7 @@ export class InventoryItem {
   @Column({ type: 'int', nullable: true })
   bundleQuantity?: number;
 
-  @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
+  @Column(moneyColumn({ nullable: true }))
   bundlePrice?: number;
 
   @Column({ type: 'int', default: 0 })

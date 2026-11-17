@@ -50,6 +50,9 @@ backend/
 
 ### 2. Setup Database
 
+After creating the database, apply the schema with `pnpm migration:run`
+(and optionally `pnpm db:seed`).
+
 Using Docker (recommended):
 
 ```bash
@@ -293,22 +296,53 @@ Common status codes:
 
 ## Database Migrations
 
-TypeORM synchronization is enabled in development mode:
-
-```typescript
-// database.config.ts
-synchronize: process.env.NODE_ENV === 'development';
-```
-
-**⚠️ Warning:** Disable `synchronize` in production and use proper migrations:
+Migrations are the **only** way the schema changes; `synchronize` is off in
+every environment. They live in `src/database/migrations/` and run through
+the TypeORM CLI (`src/database/data-source.ts`, which reads the same env as
+the app).
 
 ```bash
-# Generate migration
-npm run typeorm migration:generate -- -n MigrationName
-
-# Run migrations
-npm run typeorm migration:run
+pnpm migration:run                                   # apply pending migrations
+pnpm migration:revert                                # undo the last one
+pnpm migration:generate src/database/migrations/AddX # after changing an entity
+pnpm migration:check                                 # fails if an entity change has no migration
+pnpm db:seed                                         # demo business (idempotent)
 ```
+
+Workflow for a schema change: edit the entity, run `migration:generate`
+against a database that is up to date, read the generated SQL (TypeORM
+drops and re-adds a column when its type changes, so hand-write an
+`ALTER ... USING` when data must be kept, as in `MoneyToKobo`), then commit
+the entity and the migration together. CI runs every migration on an empty
+Postgres and then `migration:check`, so a missing migration fails the build.
+
+**Existing databases** created by the old `synchronize` setup: the
+`Baseline` migration notices the tables already exist and only records
+itself, then `MoneyToKobo` converts the money columns in place. Back up
+first, then run `pnpm migration:run`.
+
+### Money
+
+Money is stored as integer **kobo** (`bigint`, ₦1 = 100 kobo) so sums are
+exact. Entities and the API still use naira numbers: the column transformer
+in `src/common/money/money.ts` converts at the edge (`toKobo`, `fromKobo`,
+`formatNaira`). Raw SQL over money columns must wrap the expression in
+`nairaSql(...)` to return naira. The `items` snapshot inside
+`held_transactions` is an opaque cart copy and stays in naira.
+
+### Demo data
+
+`pnpm db:seed` creates *Ade Mart (demo)*: `owner@`, `manager@` and
+`cashier@demo.luxa.app`, 20 products and 30 days of sales. The password is
+`SEED_PASSWORD`, or `LuxaDemo#2026` when unset. Running it again changes
+nothing. It refuses `NODE_ENV=production` unless `SEED_ALLOW_PRODUCTION=true`
+(staging).
+
+### Tests against Postgres
+
+`test/database.e2e-spec.ts` runs the migrations on a real database and checks
+the kobo round-trip. It is skipped unless `TEST_DATABASE_URL` points at a
+**disposable** database (it is wiped); CI supplies one.
 
 ## Troubleshooting
 

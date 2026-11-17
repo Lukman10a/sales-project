@@ -1,3 +1,4 @@
+import { nairaSql } from '../common/money/money';
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
@@ -89,10 +90,12 @@ export class ReportsRepository {
         'ii.id = si.productId AND ii.businessId = :businessId',
         { businessId },
       )
-      .select('COALESCE(SUM(si.price * si.quantity), 0)', 'revenue')
+      .select(nairaSql('COALESCE(SUM(si.price * si.quantity), 0)'), 'revenue')
       .addSelect('COUNT(DISTINCT s.id)', 'orders')
       .addSelect(
-        'COALESCE(SUM((si.price - COALESCE(ii.wholesalePrice, 0)) * si.quantity), 0)',
+        nairaSql(
+          'COALESCE(SUM((si.price - COALESCE(ii.wholesalePrice, 0)) * si.quantity), 0)',
+        ),
         'netProfit',
       )
       .where('s.businessId = :businessId', { businessId })

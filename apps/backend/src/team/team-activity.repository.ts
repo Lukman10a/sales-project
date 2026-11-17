@@ -1,3 +1,4 @@
+import { nairaSql } from '../common/money/money';
 import { Injectable } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, In } from 'typeorm';
@@ -46,12 +47,12 @@ export class TeamActivityRepository {
       .leftJoin(SaleItem, 'item', 'item.saleId = sale.id')
       .select('sale.id', 'id')
       .addSelect('sale.businessId', 'businessId')
-      .addSelect('sale.total', 'total')
+      .addSelect(nairaSql('sale.total'), 'total')
       .addSelect('sale.status', 'status')
       .addSelect('sale.soldBy', 'soldBy')
       .addSelect('sale.createdAt', 'createdAt')
       .addSelect('sale.saleDate', 'saleDate')
-      .addSelect('sale.refundAmount', 'refundAmount')
+      .addSelect(nairaSql('sale.refundAmount'), 'refundAmount')
       .addSelect('sale.refundReason', 'refundReason')
       .addSelect('COUNT(item.id)', 'itemCount')
       .where('sale.businessId = :businessId', { businessId })

@@ -1,5 +1,7 @@
 import { TypeOrmModuleOptions } from '@nestjs/typeorm';
 import { ConfigService } from '@nestjs/config';
+import { join } from 'node:path';
+import type { DataSourceOptions } from 'typeorm';
 import type { Env } from '../config/env.schema';
 import { User } from '../entities/user.entity';
 import { InventoryItem } from '../entities/inventory-item.entity';
@@ -11,6 +13,22 @@ import { TeamMember } from '../entities/team-member.entity';
 import { UserProfile } from '../entities/user-profile.entity';
 import { Report } from '../entities/report.entity';
 import { AiInsight } from '../entities/ai-insight.entity';
+
+export const ENTITIES = [
+  User,
+  UserProfile,
+  InventoryItem,
+  Sale,
+  SaleItem,
+  HeldTransaction,
+  Notification,
+  TeamMember,
+  Report,
+  AiInsight,
+];
+
+/** Compiled (.js) or ts-node (.ts) migrations, wherever this file runs from. */
+export const MIGRATIONS = [join(__dirname, 'migrations', '*.{ts,js}')];
 
 type SslOption = false | { rejectUnauthorized: boolean; ca?: string };
 
@@ -26,42 +44,65 @@ export function sslOptions(mode: Env['DATABASE_SSL'], ca?: string): SslOption {
   return ca ? { rejectUnauthorized: true, ca } : { rejectUnauthorized: true };
 }
 
-export const getDatabaseConfig = (
-  configService: ConfigService,
-): TypeOrmModuleOptions => {
-  const url = configService.get<string>('DATABASE_URL');
-  const connection = url
-    ? { url }
+type DbEnv = Pick<
+  Env,
+  | 'DATABASE_URL'
+  | 'DATABASE_HOST'
+  | 'DATABASE_PORT'
+  | 'DATABASE_USERNAME'
+  | 'DATABASE_PASSWORD'
+  | 'DATABASE_NAME'
+  | 'DATABASE_SSL'
+  | 'DATABASE_CA'
+  | 'LOG_LEVEL'
+>;
+
+/**
+ * Shared by the Nest app and the TypeORM CLI (data-source.ts). The schema is
+ * only ever changed by migrations: `synchronize` is off everywhere.
+ */
+export function buildDataSourceOptions(env: DbEnv): DataSourceOptions {
+  const connection = env.DATABASE_URL
+    ? { url: env.DATABASE_URL }
     : {
-        host: configService.get<string>('DATABASE_HOST'),
-        port: configService.get<number>('DATABASE_PORT'),
-        username: configService.get<string>('DATABASE_USERNAME'),
-        password: configService.get<string>('DATABASE_PASSWORD'),
-        database: configService.get<string>('DATABASE_NAME'),
+        host: env.DATABASE_HOST,
+        port: env.DATABASE_PORT,
+        username: env.DATABASE_USERNAME,
+        password: env.DATABASE_PASSWORD,
+        database: env.DATABASE_NAME,
       };
 
   return {
     type: 'postgres',
     ...connection,
-    entities: [
-      User,
-      UserProfile,
-      InventoryItem,
-      Sale,
-      SaleItem,
-      HeldTransaction,
-      Notification,
-      TeamMember,
-      Report,
-      AiInsight,
-    ],
-    synchronize: configService.get<string>('NODE_ENV') === 'development',
-    logging: configService.get<string>('LOG_LEVEL') === 'debug',
+    entities: ENTITIES,
+    migrations: MIGRATIONS,
+    migrationsTableName: 'migrations',
+    synchronize: false,
+    logging: env.LOG_LEVEL === 'debug',
+    ssl: sslOptions(env.DATABASE_SSL, env.DATABASE_CA),
+  };
+}
+
+export const getDatabaseConfig = (
+  configService: ConfigService,
+): TypeOrmModuleOptions => {
+  const get = <K extends keyof DbEnv>(key: K) =>
+    configService.get<DbEnv[K]>(key);
+  return {
+    ...buildDataSourceOptions({
+      DATABASE_URL: get('DATABASE_URL'),
+      DATABASE_HOST: get('DATABASE_HOST'),
+      DATABASE_PORT: get('DATABASE_PORT') ?? 5432,
+      DATABASE_USERNAME: get('DATABASE_USERNAME'),
+      DATABASE_PASSWORD: get('DATABASE_PASSWORD'),
+      DATABASE_NAME: get('DATABASE_NAME'),
+      DATABASE_SSL:
+        configService.getOrThrow<DbEnv['DATABASE_SSL']>('DATABASE_SSL'),
+      DATABASE_CA: get('DATABASE_CA'),
+      LOG_LEVEL: get('LOG_LEVEL'),
+    }),
     manualInitialization:
       configService.get<string>('DB_MANUAL_INIT') === 'true',
-    ssl: sslOptions(
-      configService.getOrThrow<Env['DATABASE_SSL']>('DATABASE_SSL'),
-      configService.get<string>('DATABASE_CA'),
-    ),
   };
 };

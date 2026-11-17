@@ -45,11 +45,22 @@ describe('getDatabaseConfig', () => {
     expect(options.host).toBeUndefined();
   });
 
-  it('never synchronizes outside development', () => {
-    const options = getDatabaseConfig(
-      config({ NODE_ENV: 'production', DATABASE_SSL: 'require' }),
-    );
-    expect(options.synchronize).toBe(false);
+  it.each(['development', 'test', 'production'])(
+    'never synchronizes in %s (migrations only)',
+    (NODE_ENV) => {
+      const options = getDatabaseConfig(
+        config({ NODE_ENV, DATABASE_SSL: 'disable' }),
+      );
+      expect(options.synchronize).toBe(false);
+    },
+  );
+
+  it('points at the migrations directory', () => {
+    const options = getDatabaseConfig(config({ DATABASE_SSL: 'disable' })) as {
+      migrations?: string[];
+    };
+    const glob = options.migrations?.[0]?.split('\\').join('/');
+    expect(glob?.endsWith('/database/migrations/*.{ts,js}')).toBe(true);
   });
 
   it('builds TLS options from DATABASE_SSL', () => {
