@@ -17,7 +17,9 @@ describe('TwoFactorController', () => {
   const user = {
     id: 'u1',
     email: 'ada@shop.ng',
-    role: 'owner',
+    role: 'owner' as const,
+    permissions: [],
+    maxDiscountPercent: 100,
     businessName: 'Shop',
     businessId: 'u1',
   };

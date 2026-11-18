@@ -7,8 +7,8 @@ import * as bcrypt from 'bcrypt';
 import { AuthService } from './auth.service';
 import { UsersRepository } from './users.repository';
 import { User } from '../entities/user.entity';
-import { TeamMember } from '../entities/team-member.entity';
-import { ALL_PERMISSIONS } from '../common/constants/permissions';
+import { PERMISSIONS } from '../common/constants/permissions';
+import type { Principal } from './principal.service';
 
 jest.mock('bcrypt', () => ({
   hash: jest.fn(),
@@ -24,11 +24,9 @@ describe('AuthService', () => {
     create: jest.Mock<User, [Partial<User>]>;
     save: jest.Mock<Promise<User>, [User]>;
   };
-  let teamMemberRepository: {
-    findByBusinessAndUser: jest.Mock<
-      Promise<TeamMember | null>,
-      [string, string]
-    >;
+  let principals: {
+    resolve: jest.Mock<Promise<Principal | null>, [string, string]>;
+    invalidate: jest.Mock;
   };
   let jwtService: {
     signAsync: jest.Mock<Promise<string>, [object, object]>;
@@ -99,10 +97,19 @@ describe('AuthService', () => {
       ),
       save: jest.fn((user: User) => Promise.resolve(user)),
     };
-    teamMemberRepository = {
-      findByBusinessAndUser: jest.fn((_businessId: string, _userId: string) =>
-        Promise.resolve(null),
+    principals = {
+      resolve: jest.fn((id: string, businessId: string) =>
+        Promise.resolve<Principal | null>({
+          id,
+          email: 'owner@luxa.com',
+          role: 'owner',
+          businessId,
+          businessName: 'LUXA',
+          permissions: [...PERMISSIONS],
+          maxDiscountPercent: 100,
+        }),
       ),
+      invalidate: jest.fn(),
     };
     jwtService = {
       signAsync: jest.fn((_payload: object, _options: object) =>
@@ -143,10 +150,10 @@ describe('AuthService', () => {
       usersRepository as unknown as UsersRepository,
       jwtService as never,
       configService as never,
-      teamMemberRepository as never,
       sessionsService as never,
       accountService as never,
       twoFactorService as never,
+      principals as never,
     );
   });
 
@@ -436,22 +443,17 @@ describe('AuthService', () => {
   });
 
   describe('signAccessToken', () => {
-    it('signs an access token bound to the session', async () => {
-      const token = await (
+    const sign = (u: User) =>
+      (
         service as unknown as {
           signAccessToken: (u: User, sid: string) => Promise<string>;
         }
-      ).signAccessToken(baseUser, 'sid-1');
+      ).signAccessToken(u, 'sid-1');
 
-      expect(token).toBe('signed-token');
-      expect(jwtService.signAsync).toHaveBeenCalledTimes(1);
+    it('signs identity only: user, session and business', async () => {
+      await expect(sign(baseUser)).resolves.toBe('signed-token');
       expect(jwtService.signAsync).toHaveBeenCalledWith(
-        expect.objectContaining({
-          sub: 'u1',
-          sid: 'sid-1',
-          role: 'owner',
-          permissions: [...ALL_PERMISSIONS],
-        }),
+        { sub: 'u1', sid: 'sid-1', bid: 'u1' },
         { expiresIn: '15m' },
       );
     });
@@ -460,139 +462,80 @@ describe('AuthService', () => {
       configService.get = jest.fn((key: string) =>
         key === 'JWT_EXPIRES_IN' ? '1m' : undefined,
       );
-
-      await (
-        service as unknown as {
-          signAccessToken: (u: User, sid: string) => Promise<string>;
-        }
-      ).signAccessToken(baseUser, 'sid-1');
-
-      expect(jwtService.signAsync).toHaveBeenNthCalledWith(
-        1,
+      await sign(baseUser);
+      expect(jwtService.signAsync).toHaveBeenCalledWith(
         expect.objectContaining({ sub: 'u1' }),
         expect.objectContaining({ expiresIn: '1m' }),
       );
     });
 
-    it('includes staffRole in the access token payload for staff users', async () => {
-      const staffUser = {
-        ...baseUser,
-        role: 'apprentice',
-        staffRole: 'manager',
-      } as unknown as User;
-
-      await (
-        service as unknown as {
-          signAccessToken: (u: User, sid: string) => Promise<string>;
-        }
-      ).signAccessToken(staffUser, 'sid-1');
-
-      expect(jwtService.signAsync).toHaveBeenNthCalledWith(
-        1,
-        expect.objectContaining({ staffRole: 'manager' }),
+    it("binds a staff member's token to their employer", async () => {
+      await sign({ ...baseUser, id: 's1', businessId: 'b1' });
+      expect(jwtService.signAsync).toHaveBeenCalledWith(
+        { sub: 's1', sid: 'sid-1', bid: 'b1' },
         expect.anything(),
       );
     });
   });
 
-  describe('effective permissions', () => {
-    const managerUser = {
-      ...baseUser,
-      role: 'manager',
+  describe('principal checks', () => {
+    const cashier: Principal = {
+      id: 's1',
+      email: 'kelechi@shop.ng',
+      role: 'cashier',
       businessId: 'b1',
-      staffRole: 'manager',
+      businessName: 'LUXA',
+      permissions: ['sales.record'],
+      maxDiscountPercent: 0,
+    };
+    const staffUser = {
+      ...baseUser,
+      id: 's1',
+      email: 'kelechi@shop.ng',
+      role: 'cashier',
+      businessId: 'b1',
     } as unknown as User;
 
-    const signAccessToken = () =>
-      (
-        service as unknown as {
-          signAccessToken: (u: User, sid: string) => Promise<string>;
-        }
-      ).signAccessToken(managerUser, 'sid-1');
+    it("reports the member's current permissions and discount cap", async () => {
+      principals.resolve.mockResolvedValue(cashier);
+      usersRepository.findById.mockResolvedValue(staffUser);
 
-    it('loads real permissions from the TeamMember row into the token for a non-owner', async () => {
-      teamMemberRepository.findByBusinessAndUser.mockResolvedValue({
-        role: 'manager',
-        permissions: ['record-sales', 'view-inventory'],
-      } as unknown as TeamMember);
-
-      await signAccessToken();
-
-      expect(teamMemberRepository.findByBusinessAndUser).toHaveBeenCalledWith(
-        'b1',
-        'u1',
-      );
-      expect(jwtService.signAsync).toHaveBeenNthCalledWith(
-        1,
-        expect.objectContaining({
-          permissions: ['record-sales', 'view-inventory'],
-        }),
-        expect.anything(),
-      );
+      await expect(service.me('s1')).resolves.toMatchObject({
+        role: 'cashier',
+        permissions: ['sales.record'],
+        maxDiscountPercent: 0,
+      });
+      expect(principals.resolve).toHaveBeenCalledWith('s1', 'b1');
     });
 
-    it('falls back to role default permissions when the TeamMember permissions are empty', async () => {
-      teamMemberRepository.findByBusinessAndUser.mockResolvedValue({
-        role: 'manager',
-        permissions: [],
-      } as unknown as TeamMember);
+    it('refuses to sign in a member who has lost access', async () => {
+      principals.resolve.mockResolvedValue(null);
+      usersRepository.findByEmail.mockResolvedValue(staffUser);
+      (bcrypt.compare as jest.Mock).mockResolvedValue(true);
 
-      await signAccessToken();
-
-      expect(jwtService.signAsync).toHaveBeenNthCalledWith(
-        1,
-        expect.objectContaining({
-          permissions: [
-            'view-products',
-            'edit-products',
-            'view-sales-history',
-            'record-sales',
-            'view-inventory',
-            'edit-inventory',
-            'assign-roles',
-            'view-reports',
-          ],
-        }),
-        expect.anything(),
-      );
+      await expect(
+        service.login({ email: 'kelechi@shop.ng', password: 'Password1' }),
+      ).rejects.toMatchObject({
+        response: { code: 'ACCOUNT_INACTIVE' },
+      });
+      expect(sessionsService.start).not.toHaveBeenCalled();
     });
 
-    it('keeps empty permissions for staff with no TeamMember row', async () => {
-      teamMemberRepository.findByBusinessAndUser.mockResolvedValue(null);
+    it('ends the session family on refresh once access is gone', async () => {
+      usersRepository.findById.mockResolvedValue(staffUser);
+      principals.resolve.mockResolvedValue(null);
 
-      await signAccessToken();
-
-      expect(jwtService.signAsync).toHaveBeenNthCalledWith(
-        1,
-        expect.objectContaining({ permissions: [] }),
-        expect.anything(),
+      await expect(service.refresh('rt')).rejects.toBeInstanceOf(
+        UnauthorizedException,
       );
+      expect(sessionsService.revoke).toHaveBeenCalledWith(issued.familyId);
     });
 
-    it('never queries the TeamMember row for an owner', async () => {
-      await (
-        service as unknown as {
-          signAccessToken: (u: User, sid: string) => Promise<unknown>;
-        }
-      ).signAccessToken(baseUser, 'sid-1');
-
-      expect(teamMemberRepository.findByBusinessAndUser).not.toHaveBeenCalled();
-    });
-
-    it('includes the real permissions in the /auth/me response', async () => {
-      teamMemberRepository.findByBusinessAndUser.mockResolvedValue({
-        role: 'manager',
-        permissions: ['view-sales-history'],
-      } as unknown as TeamMember);
-      usersRepository.findById.mockResolvedValue(managerUser);
-
-      const result = await service.me('u1');
-
-      expect(result).toEqual(
-        expect.objectContaining({
-          permissions: ['view-sales-history'],
-        }),
-      );
+    it('re-reads permissions at sign-in instead of trusting the cache', async () => {
+      usersRepository.findByEmail.mockResolvedValue(baseUser);
+      (bcrypt.compare as jest.Mock).mockResolvedValue(true);
+      await signedIn({ email: 'owner@luxa.com', password: 'Password1' });
+      expect(principals.invalidate).toHaveBeenCalledWith('u1');
     });
   });
 
@@ -605,28 +548,23 @@ describe('AuthService', () => {
       );
     });
 
-    it('returns the full user shape including avatar, staffRole and permissions', async () => {
-      const staffUser = {
+    it('returns the full user shape including avatar and permissions', async () => {
+      usersRepository.findById.mockResolvedValue({
         ...baseUser,
-        role: 'apprentice',
-        staffRole: 'manager',
         avatar: 'data:image/png;base64,abc',
-      } as unknown as User;
-      usersRepository.findById.mockResolvedValue(staffUser);
+      });
 
-      const result = await service.me('u1');
-
-      expect(result).toEqual({
+      await expect(service.me('u1')).resolves.toEqual({
         id: 'u1',
         email: 'owner@luxa.com',
         firstName: 'Ada',
         lastName: 'Lovelace',
         businessName: 'LUXA',
         businessId: 'u1',
-        role: 'apprentice',
+        role: 'owner',
         avatar: 'data:image/png;base64,abc',
-        staffRole: 'manager',
-        permissions: [],
+        permissions: [...PERMISSIONS],
+        maxDiscountPercent: 100,
         emailVerified: true,
         verifyBy: null,
         ...twoFactorOff,

@@ -51,7 +51,9 @@ export class TeamActivityService {
       ...invites.map((m) => m.userId),
     ].filter(Boolean);
 
-    const names = await this.repo.resolveUserNames([...new Set(userIds)]);
+    const names = await this.repo.resolveUserNames(user.businessId, [
+      ...new Set(userIds),
+    ]);
 
     const entries: ActivityEntry[] = [];
 

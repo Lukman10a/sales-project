@@ -19,8 +19,7 @@ export class ReportsService {
   ): Promise<Report> {
     const snapshot = await this.buildSnapshot(user.businessId, dto);
 
-    return this.reportsRepository.create({
-      businessId: user.businessId,
+    return this.reportsRepository.create(user.businessId, {
       name: dto.name,
       type: dto.type,
       format: dto.format,
@@ -41,7 +40,7 @@ export class ReportsService {
       query.limit,
     );
 
-    const data = await this.enrichCreators(result.data);
+    const data = await this.enrichCreators(user.businessId, result.data);
 
     return { ...result, data };
   }
@@ -54,7 +53,7 @@ export class ReportsService {
     if (!report) {
       throw new NotFoundException('Report not found');
     }
-    const [enriched] = await this.enrichCreators([report]);
+    const [enriched] = await this.enrichCreators(user.businessId, [report]);
     return enriched;
   }
 
@@ -66,7 +65,7 @@ export class ReportsService {
     if (!report) {
       throw new NotFoundException('Report not found');
     }
-    await this.reportsRepository.remove(report);
+    await this.reportsRepository.remove(user.businessId, report);
     return { message: 'Report deleted successfully' };
   }
 
@@ -88,8 +87,7 @@ export class ReportsService {
     businessId: string,
     dateRange: { start: string; end: string },
   ): Promise<Record<string, unknown>> {
-    const { data, summary } = await this.salesRepository.list({
-      businessId,
+    const { data, summary } = await this.salesRepository.list(businessId, {
       page: 1,
       limit: 100,
       dateFrom: dateRange.start,
@@ -114,8 +112,7 @@ export class ReportsService {
   private async buildInventorySnapshot(
     businessId: string,
   ): Promise<Record<string, unknown>> {
-    const { data } = await this.inventoryRepository.list({
-      businessId,
+    const { data } = await this.inventoryRepository.list(businessId, {
       page: 1,
       limit: 1000,
     });
@@ -149,6 +146,7 @@ export class ReportsService {
   }
 
   private async enrichCreators(
+    businessId: string,
     reports: Report[],
   ): Promise<Array<Report & { createdByName?: string }>> {
     if (reports.length === 0) return reports;
@@ -160,7 +158,10 @@ export class ReportsService {
           .filter((id): id is string => Boolean(id)),
       ),
     ];
-    const names = await this.reportsRepository.resolveCreatorNames(ids);
+    const names = await this.reportsRepository.resolveCreatorNames(
+      businessId,
+      ids,
+    );
 
     return reports.map((report) => ({
       ...report,

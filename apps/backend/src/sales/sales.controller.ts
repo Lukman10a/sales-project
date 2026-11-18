@@ -14,8 +14,6 @@ import {
 import {
   JwtAuthGuard,
   PermissionsGuard,
-  RolesGuard,
-  Roles,
   RequirePermissions,
   CurrentUser,
   ZodValidationPipe,
@@ -38,11 +36,11 @@ export class SalesController {
   /**
    * Record a new sale atomically, decrementing stock
    * POST /sales
-   * Requires: record-sales
+   * Requires: sales.record
    */
   @Post()
   @UseGuards(JwtAuthGuard, PermissionsGuard)
-  @RequirePermissions('record-sales')
+  @RequirePermissions('sales.record')
   @HttpCode(201)
   create(
     @CurrentUser() user: CurrentUserPayload,
@@ -55,11 +53,11 @@ export class SalesController {
   /**
    * List sales history with date/payment/status filters and summary
    * GET /sales
-   * Requires: view-sales-history
+   * Requires: sales.record
    */
   @Get()
   @UseGuards(JwtAuthGuard, PermissionsGuard)
-  @RequirePermissions('view-sales-history')
+  @RequirePermissions('sales.record')
   list(
     @CurrentUser() user: CurrentUserPayload,
     @Query(new ZodValidationPipe(QuerySalesDtoSchema)) query: QuerySalesDto,
@@ -70,11 +68,11 @@ export class SalesController {
   /**
    * List active held transactions
    * GET /sales/held
-   * Requires: record-sales
+   * Requires: sales.record
    */
   @Get('held')
   @UseGuards(JwtAuthGuard, PermissionsGuard)
-  @RequirePermissions('record-sales')
+  @RequirePermissions('sales.record')
   listHeld(@CurrentUser() user: CurrentUserPayload) {
     return this.salesService.listHeld(user);
   }
@@ -82,11 +80,11 @@ export class SalesController {
   /**
    * Create a held/paused transaction (24h lifespan)
    * POST /sales/held
-   * Requires: record-sales
+   * Requires: sales.record
    */
   @Post('held')
   @UseGuards(JwtAuthGuard, PermissionsGuard)
-  @RequirePermissions('record-sales')
+  @RequirePermissions('sales.record')
   @HttpCode(201)
   createHeld(
     @CurrentUser() user: CurrentUserPayload,
@@ -99,11 +97,11 @@ export class SalesController {
   /**
    * Remove/resolve a held transaction
    * DELETE /sales/held/:id
-   * Requires: record-sales
+   * Requires: sales.record
    */
   @Delete('held/:id')
   @UseGuards(JwtAuthGuard, PermissionsGuard)
-  @RequirePermissions('record-sales')
+  @RequirePermissions('sales.record')
   removeHeld(
     @CurrentUser() user: CurrentUserPayload,
     @Param('id', ParseUUIDPipe) id: string,
@@ -114,11 +112,11 @@ export class SalesController {
   /**
    * Get a single sale with its line items
    * GET /sales/:id
-   * Requires: view-sales-history
+   * Requires: sales.record
    */
   @Get(':id')
   @UseGuards(JwtAuthGuard, PermissionsGuard)
-  @RequirePermissions('view-sales-history')
+  @RequirePermissions('sales.record')
   findOne(
     @CurrentUser() user: CurrentUserPayload,
     @Param('id', ParseUUIDPipe) id: string,
@@ -129,11 +127,11 @@ export class SalesController {
   /**
    * Process a refund and restore inventory atomically
    * PATCH /sales/:id/refund
-   * Requires: owner or manager
+   * Requires: sales.refund
    */
   @Patch(':id/refund')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('owner', 'manager')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions('sales.refund')
   refund(
     @CurrentUser() user: CurrentUserPayload,
     @Param('id', ParseUUIDPipe) id: string,

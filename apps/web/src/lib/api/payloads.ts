@@ -5,6 +5,7 @@ import type {
   SaleRecord,
 } from "@/types/salesTypes";
 import type { Permission } from "@/types/teamTypes";
+import { toBackendPermissions } from "./access-compat";
 import type {
   AppearanceSettings,
   DashboardSettings,
@@ -13,14 +14,9 @@ import type {
 
 /**
  * Write-guard for team permission payloads. The backend `UpdatePermissionsDto`
- * and `InviteMemberDto` are Zod `.strict()` with a `z.enum(TEAM_PERMISSIONS)`
- * — deprecated UI aliases (`checkout-sales`, `view-out-of-stock`) are silently
- * stripped rather than sent (the backend would otherwise 400).
+ * and `InviteMemberDto` are Zod `.strict()` over the canonical permission
+ * names (T33), so screen names are translated and view-only ones dropped.
  */
-const DEPRECATED_PERMISSIONS: ReadonlySet<string> = new Set([
-  "checkout-sales",
-  "view-out-of-stock",
-]);
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -29,8 +25,8 @@ function isUuid(value: string): boolean {
   return UUID_PATTERN.test(value);
 }
 
-export function toTeamPermissions(permissions: Permission[]): Permission[] {
-  return permissions.filter((permission) => !DEPRECATED_PERMISSIONS.has(permission));
+export function toTeamPermissions(permissions: Permission[]): string[] {
+  return toBackendPermissions(permissions);
 }
 
 /**

@@ -1,10 +1,9 @@
+/**
+ * Access-token claims. Identity only: what the user may do is resolved per
+ * request (PrincipalService), so a permission change applies immediately.
+ */
 export interface JwtPayload {
-  sub: string; // user ID
+  sub: string; // user id
   sid: string; // session (family) id; checked against the sessions table
-  email: string;
-  role: string;
-  businessId: string;
-  businessName: string;
-  staffRole?: string;
-  permissions?: string[];
+  bid: string; // business (tenant) id
 }

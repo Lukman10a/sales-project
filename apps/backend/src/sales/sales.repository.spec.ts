@@ -1,4 +1,5 @@
-import { SalesRepository } from './sales.repository';
+import { HELD_TTL_MS, SalesRepository } from './sales.repository';
+import { TenantMismatchError } from '../common/tenancy/assert-tenant';
 import { In, type EntityManager } from 'typeorm';
 import { Sale } from '../entities/sale.entity';
 import { SaleItem } from '../entities/sale-item.entity';
@@ -49,7 +50,7 @@ describe('SalesRepository', () => {
       const product = { id: 'p1', businessId: 'b1' } as InventoryItem;
       managerMock.findOne.mockResolvedValue(product);
 
-      await expect(repository.findProduct(manager, 'p1', 'b1')).resolves.toBe(
+      await expect(repository.findProduct('b1', manager, 'p1')).resolves.toBe(
         product,
       );
       expect(managerMock.findOne).toHaveBeenCalledWith(InventoryItem, {
@@ -60,22 +61,24 @@ describe('SalesRepository', () => {
 
   describe('saveProduct', () => {
     it('saves the product through the manager', async () => {
-      const product = { id: 'p1' } as InventoryItem;
+      const product = { id: 'p1', businessId: 'b1' } as InventoryItem;
       managerMock.save.mockResolvedValue(product);
 
-      await expect(repository.saveProduct(manager, product)).resolves.toBe(
-        product,
-      );
+      await expect(
+        repository.saveProduct('b1', manager, product),
+      ).resolves.toBe(product);
       expect(managerMock.save).toHaveBeenCalledWith(product);
     });
   });
 
   describe('saveSale', () => {
     it('saves the sale through the manager', async () => {
-      const sale = { id: 's1' } as Sale;
+      const sale = { id: 's1', businessId: 'b1' } as Sale;
       managerMock.save.mockResolvedValue(sale);
 
-      await expect(repository.saveSale(manager, sale)).resolves.toBe(sale);
+      await expect(repository.saveSale('b1', manager, sale)).resolves.toBe(
+        sale,
+      );
       expect(managerMock.save).toHaveBeenCalledWith(sale);
     });
   });
@@ -85,8 +88,7 @@ describe('SalesRepository', () => {
       const sale = { id: 's1' } as Sale;
       managerMock.save.mockResolvedValue(sale);
 
-      const result = await repository.createSale(manager, {
-        businessId: 'b1',
+      const result = await repository.createSale('b1', manager, {
         total: 100,
         paymentMethod: 'cash',
         status: 'completed',
@@ -136,8 +138,7 @@ describe('SalesRepository', () => {
       const sale = { id: 's1' } as Sale;
       managerMock.save.mockResolvedValue(sale);
 
-      await repository.createSale(manager, {
-        businessId: 'b1',
+      await repository.createSale('b1', manager, {
         total: 100,
         paymentMethod: 'cash',
         status: 'completed',
@@ -170,34 +171,12 @@ describe('SalesRepository', () => {
       managerMock.findOne.mockResolvedValue(sale);
 
       await expect(
-        repository.findSaleWithItems(manager, 's1', 'b1'),
+        repository.findSaleWithItems('b1', manager, 's1'),
       ).resolves.toBe(sale);
       expect(managerMock.findOne).toHaveBeenCalledWith(Sale, {
         where: { id: 's1', businessId: 'b1' },
         relations: ['items'],
       });
-    });
-  });
-
-  describe('findSaleByIdAndBusiness', () => {
-    it('queries a sale by id and businessId', async () => {
-      const sale = { id: 's1', businessId: 'b1' } as Sale;
-      const findOne = jest.spyOn(repository, 'findOne').mockResolvedValue(sale);
-
-      await expect(
-        repository.findSaleByIdAndBusiness('s1', 'b1'),
-      ).resolves.toBe(sale);
-      expect(findOne).toHaveBeenCalledWith({
-        where: { id: 's1', businessId: 'b1' },
-      });
-    });
-
-    it('returns null when no sale matches', async () => {
-      jest.spyOn(repository, 'findOne').mockResolvedValue(null);
-
-      await expect(
-        repository.findSaleByIdAndBusiness('missing', 'b1'),
-      ).resolves.toBeNull();
     });
   });
 
@@ -207,7 +186,7 @@ describe('SalesRepository', () => {
       const findOne = jest.spyOn(repository, 'findOne').mockResolvedValue(sale);
 
       await expect(
-        repository.findSaleWithItemsDirect('s1', 'b1'),
+        repository.findSaleWithItemsDirect('b1', 's1'),
       ).resolves.toBe(sale);
       expect(findOne).toHaveBeenCalledWith({
         where: { id: 's1', businessId: 'b1' },
@@ -224,10 +203,10 @@ describe('SalesRepository', () => {
       ];
       managerMock.find.mockResolvedValue(users);
 
-      const result = await repository.resolveSellerNames(['u1', 'u2']);
+      const result = await repository.resolveSellerNames('b1', ['u1', 'u2']);
 
       expect(managerMock.find).toHaveBeenCalledWith(User, {
-        where: { id: In(['u1', 'u2']) },
+        where: { id: In(['u1', 'u2']), businessId: 'b1' },
         select: ['id', 'firstName', 'lastName'],
       });
       expect(result.get('u1')).toBe('Ada Lovelace');
@@ -236,7 +215,7 @@ describe('SalesRepository', () => {
 
     it('returns an empty map for an empty id list', async () => {
       managerMock.find.mockClear();
-      const result = await repository.resolveSellerNames([]);
+      const result = await repository.resolveSellerNames('b1', []);
 
       expect(managerMock.find).not.toHaveBeenCalled();
       expect(result.size).toBe(0);
@@ -265,8 +244,7 @@ describe('SalesRepository', () => {
       };
       jest.spyOn(repository, 'createQueryBuilder').mockReturnValue(qb as never);
 
-      const result = await repository.list({
-        businessId: 'b1',
+      const result = await repository.list('b1', {
         page: 1,
         limit: 20,
       });
@@ -310,8 +288,7 @@ describe('SalesRepository', () => {
       };
       jest.spyOn(repository, 'createQueryBuilder').mockReturnValue(qb as never);
 
-      const result = await repository.list({
-        businessId: 'b1',
+      const result = await repository.list('b1', {
         page: 1,
         limit: 20,
       });
@@ -341,8 +318,7 @@ describe('SalesRepository', () => {
       };
       jest.spyOn(repository, 'createQueryBuilder').mockReturnValue(qb as never);
 
-      await repository.list({
-        businessId: 'b1',
+      await repository.list('b1', {
         page: 1,
         limit: 20,
         dateFrom: '2024-01-01',
@@ -399,7 +375,7 @@ describe('SalesRepository', () => {
       const held = { id: 'h1', businessId: 'b1' } as HeldTransaction;
       managerMock.findOne.mockResolvedValue(held);
 
-      await expect(repository.findHeld('h1', 'b1')).resolves.toBe(held);
+      await expect(repository.findHeld('b1', 'h1')).resolves.toBe(held);
       expect(managerMock.findOne).toHaveBeenCalledWith(HeldTransaction, {
         where: { id: 'h1', businessId: 'b1' },
       });
@@ -411,7 +387,6 @@ describe('SalesRepository', () => {
       managerMock.save.mockResolvedValue(held);
 
       const data = {
-        businessId: 'b1',
         customerName: 'Customer',
         items: [{ productId: 'p1', quantity: 1, price: 10 }],
         heldBy: 'u1',
@@ -419,20 +394,44 @@ describe('SalesRepository', () => {
         paymentMethod: 'cash' as const,
       };
 
-      const result = await repository.createHeld(data);
+      const result = await repository.createHeld('b1', data);
 
-      expect(managerMock.create).toHaveBeenCalledWith(HeldTransaction, data);
+      expect(managerMock.create).toHaveBeenCalledWith(HeldTransaction, {
+        ...data,
+        businessId: 'b1',
+        expiresAt: expect.any(Date) as Date,
+      });
+      const { expiresAt } = (
+        managerMock.create.mock.lastCall as [unknown, { expiresAt: Date }]
+      )[1];
+      expect(expiresAt.getTime() - Date.now()).toBeGreaterThan(
+        HELD_TTL_MS - 60_000,
+      );
       expect(managerMock.save).toHaveBeenCalledWith(held);
       expect(result).toBe(held);
     });
 
     it('removes a held transaction', async () => {
-      const held = { id: 'h1' } as HeldTransaction;
+      const held = { id: 'h1', businessId: 'b1' } as HeldTransaction;
       managerMock.remove.mockResolvedValue(held);
 
-      await repository.removeHeld(held);
+      await repository.removeHeld('b1', held);
 
       expect(managerMock.remove).toHaveBeenCalledWith(held);
+    });
+
+    it("refuses to touch another business's rows", async () => {
+      managerMock.remove.mockClear();
+      managerMock.save.mockClear();
+      const held = { id: 'h1', businessId: 'other' } as HeldTransaction;
+      await expect(repository.removeHeld('b1', held)).rejects.toThrow(
+        TenantMismatchError,
+      );
+      expect(() =>
+        repository.saveSale('b1', manager, { businessId: 'other' } as Sale),
+      ).toThrow(TenantMismatchError);
+      expect(managerMock.remove).not.toHaveBeenCalled();
+      expect(managerMock.save).not.toHaveBeenCalled();
     });
   });
 });

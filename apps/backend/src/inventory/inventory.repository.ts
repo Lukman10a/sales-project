@@ -4,9 +4,9 @@ import { DataSource, EntityManager, In, Repository } from 'typeorm';
 import { InventoryItem } from '../entities/inventory-item.entity';
 import { User } from '../entities/user.entity';
 import { PaginatedResult } from '../common/interfaces/paginated-result.interface';
+import { assertTenant } from '../common/tenancy/assert-tenant';
 
 export interface InventoryListQuery {
-  businessId: string;
   page: number;
   limit: number;
   search?: string;
@@ -15,6 +15,7 @@ export interface InventoryListQuery {
   sort?: string;
 }
 
+/** Tenant-owned: every method takes `businessId` first. */
 @Injectable()
 export class InventoryRepository extends Repository<InventoryItem> {
   constructor(@InjectDataSource() private readonly dataSource: DataSource) {
@@ -25,11 +26,31 @@ export class InventoryRepository extends Repository<InventoryItem> {
     return this.dataSource.transaction(fn);
   }
 
-  async resolveCreatorNames(ids: string[]): Promise<Map<string, string>> {
+  createItem(
+    businessId: string,
+    data: Omit<Partial<InventoryItem>, 'businessId'>,
+  ): InventoryItem {
+    return this.create({ ...data, businessId });
+  }
+
+  saveItem(businessId: string, item: InventoryItem): Promise<InventoryItem> {
+    assertTenant(businessId, item);
+    return this.save(item);
+  }
+
+  async removeItem(businessId: string, item: InventoryItem): Promise<void> {
+    assertTenant(businessId, item);
+    await this.remove(item);
+  }
+
+  async resolveCreatorNames(
+    businessId: string,
+    ids: string[],
+  ): Promise<Map<string, string>> {
     if (ids.length === 0) return new Map();
 
     const users = await this.manager.find(User, {
-      where: { id: In(ids) },
+      where: { id: In(ids), businessId },
       select: ['id', 'firstName', 'lastName'],
     });
 
@@ -38,17 +59,18 @@ export class InventoryRepository extends Repository<InventoryItem> {
     );
   }
 
-  async findByIdAndBusiness(
-    id: string,
+  async findById(
     businessId: string,
+    id: string,
   ): Promise<InventoryItem | null> {
     return this.findOne({ where: { id, businessId } });
   }
 
   async list(
+    businessId: string,
     query: InventoryListQuery,
   ): Promise<PaginatedResult<InventoryItem>> {
-    const { businessId, page, limit, search, category, status, sort } = query;
+    const { page, limit, search, category, status, sort } = query;
 
     const qb = this.createQueryBuilder('item').where(
       'item.businessId = :businessId',
@@ -106,8 +128,8 @@ export class InventoryRepository extends Repository<InventoryItem> {
   }
 
   async decrementStock(
-    id: string,
     businessId: string,
+    id: string,
     qty: number,
   ): Promise<InventoryItem | null> {
     await this.createQueryBuilder()
@@ -116,9 +138,9 @@ export class InventoryRepository extends Repository<InventoryItem> {
         quantity: () => 'quantity - :qty',
         sold: () => 'sold + :qty',
         status: () =>
-          `CASE WHEN quantity - :qty <= 0 THEN 'out-of-stock' ` +
-          `WHEN reorder_point IS NOT NULL AND quantity - :qty <= reorder_point THEN 'low-stock' ` +
-          `ELSE 'in-stock' END`,
+          `(CASE WHEN quantity - :qty <= 0 THEN 'out-of-stock' ` +
+          `WHEN "reorderPoint" IS NOT NULL AND quantity - :qty <= "reorderPoint" THEN 'low-stock' ` +
+          `ELSE 'in-stock' END)::"inventory_items_status_enum"`,
       })
       .where('id = :id AND businessId = :businessId AND quantity >= :qty', {
         id,
@@ -131,6 +153,7 @@ export class InventoryRepository extends Repository<InventoryItem> {
   }
 
   async bulkUpsert(
+    businessId: string,
     items: Array<{
       name: string;
       category: string[];
@@ -144,7 +167,6 @@ export class InventoryRepository extends Repository<InventoryItem> {
       supplier?: string;
       status: InventoryItem['status'];
     }>,
-    businessId: string,
     createdBy: string,
   ): Promise<number> {
     const prepared = items.map((item) => ({

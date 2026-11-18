@@ -26,8 +26,11 @@ export interface AuthUser {
   businessId: string;
   role: string;
   avatar?: string;
+  /** @deprecated removed by T33; role is now owner, manager or cashier. */
   staffRole?: string;
+  /** Canonical backend names, e.g. `sales.record`. */
   permissions?: string[];
+  maxDiscountPercent?: number;
   /** Owners only: false until the emailed link is used. */
   emailVerified?: boolean;
   /** ISO date after which an unverified owner can no longer sign in. */

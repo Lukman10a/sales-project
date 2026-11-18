@@ -4,13 +4,13 @@ import { DataSource, EntityManager, Repository } from 'typeorm';
 import { TeamMember } from '../entities/team-member.entity';
 import { User } from '../entities/user.entity';
 import { PaginatedResult } from '../common/interfaces/paginated-result.interface';
+import { assertTenant } from '../common/tenancy/assert-tenant';
 
 export interface TeamMemberWithEmail extends Omit<TeamMember, 'user'> {
   email?: string;
 }
 
 export interface TeamListQuery {
-  businessId: string;
   page: number;
   limit: number;
   role?: TeamMember['role'];
@@ -21,8 +21,11 @@ export interface TeamMemberUpdateData {
   role?: TeamMember['role'];
   status?: TeamMember['status'];
   department?: string | null;
+  permissions?: string[];
+  maxDiscountPercent?: number;
 }
 
+/** Tenant-owned: every method takes `businessId` first. */
 @Injectable()
 export class TeamRepository extends Repository<TeamMember> {
   constructor(@InjectDataSource() private readonly dataSource: DataSource) {
@@ -34,6 +37,7 @@ export class TeamRepository extends Repository<TeamMember> {
   }
 
   createUser(
+    businessId: string,
     manager: EntityManager,
     data: {
       email: string;
@@ -41,44 +45,58 @@ export class TeamRepository extends Repository<TeamMember> {
       firstName: string;
       lastName: string;
       businessName: string;
-      businessId: string;
-      role: 'manager' | 'apprentice';
-      staffRole:
-        'sales-assistant' | 'manager' | 'checkout' | 'inventory' | 'investor';
+      role: TeamMember['role'];
       status: 'invited';
     },
   ): User {
-    return manager.create(User, data);
+    return manager.create(User, { ...data, businessId });
   }
 
-  saveUser(manager: EntityManager, user: User): Promise<User> {
+  saveUser(businessId: string, manager: EntityManager, user: User) {
+    assertTenant(businessId, user);
     return manager.save(user);
   }
 
+  /** The member's login account, kept in step with role and status. */
+  async updateUser(
+    businessId: string,
+    userId: string,
+    data: Partial<Pick<User, 'role' | 'status'>>,
+  ): Promise<void> {
+    await this.manager.update(User, { id: userId, businessId }, data);
+  }
+
   createMember(
+    businessId: string,
     manager: EntityManager,
     data: {
-      businessId: string;
       userId: string;
       name: string;
       role: TeamMember['role'];
       permissions: string[];
+      maxDiscountPercent: number;
       department?: string;
       status: 'invited';
       joinedDate: Date;
     },
   ): TeamMember {
-    return manager.create(TeamMember, data);
+    return manager.create(TeamMember, { ...data, businessId });
   }
 
-  saveMember(manager: EntityManager, member: TeamMember): Promise<TeamMember> {
+  saveMember(
+    businessId: string,
+    manager: EntityManager,
+    member: TeamMember,
+  ): Promise<TeamMember> {
+    assertTenant(businessId, member);
     return manager.save(member);
   }
 
   async list(
+    businessId: string,
     query: TeamListQuery,
   ): Promise<PaginatedResult<TeamMemberWithEmail>> {
-    const { businessId, page, limit, role, status } = query;
+    const { page, limit, role, status } = query;
 
     const qb = this.createQueryBuilder('team')
       .leftJoin('team.user', 'user')
@@ -116,30 +134,22 @@ export class TeamRepository extends Repository<TeamMember> {
     };
   }
 
-  async findByIdAndBusiness(
-    id: string,
-    businessId: string,
-  ): Promise<TeamMember | null> {
+  findById(businessId: string, id: string): Promise<TeamMember | null> {
     return this.findOne({ where: { id, businessId } });
   }
 
   async updateMember(
+    businessId: string,
     member: TeamMember,
     data: TeamMemberUpdateData,
   ): Promise<TeamMember> {
+    assertTenant(businessId, member);
     Object.assign(member, data);
     return this.manager.save(member);
   }
 
-  async updatePermissions(
-    member: TeamMember,
-    permissions: string[],
-  ): Promise<TeamMember> {
-    member.permissions = permissions;
-    return this.manager.save(member);
-  }
-
-  async removeMember(member: TeamMember): Promise<void> {
+  async removeMember(businessId: string, member: TeamMember): Promise<void> {
+    assertTenant(businessId, member);
     await this.manager.remove(member);
   }
 }

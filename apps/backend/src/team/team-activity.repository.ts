@@ -108,10 +108,13 @@ export class TeamActivityRepository {
     });
   }
 
-  async resolveUserNames(ids: string[]): Promise<Map<string, string>> {
+  async resolveUserNames(
+    businessId: string,
+    ids: string[],
+  ): Promise<Map<string, string>> {
     if (ids.length === 0) return new Map();
     const users = await this.dataSource.getRepository(User).find({
-      where: { id: In(ids) },
+      where: { id: In(ids), businessId },
       select: ['id', 'firstName', 'lastName'],
     });
     return new Map(

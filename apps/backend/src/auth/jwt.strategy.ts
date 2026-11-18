@@ -11,6 +11,7 @@ import { JwtPayload } from './interfaces/jwt-payload.interface';
 import type { CurrentUserPayload } from '../common';
 import { ACCESS_COOKIE, parseCookies } from '../common/http/cookies';
 import { SessionsService } from './sessions.service';
+import { PrincipalService } from './principal.service';
 
 export const fromAccessCookie: JwtFromRequestFunction = (req: Request) =>
   parseCookies(req.headers.cookie)[ACCESS_COOKIE] ?? null;
@@ -18,14 +19,16 @@ export const fromAccessCookie: JwtFromRequestFunction = (req: Request) =>
 /**
  * Reads the access JWT from the `__Host-luxa_at` cookie. Bearer headers are
  * accepted outside production only, for tests and local scripts. Every
- * request also checks that the session behind the token is still live, so a
- * logout or revocation takes effect immediately.
+ * request also checks that the session behind the token is still live and
+ * resolves the user's current permissions, so a logout, a revocation or a
+ * permission change takes effect on the next request.
  */
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(
     configService: ConfigService,
     private readonly sessions: SessionsService,
+    private readonly principals: PrincipalService,
   ) {
     const extractors: JwtFromRequestFunction[] = [fromAccessCookie];
     if (configService.get<string>('NODE_ENV') !== 'production') {
@@ -39,18 +42,15 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   async validate(payload: JwtPayload): Promise<CurrentUserPayload> {
-    if (!payload.sid || !(await this.sessions.isActive(payload.sid))) {
+    if (
+      !payload.sid ||
+      !payload.bid ||
+      !(await this.sessions.isActive(payload.sid))
+    ) {
       throw new UnauthorizedException('Session expired or revoked');
     }
-    return {
-      id: payload.sub,
-      email: payload.email,
-      role: payload.role,
-      businessName: payload.businessName,
-      businessId: payload.businessId,
-      staffRole: payload.staffRole,
-      permissions: payload.permissions,
-      sessionId: payload.sid,
-    };
+    const principal = await this.principals.resolve(payload.sub, payload.bid);
+    if (!principal) throw new UnauthorizedException('Access revoked');
+    return { ...principal, sessionId: payload.sid };
   }
 }

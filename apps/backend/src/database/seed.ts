@@ -1,4 +1,5 @@
 import { hashPassword } from '../auth/passwords/password-hasher';
+import { ROLE_PRESETS } from '../common/constants/permissions';
 import dataSource from './data-source';
 import { User } from '../entities/user.entity';
 import { TeamMember } from '../entities/team-member.entity';
@@ -54,7 +55,7 @@ async function seed() {
 
       const staff = {
         manager: { first: 'Bisi', last: 'Adeyemi', role: 'manager' as const },
-        cashier: { first: 'Chidi', last: 'Eze', role: 'apprentice' as const },
+        cashier: { first: 'Chidi', last: 'Eze', role: 'cashier' as const },
       };
       const ids: Record<'owner' | 'manager' | 'cashier', string> = {
         owner: owner.id,
@@ -82,8 +83,9 @@ async function seed() {
             businessId: owner.id,
             userId: user.id,
             name: `${s.first} ${s.last}`,
-            role: key === 'manager' ? 'manager' : 'checkout',
-            permissions: [],
+            role: s.role,
+            permissions: [...ROLE_PRESETS[s.role].permissions],
+            maxDiscountPercent: ROLE_PRESETS[s.role].maxDiscountPercent,
             status: 'active',
             joinedDate: new Date(),
           }),

@@ -1,48 +1,44 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import { randomBytes } from 'crypto';
 import { hashPassword } from '../auth/passwords/password-hasher';
 import type { TeamMember } from '../entities/team-member.entity';
-import type { User } from '../entities/user.entity';
 import type { CurrentUserPayload } from '../common';
+import { ROLE_PRESETS, type Permission } from '../common/constants/permissions';
 import { TeamRepository } from './team.repository';
 import type { TeamMemberUpdateData } from './team.repository';
 import { UsersRepository } from '../auth/users.repository';
-import { TEAM_ROLES } from './team.constants';
+import { PrincipalService } from '../auth/principal.service';
 import type { InviteMemberDto } from './dto/invite-member.dto';
 import type { UpdateMemberDto } from './dto/update-member.dto';
 import type { UpdatePermissionsDto } from './dto/update-permissions.dto';
 import type { QueryTeamDto } from './dto/query-team.dto';
 
-type TeamRoleValue = (typeof TEAM_ROLES)[number];
+type Actor = Pick<
+  CurrentUserPayload,
+  'id' | 'role' | 'businessId' | 'businessName' | 'permissions'
+> &
+  Partial<Pick<CurrentUserPayload, 'maxDiscountPercent'>>;
 
 /**
- * Map a team role to the login-facing user record. Team roles other than
- * `manager` live on an `apprentice` account distinguished by `staffRole`
- * (e.g. `investor`); `manager` gets the dedicated manager account.
+ * Team members and what they may do. Every change that affects access
+ * invalidates the member's cached principal, so it applies on their next
+ * request.
  */
-function mapTeamRoleToLogin(role: TeamRoleValue): {
-  role: 'manager' | 'apprentice';
-  staffRole: NonNullable<User['staffRole']>;
-} {
-  if (role === 'manager') return { role: 'manager', staffRole: 'manager' };
-  if (role === 'investor') return { role: 'apprentice', staffRole: 'investor' };
-  return { role: 'apprentice', staffRole: role };
-}
-
 @Injectable()
 export class TeamService {
   constructor(
     private teamRepository: TeamRepository,
     private usersRepository: UsersRepository,
+    private principals: PrincipalService,
   ) {}
 
-  async list(user: { businessId: string }, query: QueryTeamDto) {
-    return this.teamRepository.list({
-      businessId: user.businessId,
+  async list(actor: Pick<Actor, 'businessId'>, query: QueryTeamDto) {
+    return this.teamRepository.list(actor.businessId, {
       page: query.page,
       limit: query.limit,
       role: query.role,
@@ -50,18 +46,22 @@ export class TeamService {
     });
   }
 
-  async findOne(user: { businessId: string }, id: string): Promise<TeamMember> {
-    const member = await this.teamRepository.findByIdAndBusiness(
-      id,
-      user.businessId,
-    );
-    if (!member) {
-      throw new NotFoundException('Team member not found');
-    }
+  async findOne(
+    actor: Pick<Actor, 'businessId'>,
+    id: string,
+  ): Promise<TeamMember> {
+    const member = await this.teamRepository.findById(actor.businessId, id);
+    if (!member) throw new NotFoundException('Team member not found');
     return member;
   }
 
-  async inviteMember(user: CurrentUserPayload, inviteDto: InviteMemberDto) {
+  async inviteMember(actor: Actor, inviteDto: InviteMemberDto) {
+    const preset = ROLE_PRESETS[inviteDto.role];
+    const permissions = inviteDto.permissions ?? [...preset.permissions];
+    const maxDiscountPercent =
+      inviteDto.maxDiscountPercent ?? preset.maxDiscountPercent;
+    this.assertMayGrant(actor, permissions, maxDiscountPercent);
+
     const existing = await this.usersRepository.findByEmail(inviteDto.email);
     if (existing) {
       throw new BadRequestException('A user with this email already exists');
@@ -72,33 +72,36 @@ export class TeamService {
     // the hash is ever stored, and the plaintext is never logged.
     const temporaryPassword = randomBytes(8).toString('hex');
     const tempPasswordHash = await hashPassword(temporaryPassword);
+    const businessId = actor.businessId;
 
     return this.teamRepository.transaction(async (manager) => {
-      const login = mapTeamRoleToLogin(inviteDto.role);
-      const newUser = this.teamRepository.createUser(manager, {
+      const newUser = this.teamRepository.createUser(businessId, manager, {
         email: inviteDto.email,
         password: tempPasswordHash,
         firstName: inviteDto.name.split(' ')[0] || inviteDto.name,
         lastName: inviteDto.name.split(' ').slice(1).join(' ') || '',
-        businessName: user.businessName,
-        businessId: user.businessId,
-        role: login.role,
-        staffRole: login.staffRole,
+        businessName: actor.businessName,
+        role: inviteDto.role,
         status: 'invited',
       });
-      const savedUser = await this.teamRepository.saveUser(manager, newUser);
+      const savedUser = await this.teamRepository.saveUser(
+        businessId,
+        manager,
+        newUser,
+      );
 
-      const teamMember = this.teamRepository.createMember(manager, {
-        businessId: user.businessId,
+      const teamMember = this.teamRepository.createMember(businessId, manager, {
         userId: savedUser.id,
         name: inviteDto.name,
         role: inviteDto.role,
-        permissions: inviteDto.permissions ?? [],
+        permissions,
+        maxDiscountPercent,
         department: inviteDto.department,
         status: 'invited',
         joinedDate: new Date(),
       });
       const savedMember = await this.teamRepository.saveMember(
+        businessId,
         manager,
         teamMember,
       );
@@ -108,6 +111,8 @@ export class TeamService {
         email: savedUser.email,
         name: savedMember.name,
         role: savedMember.role,
+        permissions: savedMember.permissions,
+        maxDiscountPercent: savedMember.maxDiscountPercent,
         status: savedMember.status,
         message: 'Invitation created',
         temporaryPassword,
@@ -115,72 +120,96 @@ export class TeamService {
     });
   }
 
+  /**
+   * Role, status or department. A role change resets permissions to that
+   * role's preset; fine-tune them afterwards with `updatePermissions`.
+   */
   async updateMember(
-    user: { businessId: string },
+    actor: Actor,
     id: string,
     updateDto: UpdateMemberDto,
   ): Promise<TeamMember> {
-    const member = await this.teamRepository.findByIdAndBusiness(
-      id,
-      user.businessId,
-    );
-    if (!member) {
-      throw new NotFoundException('Team member not found');
-    }
-
+    const member = await this.findOther(actor, id);
     const data: TeamMemberUpdateData = {};
-    if (updateDto.role) {
+
+    if (updateDto.role && updateDto.role !== member.role) {
+      const preset = ROLE_PRESETS[updateDto.role];
+      this.assertMayGrant(actor, preset.permissions, preset.maxDiscountPercent);
       data.role = updateDto.role;
-      // Keep the login-facing user record in sync so reassigning a member
-      // to/from `investor` (or any team role) changes what they can log in as.
-      const user = await this.usersRepository.findById(member.userId);
-      if (user) {
-        const login = mapTeamRoleToLogin(updateDto.role);
-        user.role = login.role;
-        user.staffRole = login.staffRole;
-        await this.usersRepository.save(user);
-      }
+      data.permissions = [...preset.permissions];
+      data.maxDiscountPercent = preset.maxDiscountPercent;
     }
-    if (updateDto.status) {
-      data.status = updateDto.status;
-    }
+    if (updateDto.status) data.status = updateDto.status;
     if (updateDto.department !== undefined) {
       data.department = updateDto.department;
     }
 
-    return this.teamRepository.updateMember(member, data);
+    const saved = await this.teamRepository.updateMember(
+      actor.businessId,
+      member,
+      data,
+    );
+    if (data.role || data.status) {
+      await this.teamRepository.updateUser(actor.businessId, member.userId, {
+        ...(data.role ? { role: data.role } : {}),
+        ...(data.status === 'inactive' ? { status: 'inactive' } : {}),
+        ...(data.status === 'active' ? { status: 'active' } : {}),
+      });
+    }
+    this.principals.invalidate(member.userId);
+    return saved;
   }
 
-  async removeMember(
-    user: { businessId: string },
-    id: string,
-  ): Promise<{ message: string }> {
-    const member = await this.teamRepository.findByIdAndBusiness(
-      id,
-      user.businessId,
-    );
-    if (!member) {
-      throw new NotFoundException('Team member not found');
-    }
-    await this.teamRepository.removeMember(member);
+  async removeMember(actor: Actor, id: string): Promise<{ message: string }> {
+    const member = await this.findOther(actor, id);
+    await this.teamRepository.removeMember(actor.businessId, member);
+    this.principals.invalidate(member.userId);
     return { message: 'Team member removed successfully' };
   }
 
   async updatePermissions(
-    user: { businessId: string },
+    actor: Actor,
     id: string,
-    updatePermissionsDto: UpdatePermissionsDto,
+    dto: UpdatePermissionsDto,
   ): Promise<TeamMember> {
-    const member = await this.teamRepository.findByIdAndBusiness(
-      id,
-      user.businessId,
-    );
-    if (!member) {
-      throw new NotFoundException('Team member not found');
-    }
-    return this.teamRepository.updatePermissions(
+    const member = await this.findOther(actor, id);
+    const maxDiscountPercent =
+      dto.maxDiscountPercent ?? member.maxDiscountPercent;
+    this.assertMayGrant(actor, dto.permissions, maxDiscountPercent);
+
+    const saved = await this.teamRepository.updateMember(
+      actor.businessId,
       member,
-      updatePermissionsDto.permissions,
+      { permissions: [...new Set(dto.permissions)], maxDiscountPercent },
     );
+    this.principals.invalidate(member.userId);
+    return saved;
+  }
+
+  /** A member of this business other than the actor themselves. */
+  private async findOther(actor: Actor, id: string): Promise<TeamMember> {
+    const member = await this.findOne(actor, id);
+    if (member.userId === actor.id) {
+      throw new ForbiddenException('You cannot change your own access');
+    }
+    return member;
+  }
+
+  /** Non-owners may only hand out what they hold themselves. */
+  private assertMayGrant(
+    actor: Actor,
+    permissions: readonly Permission[],
+    maxDiscountPercent: number,
+  ): void {
+    if (actor.role === 'owner') return;
+    const missing = permissions.filter((p) => !actor.permissions.includes(p));
+    if (
+      missing.length > 0 ||
+      maxDiscountPercent > (actor.maxDiscountPercent ?? 0)
+    ) {
+      throw new ForbiddenException(
+        'You can only grant permissions you hold yourself',
+      );
+    }
   }
 }

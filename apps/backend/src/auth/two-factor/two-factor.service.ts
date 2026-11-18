@@ -238,10 +238,7 @@ export class TwoFactorService {
   }
 
   private async isRequiredFor(user: User): Promise<boolean> {
-    const handlesMoney =
-      user.role === 'owner' ||
-      user.role === 'manager' ||
-      user.staffRole === 'manager';
+    const handlesMoney = user.role === 'owner' || user.role === 'manager';
     if (!handlesMoney) return false;
     const businessId = user.businessId ?? user.id;
     if (businessId === user.id) return user.requireTwoFactor;

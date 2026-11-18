@@ -244,8 +244,7 @@ describe('TwoFactorService', () => {
       users.findById.mockResolvedValue(owner({ requireTwoFactor: true }));
       const manager = owner({
         id: 'm1',
-        role: 'apprentice',
-        staffRole: 'manager',
+        role: 'manager',
         businessId: 'u1',
       });
       await expect(service.describe(manager)).resolves.toMatchObject({
@@ -257,8 +256,7 @@ describe('TwoFactorService', () => {
     it('does not apply to other staff', async () => {
       const cashier = owner({
         id: 's1',
-        role: 'apprentice',
-        staffRole: 'checkout',
+        role: 'cashier',
         businessId: 'u1',
       });
       await expect(service.describe(cashier)).resolves.toMatchObject({

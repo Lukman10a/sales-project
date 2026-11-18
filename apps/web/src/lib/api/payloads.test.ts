@@ -13,7 +13,7 @@ import type { UserProfile } from "@/types/profileTypes";
 import { buildSaleRecord } from "@/lib/sales/saleRecord";
 
 describe("toTeamPermissions", () => {
-  it("keeps backend-valid permission names", () => {
+  it("sends the canonical backend names", () => {
     expect(
       toTeamPermissions([
         "view-products",
@@ -21,25 +21,19 @@ describe("toTeamPermissions", () => {
         "assign-roles",
         "view-reports",
       ]),
-    ).toEqual(["view-products", "record-sales", "assign-roles", "view-reports"]);
+    ).toEqual(["sales.record", "staff.manage", "reports.view_profit"]);
   });
 
-  it("strips the deprecated checkout-sales alias", () => {
-    expect(toTeamPermissions(["view-products", "checkout-sales"])).toEqual([
-      "view-products",
+  it("folds the deprecated checkout-sales alias into sales.record", () => {
+    expect(toTeamPermissions(["checkout-sales", "record-sales"])).toEqual([
+      "sales.record",
     ]);
   });
 
-  it("strips the deprecated view-out-of-stock alias", () => {
-    expect(toTeamPermissions(["view-inventory", "view-out-of-stock"])).toEqual([
-      "view-inventory",
-    ]);
-  });
-
-  it("returns an empty array when only aliases are sent", () => {
-    expect(toTeamPermissions(["checkout-sales", "view-out-of-stock"])).toEqual(
-      [],
-    );
+  it("returns an empty array when only view permissions are sent", () => {
+    expect(
+      toTeamPermissions(["view-inventory", "view-out-of-stock", "view-products"]),
+    ).toEqual([]);
   });
 });
 

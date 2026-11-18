@@ -13,8 +13,6 @@ import {
 import {
   JwtAuthGuard,
   PermissionsGuard,
-  RolesGuard,
-  Roles,
   RequirePermissions,
   CurrentUser,
   ZodValidationPipe,
@@ -32,12 +30,11 @@ export class ReportsController {
   /**
    * Generate a report and persist its snapshot
    * POST /reports
-   * Requires: owner | manager with view-reports
+   * Requires: reports.view_profit
    */
   @Post()
-  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
-  @Roles('owner', 'manager')
-  @RequirePermissions('view-reports')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions('reports.view_profit')
   @HttpCode(201)
   generate(
     @CurrentUser() user: CurrentUserPayload,
@@ -49,12 +46,11 @@ export class ReportsController {
   /**
    * List report history scoped to the business
    * GET /reports?page=1&limit=20
-   * Requires: owner | manager with view-reports
+   * Requires: reports.view_profit
    */
   @Get()
-  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
-  @Roles('owner', 'manager')
-  @RequirePermissions('view-reports')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions('reports.view_profit')
   list(
     @CurrentUser() user: CurrentUserPayload,
     @Query(new ZodValidationPipe(PaginationQuerySchema))
@@ -66,12 +62,11 @@ export class ReportsController {
   /**
    * Get a single report with its snapshot
    * GET /reports/:id
-   * Requires: owner | manager with view-reports
+   * Requires: reports.view_profit
    */
   @Get(':id')
-  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
-  @Roles('owner', 'manager')
-  @RequirePermissions('view-reports')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions('reports.view_profit')
   findOne(
     @CurrentUser() user: CurrentUserPayload,
     @Param('id', ParseUUIDPipe) id: string,
@@ -82,12 +77,11 @@ export class ReportsController {
   /**
    * Delete a report
    * DELETE /reports/:id
-   * Requires: owner | manager with view-reports
+   * Requires: reports.view_profit
    */
   @Delete(':id')
-  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
-  @Roles('owner', 'manager')
-  @RequirePermissions('view-reports')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions('reports.view_profit')
   @HttpCode(204)
   remove(
     @CurrentUser() user: CurrentUserPayload,

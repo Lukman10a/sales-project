@@ -8,9 +8,9 @@ import { InventoryItem } from '../entities/inventory-item.entity';
 import { HeldTransaction } from '../entities/held-transaction.entity';
 import { User } from '../entities/user.entity';
 import { PaginatedResult } from '../common/interfaces/paginated-result.interface';
+import { assertTenant } from '../common/tenancy/assert-tenant';
 
 export interface SalesListQuery {
-  businessId: string;
   page: number;
   limit: number;
   dateFrom?: string;
@@ -29,6 +29,10 @@ export interface SalesListResult extends PaginatedResult<Sale> {
   summary: SalesSummary;
 }
 
+/** A held (parked) sale stays retrievable for a day. */
+export const HELD_TTL_MS = 24 * 60 * 60 * 1000;
+
+/** Tenant-owned: every method takes `businessId` first. */
 @Injectable()
 export class SalesRepository extends Repository<Sale> {
   constructor(@InjectDataSource() private readonly dataSource: DataSource) {
@@ -40,28 +44,31 @@ export class SalesRepository extends Repository<Sale> {
   }
 
   async findProduct(
+    businessId: string,
     manager: EntityManager,
     id: string,
-    businessId: string,
   ): Promise<InventoryItem | null> {
     return manager.findOne(InventoryItem, { where: { id, businessId } });
   }
 
   saveProduct(
+    businessId: string,
     manager: EntityManager,
     product: InventoryItem,
   ): Promise<InventoryItem> {
+    assertTenant(businessId, product);
     return manager.save(product);
   }
 
-  saveSale(manager: EntityManager, sale: Sale): Promise<Sale> {
+  saveSale(businessId: string, manager: EntityManager, sale: Sale) {
+    assertTenant(businessId, sale);
     return manager.save(sale);
   }
 
   createSale(
+    businessId: string,
     manager: EntityManager,
     data: {
-      businessId: string;
       total: number;
       paymentMethod: Sale['paymentMethod'];
       status: 'completed';
@@ -83,6 +90,7 @@ export class SalesRepository extends Repository<Sale> {
   ): Promise<Sale> {
     const sale = manager.create(Sale, {
       ...data,
+      businessId,
       items: data.items.map((item) =>
         manager.create(SaleItem, {
           ...item,
@@ -94,9 +102,9 @@ export class SalesRepository extends Repository<Sale> {
   }
 
   findSaleWithItems(
+    businessId: string,
     manager: EntityManager,
     id: string,
-    businessId: string,
   ): Promise<Sale | null> {
     return manager.findOne(Sale, {
       where: { id, businessId },
@@ -104,18 +112,14 @@ export class SalesRepository extends Repository<Sale> {
     });
   }
 
-  async findSaleByIdAndBusiness(
-    id: string,
+  async resolveSellerNames(
     businessId: string,
-  ): Promise<Sale | null> {
-    return this.findOne({ where: { id, businessId } });
-  }
-
-  async resolveSellerNames(ids: string[]): Promise<Map<string, string>> {
+    ids: string[],
+  ): Promise<Map<string, string>> {
     if (ids.length === 0) return new Map();
 
     const users = await this.manager.find(User, {
-      where: { id: In(ids) },
+      where: { id: In(ids), businessId },
       select: ['id', 'firstName', 'lastName'],
     });
 
@@ -125,8 +129,8 @@ export class SalesRepository extends Repository<Sale> {
   }
 
   async findSaleWithItemsDirect(
-    id: string,
     businessId: string,
+    id: string,
   ): Promise<Sale | null> {
     return this.findOne({
       where: { id, businessId },
@@ -134,9 +138,11 @@ export class SalesRepository extends Repository<Sale> {
     });
   }
 
-  async list(query: SalesListQuery): Promise<SalesListResult> {
-    const { businessId, page, limit, dateFrom, dateTo, paymentMethod, status } =
-      query;
+  async list(
+    businessId: string,
+    query: SalesListQuery,
+  ): Promise<SalesListResult> {
+    const { page, limit, dateFrom, dateTo, paymentMethod, status } = query;
 
     const qb = this.createQueryBuilder('sale').where(
       'sale.businessId = :businessId',
@@ -164,8 +170,7 @@ export class SalesRepository extends Repository<Sale> {
       .take(limit)
       .getManyAndCount();
 
-    const summary = await this.computeSummary({
-      businessId,
+    const summary = await this.computeSummary(businessId, {
       dateFrom,
       dateTo,
       paymentMethod,
@@ -185,9 +190,10 @@ export class SalesRepository extends Repository<Sale> {
   }
 
   private async computeSummary(
+    businessId: string,
     query: Omit<SalesListQuery, 'page' | 'limit'>,
   ): Promise<SalesSummary> {
-    const { businessId, dateFrom, dateTo, paymentMethod, status } = query;
+    const { dateFrom, dateTo, paymentMethod, status } = query;
 
     const qb = this.createQueryBuilder('sale').where(
       'sale.businessId = :businessId',
@@ -239,27 +245,35 @@ export class SalesRepository extends Repository<Sale> {
   }
 
   async findHeld(
-    id: string,
     businessId: string,
+    id: string,
   ): Promise<HeldTransaction | null> {
     return this.manager.findOne(HeldTransaction, {
       where: { id, businessId },
     });
   }
 
-  createHeld(data: {
-    businessId: string;
-    customerName: string;
-    items: Array<{ productId: string; quantity: number; price: number }>;
-    heldBy: string;
-    discountPercent: number;
-    paymentMethod: Sale['paymentMethod'];
-  }): Promise<HeldTransaction> {
-    const held = this.manager.create(HeldTransaction, data);
+  createHeld(
+    businessId: string,
+    data: {
+      customerName: string;
+      items: Array<{ productId: string; quantity: number; price: number }>;
+      heldBy: string;
+      discountPercent: number;
+      paymentMethod: Sale['paymentMethod'];
+    },
+  ): Promise<HeldTransaction> {
+    // Set here: the column default cannot express "24 hours from now".
+    const held = this.manager.create(HeldTransaction, {
+      ...data,
+      businessId,
+      expiresAt: new Date(Date.now() + HELD_TTL_MS),
+    });
     return this.manager.save(held);
   }
 
-  async removeHeld(held: HeldTransaction): Promise<void> {
+  async removeHeld(businessId: string, held: HeldTransaction) {
+    assertTenant(businessId, held);
     await this.manager.remove(held);
   }
 }

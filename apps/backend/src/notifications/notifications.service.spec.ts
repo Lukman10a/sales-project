@@ -51,7 +51,11 @@ describe('NotificationsService', () => {
       };
 
       await expect(service.create(data)).resolves.toBe(notification);
-      expect(repository.createNotification).toHaveBeenCalledWith(data);
+      const { businessId, ...rest } = data;
+      expect(repository.createNotification).toHaveBeenCalledWith(
+        businessId,
+        rest,
+      );
     });
   });
 
@@ -68,8 +72,7 @@ describe('NotificationsService', () => {
       };
 
       await expect(service.list(user, query)).resolves.toBe(result);
-      expect(repository.list).toHaveBeenCalledWith({
-        businessId: 'b1',
+      expect(repository.list).toHaveBeenCalledWith('b1', {
         userId: 'u1',
         page: 1,
         limit: 20,
@@ -98,8 +101,8 @@ describe('NotificationsService', () => {
       repository.markAsRead.mockResolvedValue(saved);
 
       await expect(service.markAsRead(user, 'n1')).resolves.toBe(saved);
-      expect(repository.findByIdAndUser).toHaveBeenCalledWith('n1', 'b1', 'u1');
-      expect(repository.markAsRead).toHaveBeenCalledWith(notification);
+      expect(repository.findByIdAndUser).toHaveBeenCalledWith('b1', 'n1', 'u1');
+      expect(repository.markAsRead).toHaveBeenCalledWith('b1', notification);
     });
   });
 
@@ -120,7 +123,10 @@ describe('NotificationsService', () => {
       await expect(service.remove(user, 'n1')).resolves.toEqual({
         message: 'Notification deleted successfully',
       });
-      expect(repository.removeNotification).toHaveBeenCalledWith(notification);
+      expect(repository.removeNotification).toHaveBeenCalledWith(
+        'b1',
+        notification,
+      );
     });
   });
 

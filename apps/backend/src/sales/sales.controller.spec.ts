@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { SalesController } from './sales.controller';
 import { SalesService } from './sales.service';
-import { JwtAuthGuard, PermissionsGuard, RolesGuard } from '../common';
+import { JwtAuthGuard, PermissionsGuard } from '../common';
 
 describe('SalesController', () => {
   let controller: SalesController;
@@ -18,7 +18,9 @@ describe('SalesController', () => {
   const currentUser = {
     id: 'u1',
     email: 'owner@luxa.com',
-    role: 'owner',
+    role: 'owner' as const,
+    permissions: [],
+    maxDiscountPercent: 100,
     businessName: 'LUXA',
     businessId: 'b1',
   };
@@ -41,8 +43,6 @@ describe('SalesController', () => {
       .overrideGuard(JwtAuthGuard)
       .useValue({ canActivate: () => true })
       .overrideGuard(PermissionsGuard)
-      .useValue({ canActivate: () => true })
-      .overrideGuard(RolesGuard)
       .useValue({ canActivate: () => true })
       .compile();
 

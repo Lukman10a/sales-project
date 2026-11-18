@@ -8,7 +8,6 @@ import { JwtService, type JwtSignOptions } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import type { User } from '../entities/user.entity';
 import { UsersRepository } from './users.repository';
-import { TeamMemberRepository } from './team-members.repository';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { JwtPayload } from './interfaces/jwt-payload.interface';
@@ -26,11 +25,8 @@ import {
   verificationDeadline,
   verificationOverdue,
 } from './account-policy';
-import {
-  ALL_PERMISSIONS,
-  ROLE_DEFAULT_PERMISSIONS,
-} from '../common/constants/permissions';
 import { TwoFactorService } from './two-factor/two-factor.service';
+import { PrincipalService } from './principal.service';
 
 const INVALID_CREDENTIALS = 'Invalid credentials';
 
@@ -59,10 +55,10 @@ export class AuthService {
     private usersRepository: UsersRepository,
     private jwtService: JwtService,
     private configService: ConfigService,
-    private teamMemberRepository: TeamMemberRepository,
     private sessionsService: SessionsService,
     private accountService: AccountService,
     private twoFactorService: TwoFactorService,
+    private principals: PrincipalService,
   ) {}
 
   async register(registerDto: RegisterDto, ctx: ClientContext = {}) {
@@ -204,7 +200,12 @@ export class AuthService {
       ctx,
     );
     const user = await this.usersRepository.findById(userId);
-    if (!user || user.status === 'inactive' || verificationOverdue(user)) {
+    if (
+      !user ||
+      user.status === 'inactive' ||
+      verificationOverdue(user) ||
+      !(await this.principalOf(user))
+    ) {
       await this.sessionsService.revoke(issued.familyId);
       throw new UnauthorizedException('Invalid refresh token');
     }
@@ -244,13 +245,7 @@ export class AuthService {
 
   /** Deactivated accounts and overdue unverified owners may not sign in. */
   private assertMaySignIn(user: User): void {
-    if (user.status === 'inactive') {
-      throw new ForbiddenException({
-        statusCode: 403,
-        code: 'ACCOUNT_INACTIVE',
-        message: 'This account has been deactivated',
-      });
-    }
+    if (user.status === 'inactive') throw this.inactive();
     if (verificationOverdue(user)) {
       throw new ForbiddenException({
         statusCode: 403,
@@ -259,6 +254,14 @@ export class AuthService {
           'Verify your email address to continue. We can send you a new link.',
       });
     }
+  }
+
+  private inactive() {
+    return new ForbiddenException({
+      statusCode: 403,
+      code: 'ACCOUNT_INACTIVE',
+      message: 'This account has been deactivated',
+    });
   }
 
   private async findUserOrThrow(userId: string): Promise<User> {
@@ -272,27 +275,17 @@ export class AuthService {
   }
 
   /**
-   * Effective permissions for the token and /auth/me payload. Owners always
-   * hold every permission. Staff load their stored TeamMember permissions
-   * (businessId + userId); when none are stored, the role's defaults apply.
-   * Users with no TeamMember row (owner self-registration edge) keep an empty
-   * permission set.
+   * The user's current principal (role, permissions) in their business.
+   * Null when they may not act there, e.g. a deactivated team member.
    */
-  private async loadEffectivePermissions(user: User): Promise<string[]> {
-    if (user.role === 'owner') return [...ALL_PERMISSIONS];
-
-    const member = await this.teamMemberRepository.findByBusinessAndUser(
-      user.businessId ?? user.id,
-      user.id,
-    );
-    if (!member) return [];
-
-    if (member.permissions.length > 0) return [...member.permissions];
-    return ROLE_DEFAULT_PERMISSIONS[member.role] ?? [];
+  private async principalOf(user: User) {
+    this.principals.invalidate(user.id);
+    return this.principals.resolve(user.id, user.businessId ?? user.id);
   }
 
   /** Starts a session family and signs the first access token for it. */
   private async signIn(user: User, ctx: ClientContext, persistent: boolean) {
+    if (!(await this.principalOf(user))) throw this.inactive();
     const issued = await this.sessionsService.start(
       { id: user.id, businessId: user.businessId ?? user.id },
       ctx,
@@ -330,17 +323,12 @@ export class AuthService {
     }
   }
 
-  private async signAccessToken(user: User, sessionId: string) {
-    const permissions = await this.loadEffectivePermissions(user);
+  /** Identity only (sub, sid, bid); permissions are resolved per request. */
+  private signAccessToken(user: User, sessionId: string) {
     const payload: JwtPayload = {
       sub: user.id,
       sid: sessionId,
-      email: user.email,
-      role: user.role,
-      businessName: user.businessName,
-      businessId: user.businessId ?? user.id,
-      staffRole: user.staffRole,
-      permissions,
+      bid: user.businessId ?? user.id,
     };
 
     const expiresIn: JwtSignOptions['expiresIn'] =
@@ -351,7 +339,10 @@ export class AuthService {
   }
 
   private async toUserResponse(user: User) {
-    const permissions = await this.loadEffectivePermissions(user);
+    const principal = await this.principals.resolve(
+      user.id,
+      user.businessId ?? user.id,
+    );
     return {
       id: user.id,
       email: user.email,
@@ -361,8 +352,8 @@ export class AuthService {
       businessId: user.businessId ?? user.id,
       role: user.role,
       avatar: user.avatar,
-      staffRole: user.staffRole,
-      permissions,
+      permissions: principal?.permissions ?? [],
+      maxDiscountPercent: principal?.maxDiscountPercent ?? 0,
       emailVerified: verificationDeadline(user) === null,
       verifyBy: verificationDeadline(user)?.toISOString() ?? null,
       ...(await this.twoFactorService.describe(user)),

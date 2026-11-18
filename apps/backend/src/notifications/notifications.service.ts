@@ -12,15 +12,15 @@ export class NotificationsService {
   constructor(private notificationsRepository: NotificationsRepository) {}
 
   async create(data: CreateNotificationData): Promise<Notification> {
-    return this.notificationsRepository.createNotification(data);
+    const { businessId, ...rest } = data;
+    return this.notificationsRepository.createNotification(businessId, rest);
   }
 
   async list(
     user: { id: string; businessId: string },
     query: QueryNotificationsDto,
   ): Promise<NotificationsListResult> {
-    return this.notificationsRepository.list({
-      businessId: user.businessId,
+    return this.notificationsRepository.list(user.businessId, {
       userId: user.id,
       page: query.page,
       limit: query.limit,
@@ -34,7 +34,10 @@ export class NotificationsService {
     id: string,
   ): Promise<Notification> {
     const notification = await this.findByIdForUser(user, id);
-    return this.notificationsRepository.markAsRead(notification);
+    return this.notificationsRepository.markAsRead(
+      user.businessId,
+      notification,
+    );
   }
 
   async remove(
@@ -42,7 +45,10 @@ export class NotificationsService {
     id: string,
   ): Promise<{ message: string }> {
     const notification = await this.findByIdForUser(user, id);
-    await this.notificationsRepository.removeNotification(notification);
+    await this.notificationsRepository.removeNotification(
+      user.businessId,
+      notification,
+    );
     return { message: 'Notification deleted successfully' };
   }
 
@@ -62,8 +68,8 @@ export class NotificationsService {
     id: string,
   ): Promise<Notification> {
     const notification = await this.notificationsRepository.findByIdAndUser(
-      id,
       user.businessId,
+      id,
       user.id,
     );
     if (!notification) {

@@ -28,7 +28,7 @@ const backendMember1: BackendTeamMember = {
   email: "jane@luxa.com",
   role: "manager",
   status: "active",
-  permissions: ["view-products", "record-sales"],
+  permissions: ["sales.record"],
   department: "Sales",
   joinedDate: "2026-08-01T00:00:00.000Z",
   createdAt: "2026-08-01T00:00:00.000Z",
@@ -40,9 +40,9 @@ const backendMember2: BackendTeamMember = {
   userId: "u2",
   name: "John Smith",
   email: "john@luxa.com",
-  role: "inventory",
+  role: "cashier",
   status: "invited",
-  permissions: ["view-inventory"],
+  permissions: [],
   joinedDate: "2026-08-02T00:00:00.000Z",
   createdAt: "2026-08-02T00:00:00.000Z",
   updatedAt: "2026-08-02T00:00:00.000Z",
@@ -100,7 +100,9 @@ function Harness() {
         update
       </button>
       <button
-        onClick={() => updatePermissions("m1", ["view-inventory", "view-out-of-stock"])}
+        onClick={() =>
+          updatePermissions("m1", ["view-inventory", "edit-inventory", "view-out-of-stock"])
+        }
       >
         updatePermissions
       </button>
@@ -149,11 +151,11 @@ describe("TeamDataContext", () => {
       "jane@luxa.com,john@luxa.com",
     );
     expect(screen.getByTestId("permissions").textContent).toBe(
-      "view-products|record-sales,view-inventory",
+      "view-products|view-inventory|record-sales|view-sales-history,view-products|view-inventory",
     );
   });
 
-  it("inviteMember posts to /team, silently stripping deprecated aliases", async () => {
+  it("inviteMember posts to /team with backend role and permission names", async () => {
     apiMock.post.mockResolvedValue({ id: "m3", message: "Invitation sent" });
     renderContext(<Harness />);
     await waitFor(() =>
@@ -168,8 +170,8 @@ describe("TeamDataContext", () => {
         expect.objectContaining({
           email: "ada@luxa.com",
           name: "Ada Lovelace",
-          role: "checkout",
-          permissions: ["view-products"],
+          role: "cashier",
+          permissions: ["sales.record"],
           department: "Sales",
         }),
       ),
@@ -219,13 +221,13 @@ describe("TeamDataContext", () => {
 
     await waitFor(() =>
       expect(apiMock.patch).toHaveBeenCalledWith("/team/m1", {
-        role: "checkout",
+        role: "cashier",
         status: "active",
       }),
     );
   });
 
-  it("updatePermissions patches /team/:id/permissions with aliases stripped", async () => {
+  it("updatePermissions patches /team/:id/permissions with backend names", async () => {
     apiMock.patch.mockResolvedValue({ id: "m1" });
     renderContext(<Harness />);
     await waitFor(() =>
@@ -236,7 +238,7 @@ describe("TeamDataContext", () => {
 
     await waitFor(() =>
       expect(apiMock.patch).toHaveBeenCalledWith("/team/m1/permissions", {
-        permissions: ["view-inventory"],
+        permissions: ["products.restock"],
       }),
     );
   });

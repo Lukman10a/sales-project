@@ -30,10 +30,11 @@ describe('AuthController', () => {
   const currentUser = {
     id: 'u1',
     email: 'owner@luxa.com',
-    role: 'owner',
+    role: 'owner' as const,
+    permissions: [],
+    maxDiscountPercent: 100,
     businessName: 'LUXA',
     businessId: 'u1',
-    permissions: ['view-products'],
     sessionId: 'sid-1',
   };
 

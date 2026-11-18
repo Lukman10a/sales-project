@@ -4,8 +4,6 @@ import {
   JwtAuthGuard,
   PermissionsGuard,
   RequirePermissions,
-  Roles,
-  RolesGuard,
   ZodValidationPipe,
 } from '../common';
 import type { CurrentUserPayload } from '../common';
@@ -21,10 +19,9 @@ export class InsightsController {
 
   @Post('generate')
   // RateLimitGuard again after JwtAuthGuard: the AI rule counts per business.
-  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard, RateLimitGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard, RateLimitGuard)
   @RateLimit(AI_RULE)
-  @Roles('owner', 'manager')
-  @RequirePermissions('view-reports')
+  @RequirePermissions('reports.view_profit')
   generate(
     @CurrentUser() user: CurrentUserPayload,
     @Query(new ZodValidationPipe(QueryInsightsDtoSchema))
@@ -34,9 +31,8 @@ export class InsightsController {
   }
 
   @Get()
-  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
-  @Roles('owner', 'manager')
-  @RequirePermissions('view-reports')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions('reports.view_profit')
   list(
     @CurrentUser() user: CurrentUserPayload,
     @Query(new ZodValidationPipe(QueryInsightsDtoSchema))
@@ -46,9 +42,8 @@ export class InsightsController {
   }
 
   @Get(':id')
-  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
-  @Roles('owner', 'manager')
-  @RequirePermissions('view-reports')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions('reports.view_profit')
   findOne(@CurrentUser() user: CurrentUserPayload, @Param('id') id: string) {
     return this.insightsService.findOne(user, id);
   }

@@ -21,12 +21,20 @@ A stockable product the business sells or tracks.
 _Avoid_: Product, stock entry
 
 **Staff role**:
-The access level granted to a team member. Login accounts are canonical `owner`, `manager`, `apprentice`; a separate `staffRole` column on the user record refines team accounts (`sales-assistant`, `manager`, `checkout`, `inventory`, `investor`). Team roles map to a login account: `manager` → `manager`, everything else → `apprentice` with `staffRole` carrying the team role. Kept in sync when a member's role changes.
-_Avoid_: Role, permission (see Permission)
+The role a team member holds: `manager` or `cashier`. With `owner`, these are the only login roles; a member's login role is kept equal to their team role. A role sets a member's starting permissions (its preset); the owner can then change them switch by switch.
+_Avoid_: Apprentice, staffRole (both removed in T33), permission (see Permission)
 
 **Permission**:
-A granular capability granted to a role. Canonical set: `view-products`, `edit-products`, `delete-products`, `view-sales-history`, `record-sales`, `view-inventory`, `edit-inventory`, `assign-roles`, `view-reports`.
+A capability held by a team member, stored on their team-member row; owners hold all of them. Canonical set: `sales.record`, `sales.discount`, `sales.refund`, `products.edit_price`, `products.restock`, `products.delete`, `reports.view_profit`, `staff.manage`, `billing.manage`, `settings.manage`. Presets: manager = record, discount, refund, restock (10% discount cap); cashier = record (no discount). Viewing products and stock needs only membership. Checked per request from the database, never from the token, so a change applies on the next request.
 _Avoid_: Access right, privilege
+
+**Discount cap**:
+`maxDiscountPercent` on a team member: the largest discount they may give, and only with `sales.discount`. Owners are uncapped.
+_Avoid_: Discount limit
+
+**Tenant**:
+A business, identified by `businessId` (the owner's user id). Every repository holding business data takes `businessId` as its first argument; a record of another tenant is reported as not found.
+_Avoid_: Organisation, account
 
 **Team member**:
 A person granted access to the business through an invitation.

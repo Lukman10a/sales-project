@@ -9,6 +9,13 @@ import type { InventoryItem } from '../entities/inventory-item.entity';
 import type { HeldTransaction } from '../entities/held-transaction.entity';
 import { calculateStatus } from '../inventory/inventory.service';
 import { SalesRepository } from './sales.repository';
+import { assertMayDiscount } from '../common/constants/access-policy';
+import type { CurrentUserPayload } from '../common';
+
+type Seller = Pick<
+  CurrentUserPayload,
+  'id' | 'businessId' | 'role' | 'permissions' | 'maxDiscountPercent'
+>;
 import type { CreateSaleDto } from './dto/create-sale.dto';
 import type { QuerySalesDto } from './dto/query-sales.dto';
 import type { RefundSaleDto } from './dto/refund-sale.dto';
@@ -21,10 +28,8 @@ export class SalesService {
     private eventEmitter: EventEmitter2,
   ) {}
 
-  async create(
-    user: { id: string; businessId: string },
-    createSaleDto: CreateSaleDto,
-  ): Promise<Sale> {
+  async create(user: Seller, createSaleDto: CreateSaleDto): Promise<Sale> {
+    assertMayDiscount(user, createSaleDto.discountPercent ?? 0);
     const { sale, lowStockProducts } = await this.salesRepository.transaction(
       async (manager) => {
         let subtotal = 0;
@@ -38,9 +43,9 @@ export class SalesService {
 
         for (const item of createSaleDto.items) {
           const product = await this.salesRepository.findProduct(
+            user.businessId,
             manager,
             item.productId,
-            user.businessId,
           );
           if (!product) {
             throw new NotFoundException(`Product ${item.productId} not found`);
@@ -57,7 +62,11 @@ export class SalesService {
             product.quantity,
             product.reorderPoint,
           );
-          await this.salesRepository.saveProduct(manager, product);
+          await this.salesRepository.saveProduct(
+            user.businessId,
+            manager,
+            product,
+          );
 
           if (
             product.status === 'low-stock' ||
@@ -78,23 +87,26 @@ export class SalesService {
         const discountPercent = createSaleDto.discountPercent ?? 0;
         const total = subtotal - subtotal * (discountPercent / 100);
 
-        const sale = await this.salesRepository.createSale(manager, {
-          businessId: user.businessId,
-          total,
-          paymentMethod: createSaleDto.paymentMethod,
-          status: 'completed',
-          saleDate: createSaleDto.saleDate
-            ? new Date(createSaleDto.saleDate)
-            : new Date(),
-          soldBy: user.id,
-          customerId: createSaleDto.customerId,
-          customerName: createSaleDto.customerName,
-          discountPercent,
-          splitPayments: createSaleDto.splitPayments,
-          loyaltyPointsUsed: createSaleDto.loyaltyPointsUsed,
-          accountCredit: createSaleDto.accountCredit,
-          items,
-        });
+        const sale = await this.salesRepository.createSale(
+          user.businessId,
+          manager,
+          {
+            total,
+            paymentMethod: createSaleDto.paymentMethod,
+            status: 'completed',
+            saleDate: createSaleDto.saleDate
+              ? new Date(createSaleDto.saleDate)
+              : new Date(),
+            soldBy: user.id,
+            customerId: createSaleDto.customerId,
+            customerName: createSaleDto.customerName,
+            discountPercent,
+            splitPayments: createSaleDto.splitPayments,
+            loyaltyPointsUsed: createSaleDto.loyaltyPointsUsed,
+            accountCredit: createSaleDto.accountCredit,
+            items,
+          },
+        );
 
         return { sale, lowStockProducts };
       },
@@ -116,8 +128,7 @@ export class SalesService {
   }
 
   async list(user: { businessId: string }, query: QuerySalesDto) {
-    const result = await this.salesRepository.list({
-      businessId: user.businessId,
+    const result = await this.salesRepository.list(user.businessId, {
       page: query.page,
       limit: query.limit,
       dateFrom: query.dateFrom
@@ -130,30 +141,34 @@ export class SalesService {
       status: query.status,
     });
 
-    const data = await this.enrichSellers(result.data);
+    const data = await this.enrichSellers(user.businessId, result.data);
 
     return { ...result, data };
   }
 
   async findOne(user: { businessId: string }, id: string): Promise<Sale> {
     const sale = await this.salesRepository.findSaleWithItemsDirect(
-      id,
       user.businessId,
+      id,
     );
     if (!sale) {
       throw new NotFoundException('Sale not found');
     }
-    const [enriched] = await this.enrichSellers([sale]);
+    const [enriched] = await this.enrichSellers(user.businessId, [sale]);
     return enriched;
   }
 
   private async enrichSellers(
+    businessId: string,
     sales: Sale[],
   ): Promise<Array<Sale & { soldByName?: string }>> {
     if (sales.length === 0) return sales;
 
     const ids = [...new Set(sales.map((sale) => sale.soldBy))];
-    const names = await this.salesRepository.resolveSellerNames(ids);
+    const names = await this.salesRepository.resolveSellerNames(
+      businessId,
+      ids,
+    );
 
     return sales.map((sale) => ({
       ...sale,
@@ -168,9 +183,9 @@ export class SalesService {
   ): Promise<Sale> {
     return this.salesRepository.transaction(async (manager) => {
       const sale = await this.salesRepository.findSaleWithItems(
+        user.businessId,
         manager,
         id,
-        user.businessId,
       );
       if (!sale) {
         throw new NotFoundException('Sale not found');
@@ -181,9 +196,9 @@ export class SalesService {
 
       for (const item of sale.items) {
         const product = await this.salesRepository.findProduct(
+          user.businessId,
           manager,
           item.productId,
-          user.businessId,
         );
         if (product) {
           product.quantity += item.quantity;
@@ -192,23 +207,27 @@ export class SalesService {
             product.quantity,
             product.reorderPoint,
           );
-          await this.salesRepository.saveProduct(manager, product);
+          await this.salesRepository.saveProduct(
+            user.businessId,
+            manager,
+            product,
+          );
         }
       }
 
       sale.status = 'refunded';
       sale.refundAmount = refundDto.refundAmount ?? sale.total;
       sale.refundReason = refundDto.refundReason;
-      return this.salesRepository.saveSale(manager, sale);
+      return this.salesRepository.saveSale(user.businessId, manager, sale);
     });
   }
 
   async createHeld(
-    user: { id: string; businessId: string },
+    user: Seller,
     createHeldDto: CreateHeldTransactionDto,
   ): Promise<HeldTransaction> {
-    return this.salesRepository.createHeld({
-      businessId: user.businessId,
+    assertMayDiscount(user, createHeldDto.discountPercent ?? 0);
+    return this.salesRepository.createHeld(user.businessId, {
       customerName: createHeldDto.customerName,
       items: createHeldDto.items.map((item) => ({
         productId: item.productId,
@@ -229,11 +248,11 @@ export class SalesService {
     user: { businessId: string },
     id: string,
   ): Promise<{ message: string }> {
-    const held = await this.salesRepository.findHeld(id, user.businessId);
+    const held = await this.salesRepository.findHeld(user.businessId, id);
     if (!held) {
       throw new NotFoundException('Held transaction not found');
     }
-    await this.salesRepository.removeHeld(held);
+    await this.salesRepository.removeHeld(user.businessId, held);
     return { message: 'Held transaction removed successfully' };
   }
 }

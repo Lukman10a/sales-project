@@ -20,6 +20,11 @@ import { AuthTokensService } from './auth-tokens.service';
 import { AccountService } from './account.service';
 import { SessionsRepository } from './sessions.repository';
 import { SessionsService } from './sessions.service';
+import {
+  MemoryPrincipalCache,
+  PRINCIPAL_CACHE,
+  PrincipalService,
+} from './principal.service';
 import { TwoFactorBackupCode } from '../entities/two-factor-backup-code.entity';
 import { BackupCodesRepository } from './two-factor/backup-codes.repository';
 import { TwoFactorService } from './two-factor/two-factor.service';
@@ -59,6 +64,8 @@ import {
     AccountService,
     BackupCodesRepository,
     TwoFactorService,
+    PrincipalService,
+    { provide: PRINCIPAL_CACHE, useValue: new MemoryPrincipalCache() },
     {
       provide: SECRET_BOX,
       useFactory: (config: ConfigService) =>
@@ -69,6 +76,12 @@ import {
     },
   ],
   controllers: [AuthController, TwoFactorController],
-  exports: [AuthService, JwtModule, UsersRepository, SessionsService],
+  exports: [
+    AuthService,
+    JwtModule,
+    UsersRepository,
+    SessionsService,
+    PrincipalService,
+  ],
 })
 export class AuthModule {}

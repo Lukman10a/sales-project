@@ -7,6 +7,7 @@ import { User } from '../entities/user.entity';
 import { Sale } from '../entities/sale.entity';
 import { SaleItem } from '../entities/sale-item.entity';
 import { InventoryItem } from '../entities/inventory-item.entity';
+import { assertTenant } from '../common/tenancy/assert-tenant';
 
 export interface ReportsListResult {
   data: Report[];
@@ -21,6 +22,7 @@ export interface ProfitSummary {
   netProfit: number;
 }
 
+/** Tenant-owned: every method takes `businessId` first. */
 @Injectable()
 export class ReportsRepository {
   constructor(
@@ -30,8 +32,11 @@ export class ReportsRepository {
     private readonly userRepository: Repository<User>,
   ) {}
 
-  async create(entity: Partial<Report>): Promise<Report> {
-    const report = this.repository.create(entity);
+  async create(
+    businessId: string,
+    entity: Omit<Partial<Report>, 'businessId'>,
+  ): Promise<Report> {
+    const report = this.repository.create({ ...entity, businessId });
     return this.repository.save(report);
   }
 
@@ -55,15 +60,19 @@ export class ReportsRepository {
     return this.repository.findOne({ where: { id, businessId } });
   }
 
-  async remove(report: Report): Promise<void> {
+  async remove(businessId: string, report: Report): Promise<void> {
+    assertTenant(businessId, report);
     await this.repository.remove(report);
   }
 
-  async resolveCreatorNames(ids: string[]): Promise<Map<string, string>> {
+  async resolveCreatorNames(
+    businessId: string,
+    ids: string[],
+  ): Promise<Map<string, string>> {
     if (ids.length === 0) return new Map();
 
     const users = await this.userRepository.find({
-      where: { id: In(ids) },
+      where: { id: In(ids), businessId },
       select: ['id', 'firstName', 'lastName'],
     });
 

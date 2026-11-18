@@ -206,7 +206,7 @@ describe("AuthService", () => {
       user: {
         ...backendUser,
         role: "manager",
-        permissions: ["record-sales", "view-inventory"],
+        permissions: ["sales.record", "products.restock"],
       },
     });
 
@@ -219,7 +219,9 @@ describe("AuthService", () => {
     expect(user).toMatchObject({
       role: "apprentice",
       staffRole: "manager",
-      permissions: ["record-sales", "view-inventory"],
     });
+    expect(user.permissions).toEqual(
+      expect.arrayContaining(["record-sales", "edit-inventory", "view-inventory"]),
+    );
   });
 });

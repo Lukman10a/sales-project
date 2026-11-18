@@ -26,7 +26,20 @@ describe('SalesService', () => {
   };
   let eventEmitter: { emit: jest.Mock };
 
-  const user = { id: 'u1', businessId: 'b1' };
+  const user = {
+    id: 'u1',
+    businessId: 'b1',
+    role: 'owner' as const,
+    permissions: [],
+    maxDiscountPercent: 100,
+  };
+  const cashier = {
+    ...user,
+    id: 'c1',
+    role: 'cashier' as const,
+    permissions: ['sales.record' as const],
+    maxDiscountPercent: 0,
+  };
 
   const product = {
     id: 'p1',
@@ -78,7 +91,7 @@ describe('SalesService', () => {
             quantity: 10,
           });
           repository.saveProduct.mockImplementation(
-            (_m: never, p: InventoryItem) => Promise.resolve(p),
+            (_b: string, _m: never, p: InventoryItem) => Promise.resolve(p),
           );
           repository.createSale.mockResolvedValue(sale);
           return fn(manager);
@@ -94,9 +107,9 @@ describe('SalesService', () => {
       const result = await service.create(user, dto);
 
       expect(repository.findProduct).toHaveBeenCalledWith(
+        'b1',
         expect.anything(),
         'p1',
-        'b1',
       );
       expect(repository.saveProduct).toHaveBeenCalled();
       expect(repository.createSale).toHaveBeenCalled();
@@ -196,6 +209,7 @@ describe('SalesService', () => {
       });
 
       expect(repository.createSale).toHaveBeenCalledWith(
+        'b1',
         expect.anything(),
         expect.objectContaining({
           items: [expect.objectContaining({ productName: 'Widget' })],
@@ -228,6 +242,7 @@ describe('SalesService', () => {
       });
 
       expect(repository.createSale).toHaveBeenCalledWith(
+        'b1',
         expect.anything(),
         expect.objectContaining({
           splitPayments: [
@@ -257,8 +272,7 @@ describe('SalesService', () => {
         pagination: {},
         summary: {},
       });
-      expect(repository.list).toHaveBeenCalledWith({
-        businessId: 'b1',
+      expect(repository.list).toHaveBeenCalledWith('b1', {
         page: 1,
         limit: 20,
         dateFrom: '2024-01-01',
@@ -281,7 +295,7 @@ describe('SalesService', () => {
 
       const result = await service.list(user, {} as never);
 
-      expect(repository.resolveSellerNames).toHaveBeenCalledWith(['u1']);
+      expect(repository.resolveSellerNames).toHaveBeenCalledWith('b1', ['u1']);
       expect(result.data[0].soldByName).toBe('Ada Lovelace');
     });
   });
@@ -306,8 +320,8 @@ describe('SalesService', () => {
 
       expect(result).toEqual({ ...sale, soldByName: 'Ada Lovelace' });
       expect(repository.findSaleWithItemsDirect).toHaveBeenCalledWith(
-        's1',
         'b1',
+        's1',
       );
     });
   });
@@ -361,7 +375,7 @@ describe('SalesService', () => {
             sold: 2,
           });
           repository.saveProduct.mockImplementation(
-            (_m: never, p: InventoryItem) => Promise.resolve(p),
+            (_b: string, _m: never, p: InventoryItem) => Promise.resolve(p),
           );
           repository.saveSale.mockResolvedValue(sale);
           return fn({} as never);
@@ -373,14 +387,48 @@ describe('SalesService', () => {
       const result = await service.refund(user, 's1', dto);
 
       expect(repository.saveProduct).toHaveBeenCalledWith(
+        'b1',
         expect.anything(),
         expect.objectContaining({ quantity: 10, sold: 0 }),
       );
       expect(sale.status).toBe('refunded');
       expect(sale.refundAmount).toBe(100);
       expect(sale.refundReason).toBe('customer request');
-      expect(repository.saveSale).toHaveBeenCalledWith(expect.anything(), sale);
+      expect(repository.saveSale).toHaveBeenCalledWith(
+        'b1',
+        expect.anything(),
+        sale,
+      );
       expect(result).toBe(sale);
+    });
+  });
+
+  describe('discount limits', () => {
+    const dto = {
+      items: [{ productId: 'p1', quantity: 1, price: 50 }],
+      paymentMethod: 'cash' as const,
+      discountPercent: 5,
+    };
+
+    it('refuses a discount from someone without sales.discount', async () => {
+      await expect(service.create(cashier, dto)).rejects.toThrow(
+        'not allowed to give discounts',
+      );
+      await expect(
+        service.createHeld(cashier, { ...dto, customerName: 'C' }),
+      ).rejects.toThrow('not allowed to give discounts');
+      expect(repository.transaction).not.toHaveBeenCalled();
+      expect(repository.createHeld).not.toHaveBeenCalled();
+    });
+
+    it("refuses a discount above the member's cap", async () => {
+      const manager = {
+        ...cashier,
+        role: 'manager' as const,
+        permissions: ['sales.record' as const, 'sales.discount' as const],
+        maxDiscountPercent: 4,
+      };
+      await expect(service.create(manager, dto)).rejects.toThrow('at most 4%');
     });
   });
 
@@ -399,8 +447,8 @@ describe('SalesService', () => {
       const result = await service.createHeld(user, dto);
 
       expect(repository.createHeld).toHaveBeenCalledWith(
+        'b1',
         expect.objectContaining({
-          businessId: 'b1',
           heldBy: 'u1',
           customerName: 'Customer',
           items: dto.items,
@@ -431,7 +479,7 @@ describe('SalesService', () => {
 
       await service.removeHeld(user, 'h1');
 
-      expect(repository.removeHeld).toHaveBeenCalledWith(held);
+      expect(repository.removeHeld).toHaveBeenCalledWith('b1', held);
     });
   });
 });

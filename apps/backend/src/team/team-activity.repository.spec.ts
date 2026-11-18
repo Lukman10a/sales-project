@@ -102,8 +102,9 @@ describe('TeamActivityRepository', () => {
       .mockResolvedValue([{ id: 'u1', firstName: 'A', lastName: 'B' }]);
     dataSource.getRepository.mockReturnValue({ find });
 
-    const map = await repo.resolveUserNames(['u1']);
+    const map = await repo.resolveUserNames('b1', ['u1']);
     expect(map.get('u1')).toBe('A B');
-    expect(await repo.resolveUserNames([])).toEqual(new Map());
+    expect(find.mock.calls[0]).toMatchObject([{ where: { businessId: 'b1' } }]);
+    expect(await repo.resolveUserNames('b1', [])).toEqual(new Map());
   });
 });

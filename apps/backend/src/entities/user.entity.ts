@@ -34,16 +34,13 @@ export class User {
   @Column({ type: 'uuid', nullable: true })
   businessId?: string;
 
+  /** Login role. Staff permissions live on their team-member row. */
   @Column({
     type: 'enum',
-    enum: ['owner', 'manager', 'apprentice'],
+    enum: ['owner', 'manager', 'cashier'],
     default: 'owner',
   })
-  role!: 'owner' | 'manager' | 'apprentice';
-
-  @Column({ nullable: true })
-  staffRole?:
-    'sales-assistant' | 'manager' | 'checkout' | 'inventory' | 'investor';
+  role!: 'owner' | 'manager' | 'cashier';
 
   @Column({ nullable: true })
   avatar?: string;
