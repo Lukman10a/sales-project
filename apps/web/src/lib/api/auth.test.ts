@@ -110,4 +110,20 @@ describe("auth api", () => {
     expect(apiMock.get).toHaveBeenCalledWith("/auth/me");
     expect(me).toMatchObject({ firstName: "Ada", role: "owner" });
   });
+
+  it("posts the emailed-link flows to their endpoints", async () => {
+    apiMock.post.mockResolvedValue({ message: "ok" });
+
+    await authApi.verifyEmail("tok");
+    await authApi.resendVerification("a@b.co");
+    await authApi.forgotPassword("a@b.co");
+    await authApi.resetPassword("tok", "Brand-new-pass-1");
+
+    expect(apiMock.post.mock.calls).toEqual([
+      ["/auth/verify-email", { token: "tok" }],
+      ["/auth/verify-email/resend", { email: "a@b.co" }],
+      ["/auth/forgot-password", { email: "a@b.co" }],
+      ["/auth/reset-password", { token: "tok", password: "Brand-new-pass-1" }],
+    ]);
+  });
 });

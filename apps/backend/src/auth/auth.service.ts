@@ -1,11 +1,11 @@
 import {
   Injectable,
   BadRequestException,
+  ForbiddenException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService, type JwtSignOptions } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
-import * as bcrypt from 'bcrypt';
 import type { User } from '../entities/user.entity';
 import { UsersRepository } from './users.repository';
 import { TeamMemberRepository } from './team-members.repository';
@@ -13,6 +13,21 @@ import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { JwtPayload } from './interfaces/jwt-payload.interface';
 import { SessionsService, type ClientContext } from './sessions.service';
+import { AccountService } from './account.service';
+import {
+  burnPasswordCheck,
+  hashPassword,
+  needsRehash,
+  verifyPassword,
+} from './passwords/password-hasher';
+import {
+  afterFailedLogin,
+  isLocked,
+  verificationDeadline,
+  verificationOverdue,
+} from './account-policy';
+
+const INVALID_CREDENTIALS = 'Invalid credentials';
 import {
   ALL_PERMISSIONS,
   ROLE_DEFAULT_PERMISSIONS,
@@ -26,6 +41,7 @@ export class AuthService {
     private configService: ConfigService,
     private teamMemberRepository: TeamMemberRepository,
     private sessionsService: SessionsService,
+    private accountService: AccountService,
   ) {}
 
   async register(registerDto: RegisterDto, ctx: ClientContext = {}) {
@@ -37,8 +53,7 @@ export class AuthService {
       throw new BadRequestException('Email already registered');
     }
 
-    // Hash password
-    const hashedPassword = await bcrypt.hash(password, 10);
+    const hashedPassword = await hashPassword(password);
 
     // Create new user
     const user = this.usersRepository.create({
@@ -49,6 +64,8 @@ export class AuthService {
       businessName,
       role: 'owner',
       status: 'active',
+      emailVerifiedAt: null,
+      failedLoginAttempts: 0,
     });
 
     await this.usersRepository.save(user);
@@ -56,6 +73,7 @@ export class AuthService {
     // Owner accounts act as their own tenant
     user.businessId = user.id;
     await this.usersRepository.save(user);
+    this.accountService.sendVerificationInBackground(user);
 
     return {
       message: 'User registered successfully',
@@ -67,20 +85,33 @@ export class AuthService {
   async login(loginDto: LoginDto, ctx: ClientContext = {}) {
     const { email, password, remember = false } = loginDto;
 
-    // Find user
     const user = await this.usersRepository.findByEmail(email);
-    if (!user) {
-      throw new UnauthorizedException('Invalid credentials');
+
+    // Unknown and locked accounts spend the same bcrypt time and get the same
+    // answer as a wrong password, so neither existence nor lock state leaks.
+    if (!user || isLocked(user)) {
+      await burnPasswordCheck(password);
+      throw new UnauthorizedException(INVALID_CREDENTIALS);
     }
 
-    // Check password
-    const isPasswordValid = await bcrypt.compare(password, user.password);
-    if (!isPasswordValid) {
-      throw new UnauthorizedException('Invalid credentials');
+    if (!(await verifyPassword(password, user.password))) {
+      const next = afterFailedLogin(user);
+      user.failedLoginAttempts = next.failedLoginAttempts;
+      user.lockedUntil = next.lockedUntil;
+      await this.usersRepository.save(user);
+      if (next.locked) this.accountService.accountLocked(user, ctx);
+      throw new UnauthorizedException(INVALID_CREDENTIALS);
     }
 
-    // Update last login
+    // Only someone who knows the password learns about these states.
+    this.assertMaySignIn(user);
+
+    user.failedLoginAttempts = 0;
+    user.lockedUntil = null;
     user.lastLogin = new Date();
+    if (needsRehash(user.password)) {
+      user.password = await hashPassword(password);
+    }
     await this.usersRepository.save(user);
 
     return {
@@ -96,7 +127,7 @@ export class AuthService {
       ctx,
     );
     const user = await this.usersRepository.findById(userId);
-    if (!user || user.status === 'inactive') {
+    if (!user || user.status === 'inactive' || verificationOverdue(user)) {
       await this.sessionsService.revoke(issued.familyId);
       throw new UnauthorizedException('Invalid refresh token');
     }
@@ -132,6 +163,25 @@ export class AuthService {
   async revokeSession(userId: string, sessionId: string) {
     await this.sessionsService.revokeOne(userId, sessionId);
     return { message: 'Session revoked' };
+  }
+
+  /** Deactivated accounts and overdue unverified owners may not sign in. */
+  private assertMaySignIn(user: User): void {
+    if (user.status === 'inactive') {
+      throw new ForbiddenException({
+        statusCode: 403,
+        code: 'ACCOUNT_INACTIVE',
+        message: 'This account has been deactivated',
+      });
+    }
+    if (verificationOverdue(user)) {
+      throw new ForbiddenException({
+        statusCode: 403,
+        code: 'EMAIL_UNVERIFIED',
+        message:
+          'Verify your email address to continue. We can send you a new link.',
+      });
+    }
   }
 
   private async findUserOrThrow(userId: string): Promise<User> {
@@ -210,6 +260,8 @@ export class AuthService {
       avatar: user.avatar,
       staffRole: user.staffRole,
       permissions,
+      emailVerified: verificationDeadline(user) === null,
+      verifyBy: verificationDeadline(user)?.toISOString() ?? null,
     };
   }
 }

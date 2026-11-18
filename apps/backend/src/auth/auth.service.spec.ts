@@ -1,4 +1,8 @@
-import { BadRequestException, UnauthorizedException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { AuthService } from './auth.service';
 import { UsersRepository } from './users.repository';
@@ -9,6 +13,7 @@ import { ALL_PERMISSIONS } from '../common/constants/permissions';
 jest.mock('bcrypt', () => ({
   hash: jest.fn(),
   compare: jest.fn(),
+  getRounds: jest.fn(() => 12),
 }));
 
 describe('AuthService', () => {
@@ -58,13 +63,29 @@ describe('AuthService', () => {
     businessId: 'u1',
     role: 'owner',
     status: 'active',
+    createdAt: new Date(),
+    emailVerifiedAt: new Date(),
+    failedLoginAttempts: 0,
+    lockedUntil: null,
   } as unknown as User;
+  /** A fresh copy: login mutates the user it loads. */
+  const freshUser = (overrides: Partial<User> = {}) => ({
+    ...baseUser,
+    ...overrides,
+  });
+  let accountService: {
+    sendVerificationInBackground: jest.Mock;
+    accountLocked: jest.Mock;
+  };
 
   beforeEach(() => {
     usersRepository = {
       findByEmail: jest.fn((_email: string) => Promise.resolve(null)),
       findById: jest.fn((_id: string) => Promise.resolve(null)),
-      create: jest.fn((data: Partial<User>) => ({ id: 'u1', ...data }) as User),
+      create: jest.fn(
+        (data: Partial<User>) =>
+          ({ id: 'u1', createdAt: new Date(), ...data }) as User,
+      ),
       save: jest.fn((user: User) => Promise.resolve(user)),
     };
     teamMemberRepository = {
@@ -97,12 +118,17 @@ describe('AuthService', () => {
       revokeOne: jest.fn().mockResolvedValue(undefined),
     };
 
+    accountService = {
+      sendVerificationInBackground: jest.fn(),
+      accountLocked: jest.fn(),
+    };
     service = new AuthService(
       usersRepository as unknown as UsersRepository,
       jwtService as never,
       configService as never,
       teamMemberRepository as never,
       sessionsService as never,
+      accountService as never,
     );
   });
 
@@ -143,7 +169,12 @@ describe('AuthService', () => {
           status: 'active',
         }),
       );
-      expect(bcrypt.hash).toHaveBeenCalledWith(dto.password, 10);
+      expect(bcrypt.hash).toHaveBeenCalledWith(dto.password, 12);
+      expect(accountService.sendVerificationInBackground).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 'u1', emailVerifiedAt: null }),
+      );
+      expect(result.user.emailVerified).toBe(false);
+      expect(result.user.verifyBy).toEqual(expect.any(String));
       expect(result.message).toBe('User registered successfully');
       expect(result.user.businessId).toBe('u1');
       expect(result.session).toEqual({
@@ -173,16 +204,103 @@ describe('AuthService', () => {
       );
     });
 
-    it('throws UnauthorizedException for an incorrect password', async () => {
-      usersRepository.findByEmail.mockResolvedValue(baseUser);
+    it('spends bcrypt time even for an unknown email', async () => {
+      usersRepository.findByEmail.mockResolvedValue(null);
+      await expect(service.login(dto)).rejects.toThrow('Invalid credentials');
+      expect(bcrypt.compare).toHaveBeenCalled();
+    });
+
+    it('counts a wrong password', async () => {
+      const user = freshUser({ failedLoginAttempts: 2 });
+      usersRepository.findByEmail.mockResolvedValue(user);
 
       await expect(service.login(dto)).rejects.toBeInstanceOf(
         UnauthorizedException,
       );
+      expect(user.failedLoginAttempts).toBe(3);
+      expect(usersRepository.save).toHaveBeenCalledWith(user);
+      expect(accountService.accountLocked).not.toHaveBeenCalled();
     });
 
-    it('returns tokens and user for valid credentials', async () => {
-      usersRepository.findByEmail.mockResolvedValue(baseUser);
+    it('locks the account on the 5th wrong password and reports it', async () => {
+      const user = freshUser({ failedLoginAttempts: 4 });
+      usersRepository.findByEmail.mockResolvedValue(user);
+      const ctx = { ip: '9.9.9.9' };
+
+      await expect(service.login(dto, ctx)).rejects.toThrow(
+        'Invalid credentials',
+      );
+      expect(user.lockedUntil).toBeInstanceOf(Date);
+      expect(accountService.accountLocked).toHaveBeenCalledWith(user, ctx);
+    });
+
+    it('refuses a locked account even with the right password', async () => {
+      const user = freshUser({
+        lockedUntil: new Date(Date.now() + 60_000),
+        password: 'real-hash',
+      });
+      usersRepository.findByEmail.mockResolvedValue(user);
+      (bcrypt.compare as jest.Mock).mockResolvedValue(true);
+
+      await expect(service.login(dto)).rejects.toThrow('Invalid credentials');
+      expect(bcrypt.compare).not.toHaveBeenCalledWith(
+        dto.password,
+        'real-hash',
+      );
+      expect(sessionsService.start).not.toHaveBeenCalled();
+    });
+
+    it('rejects a deactivated account after the password check', async () => {
+      usersRepository.findByEmail.mockResolvedValue(
+        freshUser({ status: 'inactive' }),
+      );
+      (bcrypt.compare as jest.Mock).mockResolvedValue(true);
+
+      await expect(service.login(dto)).rejects.toThrow(
+        'This account has been deactivated',
+      );
+    });
+
+    it('rejects an owner who has not verified within 7 days', async () => {
+      usersRepository.findByEmail.mockResolvedValue(
+        freshUser({
+          emailVerifiedAt: null,
+          createdAt: new Date(Date.now() - 8 * 24 * 60 * 60_000),
+        }),
+      );
+      (bcrypt.compare as jest.Mock).mockResolvedValue(true);
+
+      await expect(service.login(dto)).rejects.toBeInstanceOf(
+        ForbiddenException,
+      );
+    });
+
+    it('lets an unverified owner in during the grace period', async () => {
+      usersRepository.findByEmail.mockResolvedValue(
+        freshUser({ emailVerifiedAt: null }),
+      );
+      (bcrypt.compare as jest.Mock).mockResolvedValue(true);
+
+      const result = await service.login(dto);
+      expect(result.user.emailVerified).toBe(false);
+    });
+
+    it('re-hashes a password stored at an outdated cost', async () => {
+      const user = freshUser();
+      usersRepository.findByEmail.mockResolvedValue(user);
+      (bcrypt.compare as jest.Mock).mockResolvedValue(true);
+      (bcrypt.getRounds as jest.Mock).mockReturnValueOnce(10);
+      (bcrypt.hash as jest.Mock).mockResolvedValue('upgraded-hash');
+
+      await service.login(dto);
+
+      expect(bcrypt.hash).toHaveBeenCalledWith(dto.password, 12);
+      expect(user.password).toBe('upgraded-hash');
+    });
+
+    it('returns tokens and user for valid credentials and clears failures', async () => {
+      const user = freshUser({ failedLoginAttempts: 3 });
+      usersRepository.findByEmail.mockResolvedValue(user);
       (bcrypt.compare as jest.Mock).mockResolvedValue(true);
       usersRepository.save.mockImplementation((user: User) =>
         Promise.resolve(user),
@@ -202,6 +320,7 @@ describe('AuthService', () => {
       expect(usersRepository.save).toHaveBeenCalled();
       const savedArg = usersRepository.save.mock.calls[0][0];
       expect(savedArg.lastLogin).toBeInstanceOf(Date);
+      expect(savedArg.failedLoginAttempts).toBe(0);
     });
   });
 
@@ -230,6 +349,19 @@ describe('AuthService', () => {
         status: 'inactive',
       });
 
+      await expect(service.refresh('token')).rejects.toBeInstanceOf(
+        UnauthorizedException,
+      );
+      expect(sessionsService.revoke).toHaveBeenCalledWith('sid-1');
+    });
+
+    it('revokes the session of an owner whose verification is overdue', async () => {
+      usersRepository.findById.mockResolvedValue(
+        freshUser({
+          emailVerifiedAt: null,
+          createdAt: new Date(Date.now() - 8 * 24 * 60 * 60_000),
+        }),
+      );
       await expect(service.refresh('token')).rejects.toBeInstanceOf(
         UnauthorizedException,
       );
@@ -469,6 +601,8 @@ describe('AuthService', () => {
         avatar: 'data:image/png;base64,abc',
         staffRole: 'manager',
         permissions: [],
+        emailVerified: true,
+        verifyBy: null,
       });
     });
   });

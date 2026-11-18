@@ -19,6 +19,7 @@ describe('ProfileController', () => {
     role: 'owner',
     businessName: 'LUXA',
     businessId: 'u1',
+    sessionId: 'sid-1',
   };
 
   beforeEach(async () => {
@@ -67,7 +68,11 @@ describe('ProfileController', () => {
     await expect(controller.changePassword(currentUser, dto)).resolves.toEqual({
       message: 'ok',
     });
-    expect(profileService.changePassword).toHaveBeenCalledWith('u1', dto);
+    expect(profileService.changePassword).toHaveBeenCalledWith(
+      'u1',
+      dto,
+      'sid-1',
+    );
   });
 
   it('delegates updatePreferences to the service', async () => {

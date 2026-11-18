@@ -48,6 +48,8 @@ describe("roles", () => {
       businessName: "LUXA",
       businessId: "b1",
       avatar: "",
+      emailVerified: true,
+      verifyBy: null,
     });
   });
 

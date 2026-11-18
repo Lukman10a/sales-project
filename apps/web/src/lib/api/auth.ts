@@ -23,6 +23,14 @@ export const authApi = {
     api.post<{ message: string; revoked: number }>("/auth/logout-all"),
   getMe: () => api.get<MeResponse>("/auth/me"),
   sessions: () => api.get<AuthSession[]>("/auth/sessions"),
+  verifyEmail: (token: string) =>
+    api.post<{ message: string }>("/auth/verify-email", { token }),
+  resendVerification: (email: string) =>
+    api.post<{ message: string }>("/auth/verify-email/resend", { email }),
+  forgotPassword: (email: string) =>
+    api.post<{ message: string }>("/auth/forgot-password", { email }),
+  resetPassword: (token: string, password: string) =>
+    api.post<{ message: string }>("/auth/reset-password", { token, password }),
   revokeSession: (id: string) =>
     api.delete<{ message: string }>(`/auth/sessions/${encodeURIComponent(id)}`),
 };

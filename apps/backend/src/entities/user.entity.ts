@@ -64,6 +64,17 @@ export class User {
   @Column({ nullable: true })
   lastLogin?: Date;
 
+  /** Owners verify within 7 days of sign-up. Staff are created verified. */
+  @Column({ type: 'timestamptz', nullable: true })
+  emailVerifiedAt?: Date | null;
+
+  /** Consecutive wrong passwords; reset by a successful sign-in. */
+  @Column({ type: 'int', default: 0 })
+  failedLoginAttempts!: number;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  lockedUntil?: Date | null;
+
   // Relations
   @OneToMany(() => Sale, (sale) => sale.owner)
   sales!: Sale[];

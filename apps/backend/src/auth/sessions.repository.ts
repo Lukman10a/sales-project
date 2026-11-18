@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
-import { DataSource, IsNull, MoreThan, Repository } from 'typeorm';
+import { DataSource, IsNull, MoreThan, Not, Repository } from 'typeorm';
 import { Session, SessionRevokeReason } from '../entities/session.entity';
 
 @Injectable()
@@ -54,6 +54,18 @@ export class SessionsRepository extends Repository<Session> {
   ): Promise<number> {
     const result = await this.update(
       { userId, revokedAt: IsNull() },
+      { revokedAt: new Date(), revokedReason: reason },
+    );
+    return result.affected ?? 0;
+  }
+
+  async revokeAllForUserExcept(
+    userId: string,
+    keepFamilyId: string,
+    reason: SessionRevokeReason,
+  ): Promise<number> {
+    const result = await this.update(
+      { userId, familyId: Not(keepFamilyId), revokedAt: IsNull() },
       { revokedAt: new Date(), revokedReason: reason },
     );
     return result.affected ?? 0;

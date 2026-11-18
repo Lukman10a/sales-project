@@ -16,12 +16,20 @@ export interface ApiErrorField {
 export class ApiError extends Error {
   errors?: ApiErrorField[];
   status?: number;
+  /** Machine-readable reason, e.g. EMAIL_UNVERIFIED or ACCOUNT_INACTIVE. */
+  code?: string;
 
-  constructor(message: string, errors?: ApiErrorField[], status?: number) {
+  constructor(
+    message: string,
+    errors?: ApiErrorField[],
+    status?: number,
+    code?: string,
+  ) {
     super(message);
     this.name = "ApiError";
     this.errors = errors;
     this.status = status;
+    this.code = code;
   }
 }
 
@@ -118,11 +126,14 @@ export function refreshSession(): Promise<boolean> {
 async function toApiError(res: Response): Promise<ApiError> {
   let message = `Request failed with status ${res.status}`;
   let errors: ApiErrorField[] | undefined;
+  let code: string | undefined;
   try {
     const body = (await res.json()) as {
       message?: string | string[];
       errors?: ApiErrorField[];
+      code?: unknown;
     };
+    if (typeof body.code === "string") code = body.code;
     if (typeof body.message === "string") {
       message = body.message;
     } else if (Array.isArray(body.message)) {
@@ -134,7 +145,7 @@ async function toApiError(res: Response): Promise<ApiError> {
   } catch {
     // Non-JSON error body; keep the status fallback message.
   }
-  return new ApiError(message, errors, res.status);
+  return new ApiError(message, errors, res.status, code);
 }
 
 async function request<T>(

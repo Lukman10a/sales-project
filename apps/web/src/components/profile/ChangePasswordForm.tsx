@@ -1,5 +1,6 @@
 "use client";
 
+import { passwordProblem } from "@/lib/password-rules";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,8 +34,9 @@ export default function ChangePasswordForm({
       toast(t("Please fill in all fields"));
       return;
     }
-    if (newPassword.length < 8) {
-      toast(t("Password must be at least 8 characters"));
+    const problem = passwordProblem(newPassword);
+    if (problem) {
+      toast(t(problem));
       return;
     }
     if (newPassword !== confirmPassword) {

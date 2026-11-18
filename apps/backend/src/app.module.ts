@@ -16,6 +16,8 @@ import { ReportsModule } from './reports/reports.module';
 import { InsightsModule } from './insights/insights.module';
 import { getDatabaseConfig } from './database/database.config';
 import { configModuleOptions } from './config/config.options';
+import { MailModule } from './mail/mail.module';
+import { RateLimitModule } from './common/rate-limit/rate-limit.module';
 
 @Module({
   imports: [
@@ -28,6 +30,8 @@ import { configModuleOptions } from './config/config.options';
     }),
     EventEmitterModule.forRoot(),
     ScheduleModule.forRoot(),
+    RateLimitModule,
+    MailModule,
     AuthModule,
     ProfileModule,
     InventoryModule,

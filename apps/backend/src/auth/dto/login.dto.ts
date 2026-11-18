@@ -3,7 +3,8 @@ import { z } from 'zod';
 export const LoginDtoSchema = z
   .object({
     email: z.email(),
-    password: z.string().min(8),
+    // Not the new-password policy: older, shorter passwords must still work.
+    password: z.string().min(1).max(128),
     /** 'Trust this device': keep the session for 30 days. */
     remember: z.boolean().optional(),
   })

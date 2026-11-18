@@ -14,6 +14,7 @@ import { UserProfile } from '../entities/user-profile.entity';
 import { Report } from '../entities/report.entity';
 import { AiInsight } from '../entities/ai-insight.entity';
 import { Session } from '../entities/session.entity';
+import { AuthToken } from '../entities/auth-token.entity';
 
 export const ENTITIES = [
   User,
@@ -27,6 +28,7 @@ export const ENTITIES = [
   Report,
   AiInsight,
   Session,
+  AuthToken,
 ];
 
 /** Compiled (.js) or ts-node (.ts) migrations, wherever this file runs from. */

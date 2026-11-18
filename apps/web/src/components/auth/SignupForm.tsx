@@ -1,5 +1,6 @@
 "use client";
 
+import { passwordProblem } from "@/lib/password-rules";
 import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -29,8 +30,9 @@ export function SignupForm() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-    if (password.length < 8) {
-      setError(t("Password must be at least 8 characters"));
+    const problem = passwordProblem(password);
+    if (problem) {
+      setError(t(problem));
       return;
     }
     if (password !== confirm) {
@@ -160,13 +162,13 @@ export function SignupForm() {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder={t("minimum 8 characters")}
+              placeholder={t("minimum 10 characters")}
               className="h-11"
               required
             />
             <p className="text-xs text-muted-foreground">
               {t(
-                "Password must be at least 8 characters with upper, lower and a number",
+                "At least 10 characters. Avoid common passwords; a short phrase works well.",
               )}
             </p>
           </div>

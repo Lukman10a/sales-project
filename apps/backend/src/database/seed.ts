@@ -1,4 +1,4 @@
-import * as bcrypt from 'bcrypt';
+import { hashPassword } from '../auth/passwords/password-hasher';
 import dataSource from './data-source';
 import { User } from '../entities/user.entity';
 import { TeamMember } from '../entities/team-member.entity';
@@ -35,7 +35,7 @@ async function seed() {
         return;
       }
 
-      const hash = await bcrypt.hash(password, 10);
+      const hash = await hashPassword(password);
       const businessName = 'Ade Mart (demo)';
       const owner = await em.save(
         em.create(User, {
@@ -46,6 +46,7 @@ async function seed() {
           businessName,
           role: 'owner',
           status: 'active',
+          emailVerifiedAt: new Date(),
         }),
       );
       owner.businessId = owner.id;

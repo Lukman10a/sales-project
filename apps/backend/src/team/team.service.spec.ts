@@ -158,7 +158,7 @@ describe('TeamService', () => {
 
       const result = await service.inviteMember(ownerUser, dto);
 
-      expect(bcrypt.hash).toHaveBeenCalledWith(expect.any(String), 10);
+      expect(bcrypt.hash).toHaveBeenCalledWith(expect.any(String), 12);
       expect(teamRepository.createUser).toHaveBeenCalledWith(
         expect.anything(),
         expect.objectContaining({

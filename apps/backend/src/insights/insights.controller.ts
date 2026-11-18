@@ -10,6 +10,8 @@ import {
 } from '../common';
 import type { CurrentUserPayload } from '../common';
 import { InsightsService } from './insights.service';
+import { RateLimitGuard } from '../common/guards/rate-limit.guard';
+import { AI_RULE, RateLimit } from '../common/rate-limit/rate-limit.decorator';
 import { QueryInsightsDtoSchema } from './dto/query-insights.dto';
 import type { QueryInsightsDto } from './dto/query-insights.dto';
 
@@ -18,7 +20,9 @@ export class InsightsController {
   constructor(private readonly insightsService: InsightsService) {}
 
   @Post('generate')
-  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
+  // RateLimitGuard again after JwtAuthGuard: the AI rule counts per business.
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard, RateLimitGuard)
+  @RateLimit(AI_RULE)
   @Roles('owner', 'manager')
   @RequirePermissions('view-reports')
   generate(

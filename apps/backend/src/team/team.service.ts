@@ -4,7 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { randomBytes } from 'crypto';
-import * as bcrypt from 'bcrypt';
+import { hashPassword } from '../auth/passwords/password-hasher';
 import type { TeamMember } from '../entities/team-member.entity';
 import type { User } from '../entities/user.entity';
 import type { CurrentUserPayload } from '../common';
@@ -71,7 +71,7 @@ export class TeamService {
     // caller exactly once so the owner can share it with the invited member; only
     // the hash is ever stored, and the plaintext is never logged.
     const temporaryPassword = randomBytes(8).toString('hex');
-    const tempPasswordHash = await bcrypt.hash(temporaryPassword, 10);
+    const tempPasswordHash = await hashPassword(temporaryPassword);
 
     return this.teamRepository.transaction(async (manager) => {
       const login = mapTeamRoleToLogin(inviteDto.role);

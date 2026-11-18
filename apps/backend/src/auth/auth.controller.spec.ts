@@ -4,6 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import type { Request, Response } from 'express';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
+import { AccountService } from './account.service';
 import { JwtAuthGuard } from '../common';
 
 describe('AuthController', () => {
@@ -17,6 +18,11 @@ describe('AuthController', () => {
     | 'listSessions'
     | 'revokeSession'
     | 'me',
+    jest.Mock
+  >;
+
+  let accountService: Record<
+    'verifyEmail' | 'resendVerification' | 'forgotPassword' | 'resetPassword',
     jest.Mock
   >;
 
@@ -63,11 +69,18 @@ describe('AuthController', () => {
       revokeSession: jest.fn(),
       me: jest.fn(),
     };
+    accountService = {
+      verifyEmail: jest.fn().mockResolvedValue({ message: 'confirmed' }),
+      resendVerification: jest.fn().mockResolvedValue({ message: 'sent' }),
+      forgotPassword: jest.fn().mockResolvedValue({ message: 'sent' }),
+      resetPassword: jest.fn().mockResolvedValue({ message: 'updated' }),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       controllers: [AuthController],
       providers: [
         { provide: AuthService, useValue: authService },
+        { provide: AccountService, useValue: accountService },
         {
           provide: ConfigService,
           useValue: {
@@ -188,6 +201,32 @@ describe('AuthController', () => {
 
     await controller.revokeSession(currentUser, 'sid-2');
     expect(authService.revokeSession).toHaveBeenCalledWith('u1', 'sid-2');
+  });
+
+  it('delegates the emailed-link flows to the account service', async () => {
+    await expect(controller.verifyEmail({ token: 't' })).resolves.toEqual({
+      message: 'confirmed',
+    });
+    await controller.resendVerification({ email: 'a@b.co' });
+    await controller.forgotPassword({ email: 'a@b.co' });
+    expect(accountService.verifyEmail).toHaveBeenCalledWith('t');
+    expect(accountService.resendVerification).toHaveBeenCalledWith('a@b.co');
+    expect(accountService.forgotPassword).toHaveBeenCalledWith('a@b.co');
+  });
+
+  it('resets the password and clears this browser’s cookies', async () => {
+    const r = res();
+    await expect(
+      controller.resetPassword(
+        { token: 't', password: 'Brand-new-pass-1' },
+        r.asRes,
+      ),
+    ).resolves.toEqual({ message: 'updated' });
+    expect(accountService.resetPassword).toHaveBeenCalledWith(
+      't',
+      'Brand-new-pass-1',
+    );
+    expect(r.clearCookie).toHaveBeenCalledTimes(3);
   });
 
   it('returns the full current user via the service', async () => {

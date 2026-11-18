@@ -28,6 +28,10 @@ export interface AuthUser {
   avatar?: string;
   staffRole?: string;
   permissions?: string[];
+  /** Owners only: false until the emailed link is used. */
+  emailVerified?: boolean;
+  /** ISO date after which an unverified owner can no longer sign in. */
+  verifyBy?: string | null;
 }
 
 /** Tokens travel only in httpOnly cookies, never in the body. */

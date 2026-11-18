@@ -21,6 +21,8 @@ export interface AppUser {
   businessId?: string;
   avatar: string;
   permissions?: Permission[];
+  emailVerified?: boolean;
+  verifyBy?: string | null;
 }
 
 export const INVESTOR_COMING_SOON =
@@ -81,5 +83,7 @@ export function mapAuthUser(backendUser: AuthUser): AppUser {
     businessId: backendUser.businessId,
     avatar: backendUser.avatar ?? "",
     permissions: backendUser.permissions as Permission[] | undefined,
+    emailVerified: backendUser.emailVerified ?? true,
+    verifyBy: backendUser.verifyBy ?? null,
   };
 }

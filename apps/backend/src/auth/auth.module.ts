@@ -14,12 +14,16 @@ import { UsersRepository } from './users.repository';
 import { TeamMemberRepository } from './team-members.repository';
 import { User } from '../entities/user.entity';
 import { Session } from '../entities/session.entity';
+import { AuthToken } from '../entities/auth-token.entity';
+import { AuthTokensRepository } from './auth-tokens.repository';
+import { AuthTokensService } from './auth-tokens.service';
+import { AccountService } from './account.service';
 import { SessionsRepository } from './sessions.repository';
 import { SessionsService } from './sessions.service';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User, Session]),
+    TypeOrmModule.forFeature([User, Session, AuthToken]),
     PassportModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
@@ -41,6 +45,9 @@ import { SessionsService } from './sessions.service';
     TeamMemberRepository,
     SessionsRepository,
     SessionsService,
+    AuthTokensRepository,
+    AuthTokensService,
+    AccountService,
   ],
   controllers: [AuthController],
   exports: [AuthService, JwtModule, UsersRepository, SessionsService],

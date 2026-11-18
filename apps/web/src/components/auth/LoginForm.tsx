@@ -1,6 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
+import { ApiError } from "@/lib/api/client";
+import { authApi } from "@/lib/api/auth";
 import { useAuth } from "@/contexts/AuthContext";
 import { AuthService } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
@@ -25,17 +28,22 @@ export function LoginForm() {
   const [rememberMe, setRememberMe] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  const [unverified, setUnverified] = useState(false);
+  const [notice, setNotice] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const { t } = useLanguage();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    setNotice("");
+    setUnverified(false);
     setIsLoading(true);
 
     try {
       await login({ email, password, role, remember: rememberMe });
     } catch (err) {
+      setUnverified(err instanceof ApiError && err.code === "EMAIL_UNVERIFIED");
       const fallback = t("Login failed. Please try again.");
       if (err instanceof Error) {
         setError(t(err.message, { fallback }));
@@ -44,6 +52,15 @@ export function LoginForm() {
       }
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const resendVerification = async () => {
+    try {
+      const res = await authApi.resendVerification(email.trim());
+      setNotice(t(res.message));
+    } catch {
+      setNotice(t("Could not send the link. Please try again."));
     }
   };
 
@@ -80,9 +97,25 @@ export function LoginForm() {
         >
           <Alert variant="destructive">
             <AlertCircle className="h-4 w-4" />
-            <AlertDescription>{error}</AlertDescription>
+            <AlertDescription>
+              {error}
+              {unverified && (
+                <button
+                  type="button"
+                  onClick={resendVerification}
+                  className="block mt-2 font-medium underline"
+                >
+                  {t("Send me a new confirmation link")}
+                </button>
+              )}
+            </AlertDescription>
           </Alert>
         </motion.div>
+      )}
+      {notice && (
+        <Alert>
+          <AlertDescription>{notice}</AlertDescription>
+        </Alert>
       )}
 
       {/* Google Sign In */}
@@ -148,7 +181,7 @@ export function LoginForm() {
             <Input
               id="password"
               type={showPassword ? "text" : "password"}
-              placeholder={t("minimum 8 characters")}
+              placeholder={t("Enter your password")}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               className="h-11 bg-background border-input pr-10"
@@ -190,13 +223,9 @@ export function LoginForm() {
               {t("Remember me")}
             </label>
           </div>
-          <a
-            href="#"
-            className="text-sm hover:underline"
-            onClick={(e) => e.preventDefault()}
-          >
+          <Link href="/auth/forgot-password" className="text-sm hover:underline">
             {t("Forgot password?")}
-          </a>
+          </Link>
         </div>
 
         {/* Submit Button */}

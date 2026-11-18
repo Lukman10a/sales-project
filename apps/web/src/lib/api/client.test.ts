@@ -101,6 +101,17 @@ describe("api client", () => {
     });
   });
 
+  it("carries the machine-readable error code", async () => {
+    fetchMock.mockResolvedValue(
+      res({ message: "Verify your email", code: "EMAIL_UNVERIFIED" }, 403),
+    );
+
+    await expect(api.post("/auth/login", {})).rejects.toMatchObject({
+      status: 403,
+      code: "EMAIL_UNVERIFIED",
+    });
+  });
+
   it("joins array error messages", async () => {
     fetchMock.mockResolvedValue(
       res({ message: ["first error", "second error"] }, 422),
