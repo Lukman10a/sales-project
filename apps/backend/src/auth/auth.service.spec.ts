@@ -33,6 +33,17 @@ describe('AuthService', () => {
   let jwtService: {
     signAsync: jest.Mock<Promise<string>, [object, object]>;
     verify: jest.Mock;
+    verifyAsync: jest.Mock;
+  };
+  let twoFactorService: {
+    isEnabled: jest.Mock<boolean, [User]>;
+    check: jest.Mock;
+    describe: jest.Mock;
+  };
+  const twoFactorOff = {
+    twoFactorEnabled: false,
+    twoFactorRequired: false,
+    twoFactorSetupRequired: false,
   };
   let sessionsService: {
     start: jest.Mock;
@@ -98,6 +109,12 @@ describe('AuthService', () => {
         Promise.resolve('signed-token'),
       ),
       verify: jest.fn(),
+      verifyAsync: jest.fn(),
+    };
+    twoFactorService = {
+      isEnabled: jest.fn((_user: User) => false),
+      check: jest.fn(),
+      describe: jest.fn().mockResolvedValue(twoFactorOff),
     };
     configService = {
       get: jest.fn((_key: string): string | undefined => undefined),
@@ -129,8 +146,16 @@ describe('AuthService', () => {
       teamMemberRepository as never,
       sessionsService as never,
       accountService as never,
+      twoFactorService as never,
     );
   });
+
+  /** Signs in with no 2FA step and narrows the result to the session form. */
+  async function signedIn(...args: Parameters<AuthService['login']>) {
+    const result = await service.login(...args);
+    if (result.mfaRequired) throw new Error('unexpected 2FA challenge');
+    return result;
+  }
 
   afterEach(() => {
     jest.clearAllMocks();
@@ -167,6 +192,7 @@ describe('AuthService', () => {
           firstName: 'Ada',
           role: 'owner',
           status: 'active',
+          requireTwoFactor: true,
         }),
       );
       expect(bcrypt.hash).toHaveBeenCalledWith(dto.password, 12);
@@ -281,7 +307,7 @@ describe('AuthService', () => {
       );
       (bcrypt.compare as jest.Mock).mockResolvedValue(true);
 
-      const result = await service.login(dto);
+      const result = await signedIn(dto);
       expect(result.user.emailVerified).toBe(false);
     });
 
@@ -307,7 +333,7 @@ describe('AuthService', () => {
       );
 
       const ctx = { userAgent: 'UA', ip: '1.2.3.4' };
-      const result = await service.login({ ...dto, remember: true }, ctx);
+      const result = await signedIn({ ...dto, remember: true }, ctx);
 
       expect(result.session.accessToken).toBe('signed-token');
       expect(result.session.refreshToken).toBe('opaque-rt');
@@ -603,7 +629,128 @@ describe('AuthService', () => {
         permissions: [],
         emailVerified: true,
         verifyBy: null,
+        ...twoFactorOff,
       });
+    });
+  });
+
+  describe('two-step sign-in', () => {
+    const dto = { email: 'owner@luxa.com', password: 'Password1' };
+    const ctx = { userAgent: 'UA', ip: '1.2.3.4' };
+
+    beforeEach(() => {
+      twoFactorService.isEnabled.mockReturnValue(true);
+    });
+
+    it('returns a challenge instead of a session when 2FA is on', async () => {
+      const user = freshUser({ failedLoginAttempts: 2 });
+      usersRepository.findByEmail.mockResolvedValue(user);
+      (bcrypt.compare as jest.Mock).mockResolvedValue(true);
+      jwtService.signAsync.mockResolvedValue('challenge-token');
+
+      const result = await service.login({ ...dto, remember: true }, ctx);
+
+      expect(result).toEqual({
+        mfaRequired: true,
+        challenge: 'challenge-token',
+      });
+      expect(sessionsService.start).not.toHaveBeenCalled();
+      expect(jwtService.signAsync).toHaveBeenCalledWith(
+        { sub: 'u1', typ: 'mfa', rem: true },
+        { expiresIn: '5m', audience: 'luxa:mfa-challenge' },
+      );
+      // Failures are only cleared once the code is right.
+      expect(user.failedLoginAttempts).toBe(2);
+    });
+
+    it('still refuses a wrong password before any 2FA step', async () => {
+      usersRepository.findByEmail.mockResolvedValue(freshUser());
+      await expect(service.login(dto)).rejects.toThrow('Invalid credentials');
+      expect(jwtService.signAsync).not.toHaveBeenCalled();
+    });
+
+    it('signs in with a valid code, keeping the trust-this-device choice', async () => {
+      const user = freshUser({ failedLoginAttempts: 3 });
+      jwtService.verifyAsync.mockResolvedValue({
+        sub: 'u1',
+        typ: 'mfa',
+        rem: true,
+      });
+      usersRepository.findById.mockResolvedValue(user);
+      twoFactorService.check.mockResolvedValue('totp');
+
+      const result = await service.verifyTwoFactor('challenge', '123456', ctx);
+
+      expect(jwtService.verifyAsync).toHaveBeenCalledWith('challenge', {
+        audience: 'luxa:mfa-challenge',
+      });
+      expect(twoFactorService.check).toHaveBeenCalledWith(
+        user,
+        '123456',
+        ctx,
+        'sign-in',
+      );
+      expect(sessionsService.start).toHaveBeenCalledWith(
+        { id: 'u1', businessId: 'u1' },
+        ctx,
+        true,
+      );
+      expect(result.session.accessToken).toBe('signed-token');
+      expect(user.failedLoginAttempts).toBe(0);
+      expect(user.lastLogin).toBeInstanceOf(Date);
+    });
+
+    it('counts a wrong code toward the lockout', async () => {
+      const user = freshUser({ failedLoginAttempts: 4 });
+      jwtService.verifyAsync.mockResolvedValue({
+        sub: 'u1',
+        typ: 'mfa',
+        rem: false,
+      });
+      usersRepository.findById.mockResolvedValue(user);
+      twoFactorService.check.mockResolvedValue(null);
+
+      await expect(
+        service.verifyTwoFactor('challenge', '000000', ctx),
+      ).rejects.toBeInstanceOf(UnauthorizedException);
+
+      expect(user.lockedUntil).toBeInstanceOf(Date);
+      expect(accountService.accountLocked).toHaveBeenCalledWith(user, ctx);
+      expect(sessionsService.start).not.toHaveBeenCalled();
+    });
+
+    it('refuses a locked account without checking the code', async () => {
+      jwtService.verifyAsync.mockResolvedValue({ sub: 'u1', typ: 'mfa' });
+      usersRepository.findById.mockResolvedValue(
+        freshUser({ lockedUntil: new Date(Date.now() + 60_000) }),
+      );
+
+      await expect(
+        service.verifyTwoFactor('challenge', '123456'),
+      ).rejects.toBeInstanceOf(UnauthorizedException);
+      expect(twoFactorService.check).not.toHaveBeenCalled();
+    });
+
+    it('refuses an expired or foreign challenge', async () => {
+      jwtService.verifyAsync.mockRejectedValue(new Error('jwt expired'));
+      await expect(
+        service.verifyTwoFactor('challenge', '123456'),
+      ).rejects.toThrow('Your sign-in timed out');
+
+      jwtService.verifyAsync.mockResolvedValue({ sub: 'u1', sid: 'x' });
+      await expect(
+        service.verifyTwoFactor('access-token', '123456'),
+      ).rejects.toThrow('Your sign-in timed out');
+    });
+
+    it('refuses an inactive account at the code step', async () => {
+      jwtService.verifyAsync.mockResolvedValue({ sub: 'u1', typ: 'mfa' });
+      usersRepository.findById.mockResolvedValue(
+        freshUser({ status: 'inactive' }),
+      );
+      await expect(
+        service.verifyTwoFactor('challenge', '123456'),
+      ).rejects.toBeInstanceOf(ForbiddenException);
     });
   });
 });

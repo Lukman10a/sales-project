@@ -20,10 +20,19 @@ import { AuthTokensService } from './auth-tokens.service';
 import { AccountService } from './account.service';
 import { SessionsRepository } from './sessions.repository';
 import { SessionsService } from './sessions.service';
+import { TwoFactorBackupCode } from '../entities/two-factor-backup-code.entity';
+import { BackupCodesRepository } from './two-factor/backup-codes.repository';
+import { TwoFactorService } from './two-factor/two-factor.service';
+import { TwoFactorController } from './two-factor/two-factor.controller';
+import {
+  SECRET_BOX,
+  SecretBox,
+  parseEncryptionKey,
+} from '../common/crypto/secret-box';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User, Session, AuthToken]),
+    TypeOrmModule.forFeature([User, Session, AuthToken, TwoFactorBackupCode]),
     PassportModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
@@ -48,8 +57,18 @@ import { SessionsService } from './sessions.service';
     AuthTokensRepository,
     AuthTokensService,
     AccountService,
+    BackupCodesRepository,
+    TwoFactorService,
+    {
+      provide: SECRET_BOX,
+      useFactory: (config: ConfigService) =>
+        new SecretBox(
+          parseEncryptionKey(config.getOrThrow<string>('ENCRYPTION_KEY')),
+        ),
+      inject: [ConfigService],
+    },
   ],
-  controllers: [AuthController],
+  controllers: [AuthController, TwoFactorController],
   exports: [AuthService, JwtModule, UsersRepository, SessionsService],
 })
 export class AuthModule {}

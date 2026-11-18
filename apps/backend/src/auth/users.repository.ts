@@ -16,4 +16,22 @@ export class UsersRepository extends Repository<User> {
   async findById(id: string): Promise<User | null> {
     return this.findOne({ where: { id } });
   }
+
+  /**
+   * Records a TOTP step as used, only if it is newer than the last one. A
+   * single conditional UPDATE, so one code cannot be accepted twice even by
+   * two requests at once.
+   */
+  async claimTotpStep(userId: string, step: number): Promise<boolean> {
+    const result = await this.createQueryBuilder()
+      .update(User)
+      .set({ twoFactorLastStep: step })
+      .where('id = :userId', { userId })
+      .andWhere(
+        '("twoFactorLastStep" IS NULL OR "twoFactorLastStep" < :step)',
+        { step },
+      )
+      .execute();
+    return (result.affected ?? 0) === 1;
+  }
 }

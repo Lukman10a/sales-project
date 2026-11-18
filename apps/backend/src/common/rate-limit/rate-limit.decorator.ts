@@ -34,6 +34,17 @@ export const AUTH_RULE: RateLimitRule = {
   key: 'ip+email',
 };
 
+/**
+ * Two-step codes, per IP. Guessing is also capped per account by the
+ * sign-in lockout.
+ */
+export const MFA_RULE: RateLimitRule = {
+  name: 'mfa',
+  limit: 10,
+  windowMs: MINUTE,
+  key: 'ip',
+};
+
 /** AI generation per business. Becomes per-plan with billing. */
 export const AI_RULE: RateLimitRule = {
   name: 'ai',

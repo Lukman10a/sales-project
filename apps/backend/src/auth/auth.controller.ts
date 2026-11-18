@@ -39,8 +39,11 @@ import {
 import type { EmailDto, ResetPasswordDto, TokenDto } from './dto/account.dto';
 import {
   AUTH_RULE,
+  MFA_RULE,
   RateLimit,
 } from '../common/rate-limit/rate-limit.decorator';
+import { VerifyTwoFactorDtoSchema } from './dto/two-factor.dto';
+import type { VerifyTwoFactorDto } from './dto/two-factor.dto';
 
 const clientContext = (req: Request): ClientContext => ({
   userAgent: req.headers['user-agent'],
@@ -86,7 +89,10 @@ export class AuthController {
     return body;
   }
 
-  /** POST /auth/login → 200 { user } + session cookies */
+  /**
+   * POST /auth/login → 200 { user } + session cookies, or, when 2FA is on,
+   * 200 { mfaRequired: true, challenge } and no cookies.
+   */
   @Post('login')
   @RateLimit(AUTH_RULE)
   @HttpCode(200)
@@ -95,12 +101,34 @@ export class AuthController {
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ) {
-    const { session, ...body } = await this.authService.login(
-      loginDto,
+    const result = await this.authService.login(loginDto, clientContext(req));
+    // 2FA on: no cookies until POST /auth/2fa/verify succeeds.
+    if (result.mfaRequired) return result;
+    const { session, ...body } = result;
+    this.setSession(res, session);
+    return body;
+  }
+
+  /**
+   * POST /auth/2fa/verify { challenge, code } → 200 { user } + session
+   * cookies. `code` is a 6-digit authenticator code or a backup code.
+   */
+  @Post('2fa/verify')
+  @RateLimit(MFA_RULE)
+  @HttpCode(200)
+  async verifyTwoFactor(
+    @Body(new ZodValidationPipe(VerifyTwoFactorDtoSchema))
+    body: VerifyTwoFactorDto,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const { session, ...rest } = await this.authService.verifyTwoFactor(
+      body.challenge,
+      body.code,
       clientContext(req),
     );
     this.setSession(res, session);
-    return body;
+    return rest;
   }
 
   /**

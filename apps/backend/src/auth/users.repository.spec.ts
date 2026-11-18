@@ -45,4 +45,33 @@ describe('UsersRepository', () => {
       await expect(repository.findById('missing')).resolves.toBeNull();
     });
   });
+
+  describe('claimTotpStep', () => {
+    function stubBuilder(affected: number) {
+      const qb = {
+        update: jest.fn().mockReturnThis(),
+        set: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        execute: jest.fn().mockResolvedValue({ affected }),
+      };
+      jest.spyOn(repository, 'createQueryBuilder').mockReturnValue(qb as never);
+      return qb;
+    }
+
+    it('records a newer step with one conditional update', async () => {
+      const qb = stubBuilder(1);
+      await expect(repository.claimTotpStep('u1', 42)).resolves.toBe(true);
+      expect(qb.set).toHaveBeenCalledWith({ twoFactorLastStep: 42 });
+      expect(qb.andWhere).toHaveBeenCalledWith(
+        '("twoFactorLastStep" IS NULL OR "twoFactorLastStep" < :step)',
+        { step: 42 },
+      );
+    });
+
+    it('refuses a step that is not newer', async () => {
+      stubBuilder(0);
+      await expect(repository.claimTotpStep('u1', 42)).resolves.toBe(false);
+    });
+  });
 });

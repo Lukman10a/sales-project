@@ -26,12 +26,32 @@ import {
   verificationDeadline,
   verificationOverdue,
 } from './account-policy';
-
-const INVALID_CREDENTIALS = 'Invalid credentials';
 import {
   ALL_PERMISSIONS,
   ROLE_DEFAULT_PERMISSIONS,
 } from '../common/constants/permissions';
+import { TwoFactorService } from './two-factor/two-factor.service';
+
+const INVALID_CREDENTIALS = 'Invalid credentials';
+
+/** Audience of the short-lived token between password and 2FA code. */
+export const MFA_CHALLENGE_AUDIENCE = 'luxa:mfa-challenge';
+export const MFA_CHALLENGE_TTL = '5m';
+
+interface ChallengeClaims {
+  sub: string;
+  typ: 'mfa';
+  /** 'Trust this device', carried from the password step. */
+  rem: boolean;
+}
+
+const invalidCode = () =>
+  new UnauthorizedException({
+    statusCode: 401,
+    code: 'INVALID_CODE',
+    message:
+      "That code didn't work. Check your authenticator app and try again.",
+  });
 
 @Injectable()
 export class AuthService {
@@ -42,6 +62,7 @@ export class AuthService {
     private teamMemberRepository: TeamMemberRepository,
     private sessionsService: SessionsService,
     private accountService: AccountService,
+    private twoFactorService: TwoFactorService,
   ) {}
 
   async register(registerDto: RegisterDto, ctx: ClientContext = {}) {
@@ -66,6 +87,8 @@ export class AuthService {
       status: 'active',
       emailVerifiedAt: null,
       failedLoginAttempts: 0,
+      // New businesses require 2FA for owners and managers (T32).
+      requireTwoFactor: true,
     });
 
     await this.usersRepository.save(user);
@@ -106,17 +129,71 @@ export class AuthService {
     // Only someone who knows the password learns about these states.
     this.assertMaySignIn(user);
 
-    user.failedLoginAttempts = 0;
-    user.lockedUntil = null;
-    user.lastLogin = new Date();
     if (needsRehash(user.password)) {
       user.password = await hashPassword(password);
     }
+
+    if (this.twoFactorService.isEnabled(user)) {
+      // No session yet. The failure count is kept, so re-entering the
+      // password does not buy more guesses at the code.
+      await this.usersRepository.save(user);
+      return {
+        mfaRequired: true as const,
+        challenge: await this.signChallenge(user, remember),
+      };
+    }
+
+    user.failedLoginAttempts = 0;
+    user.lockedUntil = null;
+    user.lastLogin = new Date();
     await this.usersRepository.save(user);
 
     return {
       user: await this.toUserResponse(user),
       session: await this.signIn(user, ctx, remember),
+    };
+  }
+
+  /**
+   * Second sign-in step: a 6-digit code or a backup code against the
+   * challenge from `login`. Wrong codes count toward the same lockout as
+   * wrong passwords.
+   */
+  async verifyTwoFactor(
+    challenge: string,
+    code: string,
+    ctx: ClientContext = {},
+  ) {
+    const claims = await this.readChallenge(challenge);
+    const user = await this.usersRepository.findById(claims.sub);
+    if (!user || !this.twoFactorService.isEnabled(user) || isLocked(user)) {
+      throw invalidCode();
+    }
+    this.assertMaySignIn(user);
+
+    const method = await this.twoFactorService.check(
+      user,
+      code,
+      ctx,
+      'sign-in',
+    );
+    if (!method) {
+      const next = afterFailedLogin(user);
+      user.failedLoginAttempts = next.failedLoginAttempts;
+      user.lockedUntil = next.lockedUntil;
+      await this.usersRepository.save(user);
+      if (next.locked) this.accountService.accountLocked(user, ctx);
+      throw invalidCode();
+    }
+
+    user.failedLoginAttempts = 0;
+    user.lockedUntil = null;
+    user.lastLogin = new Date();
+    await this.usersRepository.save(user);
+
+    return {
+      user: await this.toUserResponse(user),
+      session: await this.signIn(user, ctx, claims.rem),
     };
   }
 
@@ -227,6 +304,32 @@ export class AuthService {
     };
   }
 
+  private signChallenge(user: User, remember: boolean): Promise<string> {
+    const claims: ChallengeClaims = { sub: user.id, typ: 'mfa', rem: remember };
+    return this.jwtService.signAsync(claims, {
+      expiresIn: MFA_CHALLENGE_TTL,
+      audience: MFA_CHALLENGE_AUDIENCE,
+    });
+  }
+
+  private async readChallenge(token: string): Promise<ChallengeClaims> {
+    try {
+      const claims = await this.jwtService.verifyAsync<ChallengeClaims>(token, {
+        audience: MFA_CHALLENGE_AUDIENCE,
+      });
+      if (claims.typ !== 'mfa' || typeof claims.sub !== 'string') {
+        throw new Error('not a challenge');
+      }
+      return { sub: claims.sub, typ: 'mfa', rem: claims.rem === true };
+    } catch {
+      throw new UnauthorizedException({
+        statusCode: 401,
+        code: 'MFA_CHALLENGE_EXPIRED',
+        message: 'Your sign-in timed out. Enter your password again.',
+      });
+    }
+  }
+
   private async signAccessToken(user: User, sessionId: string) {
     const permissions = await this.loadEffectivePermissions(user);
     const payload: JwtPayload = {
@@ -262,6 +365,7 @@ export class AuthService {
       permissions,
       emailVerified: verificationDeadline(user) === null,
       verifyBy: verificationDeadline(user)?.toISOString() ?? null,
+      ...(await this.twoFactorService.describe(user)),
     };
   }
 }

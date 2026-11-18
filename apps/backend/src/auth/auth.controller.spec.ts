@@ -12,6 +12,7 @@ describe('AuthController', () => {
   let authService: Record<
     | 'register'
     | 'login'
+    | 'verifyTwoFactor'
     | 'refresh'
     | 'logout'
     | 'logoutAll'
@@ -62,6 +63,7 @@ describe('AuthController', () => {
     authService = {
       register: jest.fn(),
       login: jest.fn(),
+      verifyTwoFactor: jest.fn(),
       refresh: jest.fn(),
       logout: jest.fn(),
       logoutAll: jest.fn(),
@@ -94,6 +96,43 @@ describe('AuthController', () => {
       .compile();
 
     controller = module.get(AuthController);
+  });
+
+  it('answers a 2FA login with the challenge and sets no cookies', async () => {
+    authService.login.mockResolvedValue({
+      mfaRequired: true,
+      challenge: 'ch',
+    });
+    const r = res();
+    await expect(
+      controller.login(
+        { email: 'owner@luxa.com', password: 'x' },
+        req(),
+        r.asRes,
+      ),
+    ).resolves.toEqual({ mfaRequired: true, challenge: 'ch' });
+    expect(r.cookie).not.toHaveBeenCalled();
+  });
+
+  it('completes 2FA sign-in with session cookies and no tokens in the body', async () => {
+    authService.verifyTwoFactor.mockResolvedValue({
+      user: { id: 'u1' },
+      session,
+    });
+    const r = res();
+    await expect(
+      controller.verifyTwoFactor(
+        { challenge: 'c'.repeat(30), code: '123456' },
+        req(),
+        r.asRes,
+      ),
+    ).resolves.toEqual({ user: { id: 'u1' } });
+    expect(authService.verifyTwoFactor).toHaveBeenCalledWith(
+      'c'.repeat(30),
+      '123456',
+      { userAgent: 'UA', ip: '1.2.3.4' },
+    );
+    expect(cookieNames(r).length).toBeGreaterThan(0);
   });
 
   it('registers, sets session cookies and keeps tokens out of the body', async () => {

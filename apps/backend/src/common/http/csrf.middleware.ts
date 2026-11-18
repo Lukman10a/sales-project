@@ -15,6 +15,7 @@ const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 // The Origin check still stops cross-site login CSRF.
 const CREDENTIAL_PATHS = new Set([
   '/auth/login',
+  '/auth/2fa/verify',
   '/auth/register',
   '/auth/forgot-password',
   '/auth/reset-password',

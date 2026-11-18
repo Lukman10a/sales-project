@@ -13,6 +13,7 @@ const testEnv: Record<string, string> = {
   DB_MANUAL_INIT: 'true',
   JWT_SECRET: 'e2e-access-secret-0123456789abcdefghij',
   JWT_REFRESH_SECRET: 'e2e-refresh-secret-0123456789abcdefghij',
+  ENCRYPTION_KEY: 'ZTJlLWVuY3J5cHRpb24ta2V5LTAxMjM0NTY3ODlhYmM=',
   DATABASE_URL: 'postgresql://postgres:postgres@localhost:5432/luxa_test',
   DATABASE_SSL: 'disable',
   FRONTEND_URL: 'http://localhost:3000',

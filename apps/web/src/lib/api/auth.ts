@@ -1,5 +1,10 @@
 import { api } from "./client";
-import type { AuthResponse, AuthSession, MeResponse } from "./types";
+import type {
+  AuthResponse,
+  AuthSession,
+  LoginResponse,
+  MeResponse,
+} from "./types";
 
 export interface RegisterPayload {
   email: string;
@@ -11,11 +16,14 @@ export interface RegisterPayload {
 
 export const authApi = {
   login: (email: string, password: string, remember = false) =>
-    api.post<AuthResponse>("/auth/login", {
+    api.post<LoginResponse>("/auth/login", {
       email,
       password,
       ...(remember ? { remember: true } : {}),
     }),
+  /** Second sign-in step: an authenticator code or a backup code. */
+  verifyTwoFactor: (challenge: string, code: string) =>
+    api.post<AuthResponse>("/auth/2fa/verify", { challenge, code }),
   register: (data: RegisterPayload) =>
     api.post<AuthResponse>("/auth/register", data),
   logout: () => api.post<{ message: string }>("/auth/logout"),
