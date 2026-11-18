@@ -16,6 +16,7 @@ import { AiInsight } from '../entities/ai-insight.entity';
 import { Session } from '../entities/session.entity';
 import { AuthToken } from '../entities/auth-token.entity';
 import { TwoFactorBackupCode } from '../entities/two-factor-backup-code.entity';
+import { AuditEvent } from '../entities/audit-event.entity';
 
 export const ENTITIES = [
   User,
@@ -31,6 +32,7 @@ export const ENTITIES = [
   Session,
   AuthToken,
   TwoFactorBackupCode,
+  AuditEvent,
 ];
 
 /** Compiled (.js) or ts-node (.ts) migrations, wherever this file runs from. */

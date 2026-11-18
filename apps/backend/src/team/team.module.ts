@@ -7,17 +7,11 @@ import { TeamActivityController } from './team-activity.controller';
 import { TeamService } from './team.service';
 import { TeamActivityService } from './team-activity.service';
 import { TeamRepository } from './team.repository';
-import { TeamActivityRepository } from './team-activity.repository';
 
 @Module({
   imports: [AuthModule, TypeOrmModule.forFeature([TeamMember])],
   controllers: [TeamActivityController, TeamController],
-  providers: [
-    TeamService,
-    TeamActivityService,
-    TeamRepository,
-    TeamActivityRepository,
-  ],
+  providers: [TeamService, TeamActivityService, TeamRepository],
   exports: [TeamService],
 })
 export class TeamModule {}

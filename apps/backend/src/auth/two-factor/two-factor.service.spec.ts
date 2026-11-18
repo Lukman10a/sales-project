@@ -31,6 +31,7 @@ describe('TwoFactorService', () => {
     consume: jest.Mock;
     countUnused: jest.Mock;
   };
+  let audit: { record: jest.Mock };
   let service: TwoFactorService;
 
   const owner = (overrides: Partial<User> = {}): User =>
@@ -68,7 +69,14 @@ describe('TwoFactorService', () => {
       consume: jest.fn().mockResolvedValue(false),
       countUnused: jest.fn().mockResolvedValue(9),
     };
-    service = new TwoFactorService(users as never, backupCodes as never, box);
+    audit = { record: jest.fn().mockResolvedValue(undefined) };
+    service = new TwoFactorService(
+      users as never,
+      backupCodes as never,
+      box,
+      audit as never,
+      { run: <T>(fn: () => Promise<T>) => fn() } as never,
+    );
   });
 
   describe('setup and enable', () => {
@@ -110,6 +118,15 @@ describe('TwoFactorService', () => {
       // Only digests are stored, never the codes.
       expect(digests).toHaveLength(10);
       for (const code of codes) expect(digests).not.toContain(code);
+      expect(audit.record).toHaveBeenCalledTimes(1);
+      expect((audit.record.mock.lastCall as unknown[])[0]).toMatchObject({
+        action: 'two_factor.enabled',
+        entityId: 'u1',
+      });
+      // The trail never sees the codes.
+      expect(JSON.stringify(audit.record.mock.lastCall)).not.toContain(
+        codes[0],
+      );
     });
 
     it('refuses a wrong first code and stays off', async () => {
@@ -198,6 +215,10 @@ describe('TwoFactorService', () => {
       expect(user.twoFactorSecret).toBeNull();
       expect(user.twoFactorEnabledAt).toBeNull();
       expect(backupCodes.deleteForUser).toHaveBeenCalledWith('u1');
+      expect(audit.record).toHaveBeenCalledTimes(1);
+      expect((audit.record.mock.lastCall as unknown[])[0]).toMatchObject({
+        action: 'two_factor.disabled',
+      });
     });
 
     it('refuses to disable with a wrong password', async () => {
@@ -216,6 +237,7 @@ describe('TwoFactorService', () => {
         "That code didn't work",
       );
       expect(user.twoFactorEnabledAt).toBeInstanceOf(Date);
+      expect(audit.record).not.toHaveBeenCalled();
     });
 
     it('regenerates backup codes after a valid code', async () => {
@@ -226,6 +248,10 @@ describe('TwoFactorService', () => {
       );
       expect(codes).toHaveLength(10);
       expect(backupCodes.replaceForUser).toHaveBeenCalledTimes(1);
+      expect(audit.record).toHaveBeenCalledTimes(1);
+      expect((audit.record.mock.lastCall as unknown[])[0]).toMatchObject({
+        action: 'two_factor.backup_codes_regenerated',
+      });
     });
   });
 
@@ -280,6 +306,12 @@ describe('TwoFactorService', () => {
         { id: 'u1' },
         { requireTwoFactor: false },
       );
+      expect(audit.record).toHaveBeenCalledTimes(1);
+      expect((audit.record.mock.lastCall as unknown[])[0]).toMatchObject({
+        businessId: 'u1',
+        action: 'two_factor.requirement_changed',
+        after: { required: false },
+      });
       await expect(
         service.setRequirement(
           { id: 'm1', role: 'manager', businessId: 'u1' },

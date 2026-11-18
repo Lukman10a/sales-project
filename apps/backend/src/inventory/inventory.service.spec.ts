@@ -6,6 +6,7 @@ import {
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InventoryService, calculateStatus } from './inventory.service';
 import { InventoryRepository } from './inventory.repository';
+import type { AuditService } from '../audit/audit.service';
 import { InventoryItem } from '../entities/inventory-item.entity';
 
 describe('calculateStatus', () => {
@@ -26,6 +27,7 @@ describe('calculateStatus', () => {
 });
 
 describe('InventoryService', () => {
+  let audit: { record: jest.Mock };
   let service: InventoryService;
   let repository: {
     list: jest.Mock;
@@ -36,6 +38,7 @@ describe('InventoryService', () => {
     decrementStock: jest.Mock;
     bulkUpsert: jest.Mock;
     resolveCreatorNames: jest.Mock;
+    transaction: jest.Mock;
   };
   let eventEmitter: { emit: jest.Mock };
 
@@ -69,12 +72,15 @@ describe('InventoryService', () => {
       decrementStock: jest.fn(),
       bulkUpsert: jest.fn(),
       resolveCreatorNames: jest.fn(),
+      transaction: jest.fn(<T>(fn: () => Promise<T>) => fn()),
     };
     eventEmitter = { emit: jest.fn() };
+    audit = { record: jest.fn().mockResolvedValue(undefined) };
 
     service = new InventoryService(
       repository as unknown as InventoryRepository,
       eventEmitter as unknown as EventEmitter2,
+      audit as unknown as AuditService,
     );
   });
 
@@ -411,28 +417,35 @@ describe('InventoryService', () => {
 
   describe('decrement', () => {
     it('throws NotFoundException when item is missing', async () => {
-      repository.decrementStock.mockResolvedValue(null);
+      repository.decrementStock.mockResolvedValue({
+        item: null,
+        decremented: false,
+      });
 
       await expect(
         service.decrement(user, 'missing', { quantity: 1 }),
       ).rejects.toBeInstanceOf(NotFoundException);
+      expect(audit.record).not.toHaveBeenCalled();
     });
 
     it('throws BadRequestException when stock is insufficient', async () => {
       repository.decrementStock.mockResolvedValue({
-        ...item,
-        quantity: 1,
-        status: 'in-stock',
+        item: { ...item, quantity: 1, status: 'in-stock' },
+        decremented: false,
       });
 
       await expect(
         service.decrement(user, 'i1', { quantity: 5 }),
       ).rejects.toBeInstanceOf(BadRequestException);
+      expect(audit.record).not.toHaveBeenCalled();
     });
 
     it('emits low-stock when the item drops to low-stock', async () => {
       const lowItem = { ...item, quantity: 8, status: 'low-stock' };
-      repository.decrementStock.mockResolvedValue(lowItem);
+      repository.decrementStock.mockResolvedValue({
+        item: lowItem,
+        decremented: true,
+      });
 
       const result = await service.decrement(user, 'i1', { quantity: 8 });
 
@@ -445,14 +458,111 @@ describe('InventoryService', () => {
 
     it('does not emit when stock remains healthy', async () => {
       repository.decrementStock.mockResolvedValue({
-        ...item,
-        quantity: 8,
-        status: 'in-stock',
+        item: { ...item, quantity: 8, status: 'in-stock' },
+        decremented: true,
       });
 
       await service.decrement(user, 'i1', { quantity: 2 });
 
       expect(eventEmitter.emit).not.toHaveBeenCalled();
+    });
+
+    it('records one stock adjustment with the before and after quantity', async () => {
+      repository.decrementStock.mockResolvedValue({
+        item: { ...item, quantity: 8, status: 'in-stock' },
+        decremented: true,
+      });
+
+      await service.decrement(user, 'i1', { quantity: 2 });
+
+      expect(repository.transaction).toHaveBeenCalledTimes(1);
+      expect(audit.record).toHaveBeenCalledTimes(1);
+      expect((audit.record.mock.lastCall as unknown[])[0]).toMatchObject({
+        businessId: 'b1',
+        action: 'product.stock_adjusted',
+        entityId: 'i1',
+        before: { quantity: 10 },
+        after: { quantity: 8 },
+      });
+    });
+  });
+
+  describe('audit trail', () => {
+    const lastEvent = () =>
+      (audit.record.mock.lastCall as unknown[])[0] as Record<string, unknown>;
+
+    beforeEach(() => {
+      repository.saveItem.mockImplementation((_b: string, i: InventoryItem) =>
+        Promise.resolve(i),
+      );
+    });
+
+    it('records a creation', async () => {
+      repository.createItem.mockImplementation(
+        (_b: string, d: Partial<InventoryItem>) => ({ id: 'new', ...d }),
+      );
+      await service.create(
+        { id: 'u1', businessId: 'b1', role: 'owner' },
+        { name: 'Rice', wholesalePrice: 5, sellingPrice: 10, quantity: 3 },
+      );
+      expect(audit.record).toHaveBeenCalledTimes(1);
+      expect(lastEvent()).toMatchObject({
+        action: 'product.created',
+        entityId: 'new',
+        after: { name: 'Rice', quantity: 3 },
+      });
+    });
+
+    it.each([
+      [{ sellingPrice: 12 }, 'product.price_changed'],
+      [{ quantity: 4 }, 'product.stock_adjusted'],
+      [{ name: 'Brown rice' }, 'product.updated'],
+    ] as const)('classifies %o as %s', async (dto, action) => {
+      repository.findById.mockResolvedValue({ ...item });
+      await service.update(
+        { ...user, role: 'owner', permissions: [], maxDiscountPercent: 100 },
+        'i1',
+        dto,
+      );
+      expect(audit.record).toHaveBeenCalledTimes(1);
+      const key = Object.keys(dto)[0];
+      expect(lastEvent()).toMatchObject({
+        action,
+        before: { [key]: (item as never)[key] },
+        after: dto,
+      });
+    });
+
+    it('records a confirmation', async () => {
+      repository.findById.mockResolvedValue({
+        ...item,
+        createdBy: 'u2',
+        confirmedBy: undefined,
+      });
+      await service.confirm(
+        { id: 'u1', businessId: 'b1', role: 'owner' },
+        'i1',
+      );
+      expect(audit.record).toHaveBeenCalledTimes(1);
+      expect(lastEvent()).toMatchObject({ action: 'product.confirmed' });
+    });
+
+    it('records a deletion with the product as it was', async () => {
+      repository.findById.mockResolvedValue({ ...item });
+      await service.remove(user, 'i1');
+      expect(audit.record).toHaveBeenCalledTimes(1);
+      expect(lastEvent()).toMatchObject({
+        action: 'product.deleted',
+        entityId: 'i1',
+        before: { name: item.name },
+      });
+    });
+
+    it('records nothing when the change fails', async () => {
+      repository.findById.mockResolvedValue({ ...item });
+      repository.removeItem.mockRejectedValue(new Error('db down'));
+      await expect(service.remove(user, 'i1')).rejects.toThrow('db down');
+      expect(audit.record).not.toHaveBeenCalled();
     });
   });
 
@@ -480,6 +590,11 @@ describe('InventoryService', () => {
         ]),
         'u1',
       );
+      expect(audit.record).toHaveBeenCalledTimes(1);
+      expect((audit.record.mock.lastCall as unknown[])[0]).toMatchObject({
+        action: 'product.imported',
+        after: { imported: 2, skipped: 0, names: ['A', 'B'] },
+      });
     });
 
     it('parses CSV rows', async () => {

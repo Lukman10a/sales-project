@@ -88,7 +88,7 @@ describe('tenant repositories', () => {
         'NotificationsRepository',
         'ReportsRepository',
         'TeamRepository',
-        'TeamActivityRepository',
+        'AuditRepository',
         'AnalyticsRepository',
         'InsightRepository',
       ]),

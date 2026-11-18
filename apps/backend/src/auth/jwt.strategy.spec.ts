@@ -22,6 +22,7 @@ describe('JwtStrategy', () => {
   const payload = { sub: 'u2', sid: 'sid-1', bid: 'b1' };
   const cashier: Principal = {
     id: 'u2',
+    name: 'Kelechi',
     email: 'kelechi@shop.ng',
     role: 'cashier',
     businessId: 'b1',

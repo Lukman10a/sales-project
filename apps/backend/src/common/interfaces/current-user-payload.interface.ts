@@ -3,6 +3,8 @@ import type { Permission, UserRole } from '../constants/permissions';
 /** The authenticated principal on `req.user`, resolved per request. */
 export interface CurrentUserPayload {
   id: string;
+  /** Display name, for the audit trail. */
+  name?: string;
   email: string;
   role: UserRole;
   businessName: string;

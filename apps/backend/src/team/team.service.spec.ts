@@ -12,12 +12,14 @@ import type { TeamMember } from '../entities/team-member.entity';
 import type { InviteMemberDto } from './dto/invite-member.dto';
 import type { QueryTeamDto } from './dto/query-team.dto';
 import { PERMISSIONS } from '../common/constants/permissions';
+import type { AuditService } from '../audit/audit.service';
 
 jest.mock('bcrypt', () => ({
   hash: jest.fn(),
 }));
 
 describe('TeamService', () => {
+  let audit: { record: jest.Mock };
   let service: TeamService;
   let teamRepository: {
     transaction: jest.Mock;
@@ -111,10 +113,12 @@ describe('TeamService', () => {
       (value: string) => `hashed:${value}`,
     );
 
+    audit = { record: jest.fn().mockResolvedValue(undefined) };
     service = new TeamService(
       teamRepository as unknown as TeamRepository,
       usersRepository as unknown as UsersRepository,
       principals as unknown as PrincipalService,
+      audit as unknown as AuditService,
     );
   });
 
@@ -310,6 +314,67 @@ describe('TeamService', () => {
         expect.objectContaining({ id: 'm1' }),
       );
       expect(principals.invalidate).toHaveBeenCalledWith('u2');
+    });
+  });
+
+  describe('audit trail', () => {
+    const lastEvent = () =>
+      (audit.record.mock.lastCall as unknown[])[0] as Record<string, unknown>;
+
+    it('records an invitation without the temporary password', async () => {
+      await service.inviteMember(owner, dto);
+      expect(audit.record).toHaveBeenCalledTimes(1);
+      expect(lastEvent()).toMatchObject({
+        businessId: 'b1',
+        action: 'staff.invited',
+        entityType: 'team_member',
+        after: { role: 'cashier', permissions: ['sales.record'] },
+      });
+      expect(JSON.stringify(lastEvent())).not.toMatch(/temporaryPassword/);
+    });
+
+    it.each([
+      [{ role: 'manager' as const }, 'staff.role_changed'],
+      [{ status: 'inactive' as const }, 'staff.status_changed'],
+      [{ department: 'Front desk' }, 'staff.updated'],
+    ])('records %o as %s', async (update, action) => {
+      await service.updateMember(owner, 'm1', update);
+      expect(audit.record).toHaveBeenCalledTimes(1);
+      expect(lastEvent()).toMatchObject({ action, entityId: 'm1' });
+    });
+
+    it('records permission changes with before and after', async () => {
+      await service.updatePermissions(owner, 'm1', {
+        permissions: ['sales.record', 'sales.refund'],
+        maxDiscountPercent: 5,
+      });
+      expect(audit.record).toHaveBeenCalledTimes(1);
+      expect(lastEvent()).toMatchObject({
+        action: 'staff.permissions_changed',
+        before: { permissions: ['sales.record'], maxDiscountPercent: 0 },
+        after: {
+          permissions: ['sales.record', 'sales.refund'],
+          maxDiscountPercent: 5,
+        },
+      });
+    });
+
+    it('records a removal', async () => {
+      await service.removeMember(owner, 'm1');
+      expect(audit.record).toHaveBeenCalledTimes(1);
+      expect(lastEvent()).toMatchObject({
+        action: 'staff.removed',
+        before: { name: 'Jane Doe' },
+      });
+    });
+
+    it('records nothing when the change is refused', async () => {
+      await expect(
+        service.updatePermissions(manager, 'm1', {
+          permissions: ['billing.manage'],
+        }),
+      ).rejects.toThrow();
+      expect(audit.record).not.toHaveBeenCalled();
     });
   });
 });

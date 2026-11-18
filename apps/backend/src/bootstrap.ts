@@ -5,6 +5,7 @@ import helmet from 'helmet';
 import { HttpAdapterHost } from '@nestjs/core';
 import { HttpErrorsFilter } from './common/filters/http-errors.filter';
 import { csrfProtection } from './common/http/csrf.middleware';
+import { requestContextMiddleware } from './common/http/request-context';
 
 /**
  * HTTP hardening shared by `main.ts` and the e2e suite, so tests exercise
@@ -18,6 +19,8 @@ export function configureApp(app: INestApplication): void {
   // so req.ip and secure-cookie checks see the real client.
   express.set('trust proxy', 1);
   express.disable('x-powered-by');
+  // Client ip and user agent for audit records (after trust proxy).
+  app.use(requestContextMiddleware);
 
   app.use(
     helmet({

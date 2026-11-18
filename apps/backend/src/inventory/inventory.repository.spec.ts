@@ -75,7 +75,7 @@ describe('InventoryRepository', () => {
       expect(findOne).toHaveBeenCalledWith({
         where: { id: 'i1', businessId: 'b1' },
       });
-      expect(result).toBe(reloaded);
+      expect(result).toEqual({ item: reloaded, decremented: true });
     });
   });
 

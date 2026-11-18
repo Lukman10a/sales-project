@@ -1,7 +1,7 @@
 import { nairaSql } from '../common/money/money';
 import { Injectable } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
-import { DataSource, EntityManager, In, Repository } from 'typeorm';
+import { DataSource, EntityManager, In } from 'typeorm';
 import { Sale } from '../entities/sale.entity';
 import { SaleItem } from '../entities/sale-item.entity';
 import { InventoryItem } from '../entities/inventory-item.entity';
@@ -9,6 +9,10 @@ import { HeldTransaction } from '../entities/held-transaction.entity';
 import { User } from '../entities/user.entity';
 import { PaginatedResult } from '../common/interfaces/paginated-result.interface';
 import { assertTenant } from '../common/tenancy/assert-tenant';
+import {
+  TransactionalRepository,
+  runInTransaction,
+} from '../common/transactions/transactions';
 
 export interface SalesListQuery {
   page: number;
@@ -34,13 +38,14 @@ export const HELD_TTL_MS = 24 * 60 * 60 * 1000;
 
 /** Tenant-owned: every method takes `businessId` first. */
 @Injectable()
-export class SalesRepository extends Repository<Sale> {
+export class SalesRepository extends TransactionalRepository<Sale> {
   constructor(@InjectDataSource() private readonly dataSource: DataSource) {
     super(Sale, dataSource.createEntityManager());
   }
 
+  /** Joins the surrounding unit of work, so audit events share it. */
   transaction<T>(fn: (manager: EntityManager) => Promise<T>): Promise<T> {
-    return this.dataSource.transaction(fn);
+    return runInTransaction(this.dataSource, fn);
   }
 
   async findProduct(

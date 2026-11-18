@@ -16,6 +16,8 @@ import { TeamMemberRepository } from './team-members.repository';
  */
 export interface Principal {
   id: string;
+  /** Display name, for the audit trail. */
+  name: string;
   email: string;
   role: UserRole;
   businessId: string;
@@ -108,6 +110,7 @@ export class PrincipalService {
   ): Promise<Principal | null> {
     const base = {
       id: user.id,
+      name: `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim(),
       email: user.email,
       businessId,
       businessName: user.businessName,

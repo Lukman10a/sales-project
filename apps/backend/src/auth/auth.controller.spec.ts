@@ -228,7 +228,7 @@ describe('AuthController', () => {
     const r = res();
 
     await controller.logoutAll(currentUser, r.asRes);
-    expect(authService.logoutAll).toHaveBeenCalledWith('u1');
+    expect(authService.logoutAll).toHaveBeenCalledWith(currentUser);
     expect(r.clearCookie).toHaveBeenCalled();
   });
 
@@ -240,7 +240,10 @@ describe('AuthController', () => {
     expect(authService.listSessions).toHaveBeenCalledWith('u1', 'sid-1');
 
     await controller.revokeSession(currentUser, 'sid-2');
-    expect(authService.revokeSession).toHaveBeenCalledWith('u1', 'sid-2');
+    expect(authService.revokeSession).toHaveBeenCalledWith(
+      currentUser,
+      'sid-2',
+    );
   });
 
   it('delegates the emailed-link flows to the account service', async () => {

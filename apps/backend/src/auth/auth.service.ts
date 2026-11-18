@@ -26,6 +26,8 @@ import {
   verificationOverdue,
 } from './account-policy';
 import { TwoFactorService } from './two-factor/two-factor.service';
+import { AuditService, actorOf, businessOf } from '../audit/audit.service';
+import { TransactionRunner } from '../common/transactions/transactions';
 import { PrincipalService } from './principal.service';
 
 const INVALID_CREDENTIALS = 'Invalid credentials';
@@ -49,9 +51,20 @@ const invalidCode = () =>
       "That code didn't work. Check your authenticator app and try again.",
   });
 
+/** The signed-in user acting on their own sessions. */
+type SessionOwner = {
+  id: string;
+  businessId: string;
+  name?: string;
+  email?: string;
+  sessionId?: string;
+};
+
 @Injectable()
 export class AuthService {
   constructor(
+    private audit: AuditService,
+    private transactions: TransactionRunner,
     private usersRepository: UsersRepository,
     private jwtService: JwtService,
     private configService: ConfigService,
@@ -97,7 +110,7 @@ export class AuthService {
     return {
       message: 'User registered successfully',
       user: await this.toUserResponse(user),
-      session: await this.signIn(user, ctx, false),
+      session: await this.signIn(user, ctx, false, 'registration'),
     };
   }
 
@@ -110,6 +123,8 @@ export class AuthService {
     // answer as a wrong password, so neither existence nor lock state leaks.
     if (!user || isLocked(user)) {
       await burnPasswordCheck(password);
+      // Unknown emails belong to no business, so only locked ones are audited.
+      if (user) await this.recordFailure(user, ctx, 'locked');
       throw new UnauthorizedException(INVALID_CREDENTIALS);
     }
 
@@ -117,7 +132,10 @@ export class AuthService {
       const next = afterFailedLogin(user);
       user.failedLoginAttempts = next.failedLoginAttempts;
       user.lockedUntil = next.lockedUntil;
-      await this.usersRepository.save(user);
+      await this.transactions.run(async () => {
+        await this.usersRepository.save(user);
+        await this.recordFailure(user, ctx, 'wrong_password', next.locked);
+      });
       if (next.locked) this.accountService.accountLocked(user, ctx);
       throw new UnauthorizedException(INVALID_CREDENTIALS);
     }
@@ -146,7 +164,7 @@ export class AuthService {
 
     return {
       user: await this.toUserResponse(user),
-      session: await this.signIn(user, ctx, remember),
+      session: await this.signIn(user, ctx, remember, 'password'),
     };
   }
 
@@ -177,7 +195,10 @@ export class AuthService {
       const next = afterFailedLogin(user);
       user.failedLoginAttempts = next.failedLoginAttempts;
       user.lockedUntil = next.lockedUntil;
-      await this.usersRepository.save(user);
+      await this.transactions.run(async () => {
+        await this.usersRepository.save(user);
+        await this.recordFailure(user, ctx, 'wrong_code', next.locked);
+      });
       if (next.locked) this.accountService.accountLocked(user, ctx);
       throw invalidCode();
     }
@@ -189,7 +210,7 @@ export class AuthService {
 
     return {
       user: await this.toUserResponse(user),
-      session: await this.signIn(user, ctx, claims.rem),
+      session: await this.signIn(user, ctx, claims.rem, method),
     };
   }
 
@@ -229,8 +250,19 @@ export class AuthService {
     return { message: 'Logged out successfully' };
   }
 
-  async logoutAll(userId: string) {
-    const revoked = await this.sessionsService.revokeAll(userId);
+  async logoutAll(user: SessionOwner) {
+    const revoked = await this.transactions.run(async () => {
+      const revoked = await this.sessionsService.revokeAll(user.id);
+      await this.audit.record({
+        businessId: user.businessId,
+        actor: user,
+        action: 'session.revoked_all',
+        entityType: 'user',
+        entityId: user.id,
+        after: { revoked },
+      });
+      return revoked;
+    });
     return { message: 'Logged out everywhere', revoked };
   }
 
@@ -238,9 +270,36 @@ export class AuthService {
     return this.sessionsService.list(userId, currentSessionId);
   }
 
-  async revokeSession(userId: string, sessionId: string) {
-    await this.sessionsService.revokeOne(userId, sessionId);
+  async revokeSession(user: SessionOwner, sessionId: string) {
+    await this.transactions.run(async () => {
+      await this.sessionsService.revokeOne(user.id, sessionId);
+      await this.audit.record({
+        businessId: user.businessId,
+        actor: user,
+        action: 'session.revoked',
+        entityType: 'session',
+        entityId: sessionId,
+      });
+    });
     return { message: 'Session revoked' };
+  }
+
+  /** A failed sign-in against a known account, with the client it came from. */
+  private recordFailure(
+    user: User,
+    ctx: ClientContext,
+    reason: 'locked' | 'wrong_password' | 'wrong_code',
+    locked = false,
+  ): Promise<void> {
+    return this.audit.record({
+      businessId: businessOf(user),
+      actor: actorOf(user),
+      action: 'auth.sign_in_failed',
+      entityType: 'user',
+      entityId: user.id,
+      after: { reason, locked },
+      context: ctx,
+    });
   }
 
   /** Deactivated accounts and overdue unverified owners may not sign in. */
@@ -284,13 +343,30 @@ export class AuthService {
   }
 
   /** Starts a session family and signs the first access token for it. */
-  private async signIn(user: User, ctx: ClientContext, persistent: boolean) {
+  private async signIn(
+    user: User,
+    ctx: ClientContext,
+    persistent: boolean,
+    method: string,
+  ) {
     if (!(await this.principalOf(user))) throw this.inactive();
-    const issued = await this.sessionsService.start(
-      { id: user.id, businessId: user.businessId ?? user.id },
-      ctx,
-      persistent,
-    );
+    const issued = await this.transactions.run(async () => {
+      const issued = await this.sessionsService.start(
+        { id: user.id, businessId: businessOf(user) },
+        ctx,
+        persistent,
+      );
+      await this.audit.record({
+        businessId: businessOf(user),
+        actor: actorOf(user, issued.familyId),
+        action: 'auth.signed_in',
+        entityType: 'user',
+        entityId: user.id,
+        after: { method, persistent },
+        context: ctx,
+      });
+      return issued;
+    });
     return {
       ...issued,
       accessToken: await this.signAccessToken(user, issued.familyId),

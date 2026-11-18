@@ -13,6 +13,9 @@ import { UsersRepository } from '../users.repository';
 import { verifyPassword } from '../passwords/password-hasher';
 import type { ClientContext } from '../sessions.service';
 import { BackupCodesRepository } from './backup-codes.repository';
+import { AuditService, actorOf, businessOf } from '../../audit/audit.service';
+import { TransactionRunner } from '../../common/transactions/transactions';
+import type { AuditAction } from '../../entities/audit-event.entity';
 import {
   generateBackupCodes,
   isBackupCodeShape,
@@ -56,6 +59,8 @@ export class TwoFactorService {
     private readonly users: UsersRepository,
     private readonly backupCodes: BackupCodesRepository,
     @Inject(SECRET_BOX) private readonly box: SecretBox,
+    private readonly trail: AuditService,
+    private readonly transactions: TransactionRunner,
   ) {}
 
   isEnabled(user: User): boolean {
@@ -116,8 +121,12 @@ export class TwoFactorService {
     }
     user.twoFactorLastStep = step;
     user.twoFactorEnabledAt = new Date();
-    await this.users.save(user);
-    const backupCodes = await this.issueBackupCodes(user.id);
+    const backupCodes = await this.transactions.run(async () => {
+      await this.users.save(user);
+      const codes = await this.issueBackupCodes(user.id);
+      await this.record(user, 'two_factor.enabled', ctx);
+      return codes;
+    });
     this.event('auth.2fa_enabled', user, ctx);
     return { backupCodes };
   }
@@ -142,8 +151,11 @@ export class TwoFactorService {
     user.twoFactorSecret = null;
     user.twoFactorEnabledAt = null;
     user.twoFactorLastStep = null;
-    await this.users.save(user);
-    await this.backupCodes.deleteForUser(user.id);
+    await this.transactions.run(async () => {
+      await this.users.save(user);
+      await this.backupCodes.deleteForUser(user.id);
+      await this.record(user, 'two_factor.disabled', ctx);
+    });
     this.event('auth.2fa_disabled', user, ctx);
     return { message: 'Two-step verification is off' };
   }
@@ -159,7 +171,11 @@ export class TwoFactorService {
     if (!(await this.check(user, code, ctx, 'backup-codes'))) {
       throw invalidCode();
     }
-    const backupCodes = await this.issueBackupCodes(user.id);
+    const backupCodes = await this.transactions.run(async () => {
+      const codes = await this.issueBackupCodes(user.id);
+      await this.record(user, 'two_factor.backup_codes_regenerated', ctx);
+      return codes;
+    });
     this.event('auth.2fa_backup_codes_regenerated', user, ctx);
     return { backupCodes };
   }
@@ -215,7 +231,14 @@ export class TwoFactorService {
 
   /** Business setting: require 2FA for owners and managers. Owners only. */
   async setRequirement(
-    actor: { id: string; role: string; businessId: string },
+    actor: {
+      id: string;
+      role: string;
+      businessId: string;
+      name?: string;
+      email?: string;
+      sessionId?: string;
+    },
     required: boolean,
     ctx: ClientContext = {},
   ) {
@@ -224,7 +247,18 @@ export class TwoFactorService {
         'Only the business owner can change this setting',
       );
     }
-    await this.users.update({ id: actor.id }, { requireTwoFactor: required });
+    await this.transactions.run(async () => {
+      await this.users.update({ id: actor.id }, { requireTwoFactor: required });
+      await this.trail.record({
+        businessId: actor.businessId,
+        actor,
+        action: 'two_factor.requirement_changed',
+        entityType: 'business',
+        entityId: actor.businessId,
+        after: { required },
+        context: ctx,
+      });
+    });
     this.audit.log(
       JSON.stringify({
         event: 'auth.2fa_requirement_changed',
@@ -235,6 +269,22 @@ export class TwoFactorService {
       }),
     );
     return { required };
+  }
+
+  /** A 2FA change to the user's own account, on the audit trail. */
+  private record(
+    user: User,
+    action: AuditAction,
+    ctx: ClientContext,
+  ): Promise<void> {
+    return this.trail.record({
+      businessId: businessOf(user),
+      actor: actorOf(user),
+      action,
+      entityType: 'user',
+      entityId: user.id,
+      context: ctx,
+    });
   }
 
   private async isRequiredFor(user: User): Promise<boolean> {

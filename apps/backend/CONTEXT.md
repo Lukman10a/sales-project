@@ -36,6 +36,10 @@ _Avoid_: Discount limit
 A business, identified by `businessId` (the owner's user id). Every repository holding business data takes `businessId` as its first argument; a record of another tenant is reported as not found.
 _Avoid_: Organisation, account
 
+**Audit event**:
+An append-only record of one action in a business: who (actor, session, ip), what (`action`, entity), and the before/after values with secrets redacted. Written in the same transaction as the change it describes; the database refuses to update or delete it. The team activity feed is a reading of these.
+_Avoid_: Log entry, activity record
+
 **Team member**:
 A person granted access to the business through an invitation.
 _Avoid_: Staff, user

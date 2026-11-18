@@ -1,6 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
-import { DataSource, EntityManager, In, Repository } from 'typeorm';
+import { DataSource, EntityManager, In } from 'typeorm';
+import {
+  TransactionalRepository,
+  runInTransaction,
+} from '../common/transactions/transactions';
 import { InventoryItem } from '../entities/inventory-item.entity';
 import { User } from '../entities/user.entity';
 import { PaginatedResult } from '../common/interfaces/paginated-result.interface';
@@ -17,13 +21,13 @@ export interface InventoryListQuery {
 
 /** Tenant-owned: every method takes `businessId` first. */
 @Injectable()
-export class InventoryRepository extends Repository<InventoryItem> {
+export class InventoryRepository extends TransactionalRepository<InventoryItem> {
   constructor(@InjectDataSource() private readonly dataSource: DataSource) {
     super(InventoryItem, dataSource.createEntityManager());
   }
 
   transaction<T>(fn: (manager: EntityManager) => Promise<T>): Promise<T> {
-    return this.dataSource.transaction(fn);
+    return runInTransaction(this.dataSource, fn);
   }
 
   createItem(
@@ -131,8 +135,8 @@ export class InventoryRepository extends Repository<InventoryItem> {
     businessId: string,
     id: string,
     qty: number,
-  ): Promise<InventoryItem | null> {
-    await this.createQueryBuilder()
+  ): Promise<{ item: InventoryItem | null; decremented: boolean }> {
+    const result = await this.createQueryBuilder()
       .update(InventoryItem)
       .set({
         quantity: () => 'quantity - :qty',
@@ -149,7 +153,8 @@ export class InventoryRepository extends Repository<InventoryItem> {
       })
       .execute();
 
-    return this.findOne({ where: { id, businessId } });
+    const item = await this.findOne({ where: { id, businessId } });
+    return { item, decremented: (result.affected ?? 0) > 0 };
   }
 
   async bulkUpsert(

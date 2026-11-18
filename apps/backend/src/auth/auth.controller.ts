@@ -177,7 +177,7 @@ export class AuthController {
     @CurrentUser() user: CurrentUserPayload,
     @Res({ passthrough: true }) res: Response,
   ) {
-    const result = await this.authService.logoutAll(user.id);
+    const result = await this.authService.logoutAll(user);
     clearSessionCookies(res, this.cookies);
     return result;
   }
@@ -197,7 +197,7 @@ export class AuthController {
     @CurrentUser() user: CurrentUserPayload,
     @Param('id', new ParseUUIDPipe()) id: string,
   ) {
-    return this.authService.revokeSession(user.id, id);
+    return this.authService.revokeSession(user, id);
   }
 
   /** POST /auth/verify-email { token }: confirms the address. */

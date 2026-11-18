@@ -3,10 +3,12 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { SalesService } from './sales.service';
 import { SalesRepository } from './sales.repository';
 import { Sale } from '../entities/sale.entity';
+import type { AuditService } from '../audit/audit.service';
 import { InventoryItem } from '../entities/inventory-item.entity';
 import { HeldTransaction } from '../entities/held-transaction.entity';
 
 describe('SalesService', () => {
+  let audit: { record: jest.Mock };
   let service: SalesService;
   let repository: {
     transaction: jest.Mock;
@@ -69,10 +71,12 @@ describe('SalesService', () => {
       removeHeld: jest.fn(),
     };
     eventEmitter = { emit: jest.fn() };
+    audit = { record: jest.fn().mockResolvedValue(undefined) };
 
     service = new SalesService(
       repository as unknown as SalesRepository,
       eventEmitter as unknown as EventEmitter2,
+      audit as unknown as AuditService,
     );
   });
 
@@ -118,6 +122,13 @@ describe('SalesService', () => {
         sale,
       });
       expect(result).toBe(sale);
+      expect(audit.record).toHaveBeenCalledTimes(1);
+      expect((audit.record.mock.lastCall as unknown[])[0]).toMatchObject({
+        businessId: 'b1',
+        action: 'sale.recorded',
+        entityId: 's1',
+        after: { total: 90, discountPercent: 10, paymentMethod: 'cash' },
+      });
     });
 
     it('throws BadRequestException when stock is insufficient', async () => {
@@ -400,6 +411,24 @@ describe('SalesService', () => {
         sale,
       );
       expect(result).toBe(sale);
+      expect(audit.record).toHaveBeenCalledTimes(1);
+      expect((audit.record.mock.lastCall as unknown[])[0]).toMatchObject({
+        action: 'sale.refunded',
+        entityId: 's1',
+        before: { status: 'completed', total: 100 },
+        after: { refundAmount: 100, refundReason: 'customer request' },
+      });
+    });
+
+    it('records nothing for a refused refund', async () => {
+      repository.transaction.mockImplementation(
+        async (fn: (manager: never) => Promise<unknown>) => {
+          repository.findSaleWithItems.mockResolvedValue(null);
+          return fn({} as never);
+        },
+      );
+      await expect(service.refund(user, 'x', {})).rejects.toThrow();
+      expect(audit.record).not.toHaveBeenCalled();
     });
   });
 

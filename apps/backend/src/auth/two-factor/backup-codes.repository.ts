@@ -1,10 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
-import { DataSource, IsNull, Repository } from 'typeorm';
+import { DataSource, IsNull } from 'typeorm';
+import { TransactionalRepository } from '../../common/transactions/transactions';
 import { TwoFactorBackupCode } from '../../entities/two-factor-backup-code.entity';
 
 @Injectable()
-export class BackupCodesRepository extends Repository<TwoFactorBackupCode> {
+export class BackupCodesRepository extends TransactionalRepository<TwoFactorBackupCode> {
   constructor(@InjectDataSource() dataSource: DataSource) {
     super(TwoFactorBackupCode, dataSource.createEntityManager());
   }

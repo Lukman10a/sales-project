@@ -13,6 +13,8 @@ import { TeamRepository } from './team.repository';
 import type { TeamMemberUpdateData } from './team.repository';
 import { UsersRepository } from '../auth/users.repository';
 import { PrincipalService } from '../auth/principal.service';
+import { AuditService } from '../audit/audit.service';
+import type { AuditAction } from '../entities/audit-event.entity';
 import type { InviteMemberDto } from './dto/invite-member.dto';
 import type { UpdateMemberDto } from './dto/update-member.dto';
 import type { UpdatePermissionsDto } from './dto/update-permissions.dto';
@@ -22,7 +24,20 @@ type Actor = Pick<
   CurrentUserPayload,
   'id' | 'role' | 'businessId' | 'businessName' | 'permissions'
 > &
-  Partial<Pick<CurrentUserPayload, 'maxDiscountPercent'>>;
+  Partial<
+    Pick<
+      CurrentUserPayload,
+      'maxDiscountPercent' | 'name' | 'email' | 'sessionId'
+    >
+  >;
+
+const accessOf = (m: TeamMember) => ({
+  role: m.role,
+  status: m.status,
+  department: m.department ?? null,
+  permissions: [...m.permissions],
+  maxDiscountPercent: m.maxDiscountPercent,
+});
 
 /**
  * Team members and what they may do. Every change that affects access
@@ -35,6 +50,7 @@ export class TeamService {
     private teamRepository: TeamRepository,
     private usersRepository: UsersRepository,
     private principals: PrincipalService,
+    private audit: AuditService,
   ) {}
 
   async list(actor: Pick<Actor, 'businessId'>, query: QueryTeamDto) {
@@ -105,6 +121,18 @@ export class TeamService {
         manager,
         teamMember,
       );
+      await this.audit.record({
+        businessId,
+        actor,
+        action: 'staff.invited',
+        entityType: 'team_member',
+        entityId: savedMember.id,
+        after: {
+          name: savedMember.name,
+          email: savedUser.email,
+          ...accessOf(savedMember),
+        },
+      });
 
       return {
         id: savedMember.id,
@@ -144,25 +172,54 @@ export class TeamService {
       data.department = updateDto.department;
     }
 
-    const saved = await this.teamRepository.updateMember(
-      actor.businessId,
-      member,
-      data,
-    );
-    if (data.role || data.status) {
-      await this.teamRepository.updateUser(actor.businessId, member.userId, {
-        ...(data.role ? { role: data.role } : {}),
-        ...(data.status === 'inactive' ? { status: 'inactive' } : {}),
-        ...(data.status === 'active' ? { status: 'active' } : {}),
+    const before = accessOf(member);
+    const action: AuditAction = data.role
+      ? 'staff.role_changed'
+      : data.status && data.status !== member.status
+        ? 'staff.status_changed'
+        : 'staff.updated';
+    const saved = await this.teamRepository.transaction(async () => {
+      const saved = await this.teamRepository.updateMember(
+        actor.businessId,
+        member,
+        data,
+      );
+      if (data.role || data.status) {
+        await this.teamRepository.updateUser(actor.businessId, member.userId, {
+          ...(data.role ? { role: data.role } : {}),
+          ...(data.status === 'inactive' ? { status: 'inactive' } : {}),
+          ...(data.status === 'active' ? { status: 'active' } : {}),
+        });
+      }
+      await this.audit.record({
+        businessId: actor.businessId,
+        actor,
+        action,
+        entityType: 'team_member',
+        entityId: member.id,
+        before,
+        after: accessOf(saved),
       });
-    }
+      return saved;
+    });
     this.principals.invalidate(member.userId);
     return saved;
   }
 
   async removeMember(actor: Actor, id: string): Promise<{ message: string }> {
     const member = await this.findOther(actor, id);
-    await this.teamRepository.removeMember(actor.businessId, member);
+    const before = { name: member.name, ...accessOf(member) };
+    await this.teamRepository.transaction(async () => {
+      await this.teamRepository.removeMember(actor.businessId, member);
+      await this.audit.record({
+        businessId: actor.businessId,
+        actor,
+        action: 'staff.removed',
+        entityType: 'team_member',
+        entityId: id,
+        before,
+      });
+    });
     this.principals.invalidate(member.userId);
     return { message: 'Team member removed successfully' };
   }
@@ -177,11 +234,24 @@ export class TeamService {
       dto.maxDiscountPercent ?? member.maxDiscountPercent;
     this.assertMayGrant(actor, dto.permissions, maxDiscountPercent);
 
-    const saved = await this.teamRepository.updateMember(
-      actor.businessId,
-      member,
-      { permissions: [...new Set(dto.permissions)], maxDiscountPercent },
-    );
+    const before = accessOf(member);
+    const saved = await this.teamRepository.transaction(async () => {
+      const saved = await this.teamRepository.updateMember(
+        actor.businessId,
+        member,
+        { permissions: [...new Set(dto.permissions)], maxDiscountPercent },
+      );
+      await this.audit.record({
+        businessId: actor.businessId,
+        actor,
+        action: 'staff.permissions_changed',
+        entityType: 'team_member',
+        entityId: member.id,
+        before,
+        after: accessOf(saved),
+      });
+      return saved;
+    });
     this.principals.invalidate(member.userId);
     return saved;
   }

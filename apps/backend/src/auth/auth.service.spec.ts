@@ -24,6 +24,7 @@ describe('AuthService', () => {
     create: jest.Mock<User, [Partial<User>]>;
     save: jest.Mock<Promise<User>, [User]>;
   };
+  let audit: { record: jest.Mock };
   let principals: {
     resolve: jest.Mock<Promise<Principal | null>, [string, string]>;
     invalidate: jest.Mock;
@@ -101,6 +102,7 @@ describe('AuthService', () => {
       resolve: jest.fn((id: string, businessId: string) =>
         Promise.resolve<Principal | null>({
           id,
+          name: 'Ada Owner',
           email: 'owner@luxa.com',
           role: 'owner',
           businessId,
@@ -146,7 +148,10 @@ describe('AuthService', () => {
       sendVerificationInBackground: jest.fn(),
       accountLocked: jest.fn(),
     };
+    audit = { record: jest.fn().mockResolvedValue(undefined) };
     service = new AuthService(
+      audit as never,
+      { run: <T>(fn: () => Promise<T>) => fn() } as never,
       usersRepository as unknown as UsersRepository,
       jwtService as never,
       configService as never,
@@ -241,6 +246,8 @@ describe('AuthService', () => {
       usersRepository.findByEmail.mockResolvedValue(null);
       await expect(service.login(dto)).rejects.toThrow('Invalid credentials');
       expect(bcrypt.compare).toHaveBeenCalled();
+      // No account means no business to file it under.
+      expect(audit.record).not.toHaveBeenCalled();
     });
 
     it('counts a wrong password', async () => {
@@ -253,6 +260,13 @@ describe('AuthService', () => {
       expect(user.failedLoginAttempts).toBe(3);
       expect(usersRepository.save).toHaveBeenCalledWith(user);
       expect(accountService.accountLocked).not.toHaveBeenCalled();
+      expect(audit.record).toHaveBeenCalledTimes(1);
+      expect((audit.record.mock.lastCall as unknown[])[0]).toMatchObject({
+        businessId: 'u1',
+        action: 'auth.sign_in_failed',
+        entityId: 'u1',
+        after: { reason: 'wrong_password', locked: false },
+      });
     });
 
     it('locks the account on the 5th wrong password and reports it', async () => {
@@ -265,6 +279,11 @@ describe('AuthService', () => {
       );
       expect(user.lockedUntil).toBeInstanceOf(Date);
       expect(accountService.accountLocked).toHaveBeenCalledWith(user, ctx);
+      expect((audit.record.mock.lastCall as unknown[])[0]).toMatchObject({
+        action: 'auth.sign_in_failed',
+        after: { locked: true },
+        context: ctx,
+      });
     });
 
     it('refuses a locked account even with the right password', async () => {
@@ -281,6 +300,11 @@ describe('AuthService', () => {
         'real-hash',
       );
       expect(sessionsService.start).not.toHaveBeenCalled();
+      expect(audit.record).toHaveBeenCalledTimes(1);
+      expect((audit.record.mock.lastCall as unknown[])[0]).toMatchObject({
+        action: 'auth.sign_in_failed',
+        after: { reason: 'locked' },
+      });
     });
 
     it('rejects a deactivated account after the password check', async () => {
@@ -354,6 +378,14 @@ describe('AuthService', () => {
       const savedArg = usersRepository.save.mock.calls[0][0];
       expect(savedArg.lastLogin).toBeInstanceOf(Date);
       expect(savedArg.failedLoginAttempts).toBe(0);
+      expect(audit.record).toHaveBeenCalledTimes(1);
+      expect((audit.record.mock.lastCall as unknown[])[0]).toMatchObject({
+        businessId: 'u1',
+        action: 'auth.signed_in',
+        entityId: 'u1',
+        after: { method: 'password', persistent: true },
+        context: ctx,
+      });
     });
   });
 
@@ -426,19 +458,32 @@ describe('AuthService', () => {
     });
 
     it('revokes every session on logout-all', async () => {
-      await expect(service.logoutAll('u1')).resolves.toEqual({
+      await expect(
+        service.logoutAll({ id: 'u1', businessId: 'b1' }),
+      ).resolves.toEqual({
         message: 'Logged out everywhere',
         revoked: 2,
       });
       expect(sessionsService.revokeAll).toHaveBeenCalledWith('u1');
+      expect(audit.record).toHaveBeenCalledTimes(1);
+      expect((audit.record.mock.lastCall as unknown[])[0]).toMatchObject({
+        businessId: 'b1',
+        action: 'session.revoked_all',
+        after: { revoked: 2 },
+      });
     });
 
     it('lists and revokes devices through the sessions service', async () => {
       await service.listSessions('u1', 'sid-1');
       expect(sessionsService.list).toHaveBeenCalledWith('u1', 'sid-1');
 
-      await service.revokeSession('u1', 'sid-2');
+      await service.revokeSession({ id: 'u1', businessId: 'b1' }, 'sid-2');
       expect(sessionsService.revokeOne).toHaveBeenCalledWith('u1', 'sid-2');
+      expect(audit.record).toHaveBeenCalledTimes(1);
+      expect((audit.record.mock.lastCall as unknown[])[0]).toMatchObject({
+        action: 'session.revoked',
+        entityId: 'sid-2',
+      });
     });
   });
 
@@ -481,6 +526,7 @@ describe('AuthService', () => {
   describe('principal checks', () => {
     const cashier: Principal = {
       id: 's1',
+      name: 'Kelechi',
       email: 'kelechi@shop.ng',
       role: 'cashier',
       businessId: 'b1',

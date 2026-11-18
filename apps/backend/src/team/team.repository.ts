@@ -1,10 +1,14 @@
 import { Injectable } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
-import { DataSource, EntityManager, Repository } from 'typeorm';
+import { DataSource, EntityManager } from 'typeorm';
 import { TeamMember } from '../entities/team-member.entity';
 import { User } from '../entities/user.entity';
 import { PaginatedResult } from '../common/interfaces/paginated-result.interface';
 import { assertTenant } from '../common/tenancy/assert-tenant';
+import {
+  TransactionalRepository,
+  runInTransaction,
+} from '../common/transactions/transactions';
 
 export interface TeamMemberWithEmail extends Omit<TeamMember, 'user'> {
   email?: string;
@@ -27,13 +31,14 @@ export interface TeamMemberUpdateData {
 
 /** Tenant-owned: every method takes `businessId` first. */
 @Injectable()
-export class TeamRepository extends Repository<TeamMember> {
+export class TeamRepository extends TransactionalRepository<TeamMember> {
   constructor(@InjectDataSource() private readonly dataSource: DataSource) {
     super(TeamMember, dataSource.createEntityManager());
   }
 
+  /** Joins the surrounding unit of work, so audit events share it. */
   transaction<T>(fn: (manager: EntityManager) => Promise<T>): Promise<T> {
-    return this.dataSource.transaction(fn);
+    return runInTransaction(this.dataSource, fn);
   }
 
   createUser(

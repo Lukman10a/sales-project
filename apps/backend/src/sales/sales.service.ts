@@ -9,13 +9,17 @@ import type { InventoryItem } from '../entities/inventory-item.entity';
 import type { HeldTransaction } from '../entities/held-transaction.entity';
 import { calculateStatus } from '../inventory/inventory.service';
 import { SalesRepository } from './sales.repository';
+import { AuditService } from '../audit/audit.service';
 import { assertMayDiscount } from '../common/constants/access-policy';
 import type { CurrentUserPayload } from '../common';
 
 type Seller = Pick<
   CurrentUserPayload,
   'id' | 'businessId' | 'role' | 'permissions' | 'maxDiscountPercent'
->;
+> &
+  Partial<Pick<CurrentUserPayload, 'name' | 'email' | 'sessionId'>>;
+type Actor = Pick<CurrentUserPayload, 'id' | 'businessId'> &
+  Partial<Pick<CurrentUserPayload, 'name' | 'email' | 'sessionId'>>;
 import type { CreateSaleDto } from './dto/create-sale.dto';
 import type { QuerySalesDto } from './dto/query-sales.dto';
 import type { RefundSaleDto } from './dto/refund-sale.dto';
@@ -26,6 +30,7 @@ export class SalesService {
   constructor(
     private salesRepository: SalesRepository,
     private eventEmitter: EventEmitter2,
+    private audit: AuditService,
   ) {}
 
   async create(user: Seller, createSaleDto: CreateSaleDto): Promise<Sale> {
@@ -107,6 +112,24 @@ export class SalesService {
             items,
           },
         );
+        await this.audit.record({
+          businessId: user.businessId,
+          actor: user,
+          action: 'sale.recorded',
+          entityType: 'sale',
+          entityId: sale.id,
+          after: {
+            total,
+            paymentMethod: createSaleDto.paymentMethod,
+            discountPercent,
+            items: items.map((i) => ({
+              productId: i.productId,
+              productName: i.productName,
+              quantity: i.quantity,
+              price: i.price,
+            })),
+          },
+        });
 
         return { sale, lowStockProducts };
       },
@@ -177,7 +200,7 @@ export class SalesService {
   }
 
   async refund(
-    user: { businessId: string },
+    user: Actor,
     id: string,
     refundDto: RefundSaleDto,
   ): Promise<Sale> {
@@ -218,7 +241,25 @@ export class SalesService {
       sale.status = 'refunded';
       sale.refundAmount = refundDto.refundAmount ?? sale.total;
       sale.refundReason = refundDto.refundReason;
-      return this.salesRepository.saveSale(user.businessId, manager, sale);
+      const saved = await this.salesRepository.saveSale(
+        user.businessId,
+        manager,
+        sale,
+      );
+      await this.audit.record({
+        businessId: user.businessId,
+        actor: user,
+        action: 'sale.refunded',
+        entityType: 'sale',
+        entityId: sale.id,
+        before: { status: 'completed', total: sale.total },
+        after: {
+          status: 'refunded',
+          refundAmount: sale.refundAmount,
+          refundReason: sale.refundReason ?? null,
+        },
+      });
+      return saved;
     });
   }
 
