@@ -23,7 +23,10 @@ suite('Database migrations & money (e2e, real Postgres)', () => {
       } as Parameters<typeof buildDataSourceOptions>[0]),
     );
     await ds.initialize();
-    await ds.dropDatabase();
+    // dropDatabase() leaves functions (e.g. the audit trigger) behind, so
+    // reset the whole schema instead.
+    await ds.query('DROP SCHEMA public CASCADE');
+    await ds.query('CREATE SCHEMA public');
     await ds.runMigrations();
   }, 60_000);
 
@@ -65,9 +68,14 @@ suite('Database migrations & money (e2e, real Postgres)', () => {
 
   it('sums kobo in SQL and returns naira', async () => {
     const repo = ds.getRepository(Sale);
+    let receiptNumber = 0;
     for (const total of [0.1, 0.2, 13_700.55]) {
       await repo.save({
         businessId,
+        receiptNumber: ++receiptNumber,
+        subtotal: total,
+        discountAmount: 0,
+        vatAmount: 0,
         total,
         saleDate: new Date(),
         soldBy: businessId,
