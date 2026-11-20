@@ -6,6 +6,7 @@ import { Sale } from '../entities/sale.entity';
 import { SaleItem } from '../entities/sale-item.entity';
 import { InventoryItem } from '../entities/inventory-item.entity';
 import { HeldTransaction } from '../entities/held-transaction.entity';
+import { IdempotencyKey } from '../entities/idempotency-key.entity';
 import { User } from '../entities/user.entity';
 import { PaginatedResult } from '../common/interfaces/paginated-result.interface';
 import { assertTenant } from '../common/tenancy/assert-tenant';
@@ -13,6 +14,7 @@ import {
   TransactionalRepository,
   runInTransaction,
 } from '../common/transactions/transactions';
+import { IDEMPOTENCY_TTL_HOURS } from './idempotency';
 
 export interface SalesListQuery {
   page: number;
@@ -33,6 +35,13 @@ export interface SalesListResult extends PaginatedResult<Sale> {
   summary: SalesSummary;
 }
 
+/** The unit of work a sale runs in, as handed to `transaction()` callbacks. */
+export type SalesTx = EntityManager;
+
+export type IdempotencyClaim =
+  | { claimed: true }
+  | { claimed: false; requestHash: string; saleId: string | null };
+
 /** A held (parked) sale stays retrievable for a day. */
 export const HELD_TTL_MS = 24 * 60 * 60 * 1000;
 
@@ -48,12 +57,31 @@ export class SalesRepository extends TransactionalRepository<Sale> {
     return runInTransaction(this.dataSource, fn);
   }
 
-  async findProduct(
+  /**
+   * Locks the business's products for the rest of the transaction, in id
+   * order so two tills locking the same products cannot deadlock.
+   */
+  lockProducts(
     businessId: string,
     manager: EntityManager,
-    id: string,
-  ): Promise<InventoryItem | null> {
-    return manager.findOne(InventoryItem, { where: { id, businessId } });
+    ids: string[],
+  ): Promise<InventoryItem[]> {
+    if (ids.length === 0) return Promise.resolve([]);
+    return manager
+      .createQueryBuilder(InventoryItem, 'p')
+      .setLock('pessimistic_write')
+      .where('p.businessId = :businessId', { businessId })
+      .andWhere('p.id IN (:...ids)', { ids: [...ids].sort() })
+      .orderBy('p.id', 'ASC')
+      .getMany();
+  }
+
+  /** Current catalogue rows, without locking (held sales re-price from these). */
+  findProducts(businessId: string, ids: string[]): Promise<InventoryItem[]> {
+    if (ids.length === 0) return Promise.resolve([]);
+    return this.manager.find(InventoryItem, {
+      where: { businessId, id: In(ids) },
+    });
   }
 
   saveProduct(
@@ -70,10 +98,93 @@ export class SalesRepository extends TransactionalRepository<Sale> {
     return manager.save(sale);
   }
 
+  /** Whether the business charges VAT (a setting on the owner's row). */
+  async vatEnabled(
+    businessId: string,
+    manager: EntityManager = this.manager,
+  ): Promise<boolean> {
+    const owner = await manager.findOne(User, {
+      where: { id: businessId },
+      select: ['id', 'vatEnabled'],
+    });
+    return owner?.vatEnabled ?? false;
+  }
+
+  async setVatEnabled(businessId: string, enabled: boolean): Promise<void> {
+    await this.manager.update(
+      User,
+      { id: businessId },
+      { vatEnabled: enabled },
+    );
+  }
+
+  /**
+   * The next receipt number. The counter row stays locked until the sale
+   * commits, so numbers are gap-free and never shared.
+   */
+  async nextReceiptNumber(
+    businessId: string,
+    manager: EntityManager,
+  ): Promise<number> {
+    const rows: Array<{ lastNumber: number }> = await manager.query(
+      `INSERT INTO "receipt_counters" ("businessId", "lastNumber") VALUES ($1, 1)
+       ON CONFLICT ("businessId") DO UPDATE
+         SET "lastNumber" = "receipt_counters"."lastNumber" + 1
+       RETURNING "lastNumber"`,
+      [businessId],
+    );
+    return Number(rows[0].lastNumber);
+  }
+
+  /**
+   * Claims an Idempotency-Key for this transaction. A key still in use by a
+   * concurrent request blocks here until that request commits or rolls back.
+   * An expired key is taken over.
+   */
+  async claimIdempotencyKey(
+    businessId: string,
+    manager: EntityManager,
+    key: string,
+    requestHash: string,
+  ): Promise<IdempotencyClaim> {
+    const claimed: unknown[] = await manager.query(
+      `INSERT INTO "idempotency_keys" ("businessId", "key", "requestHash", "expiresAt")
+       VALUES ($1, $2, $3, now() + interval '${IDEMPOTENCY_TTL_HOURS} hours')
+       ON CONFLICT ("businessId", "key") DO UPDATE
+         SET "requestHash" = EXCLUDED."requestHash", "saleId" = NULL,
+             "createdAt" = now(), "expiresAt" = EXCLUDED."expiresAt"
+         WHERE "idempotency_keys"."expiresAt" <= now()
+       RETURNING "key"`,
+      [businessId, key, requestHash],
+    );
+    if (claimed.length > 0) return { claimed: true };
+    const existing = await manager.findOneOrFail(IdempotencyKey, {
+      where: { businessId, key },
+    });
+    return {
+      claimed: false,
+      requestHash: existing.requestHash,
+      saleId: existing.saleId,
+    };
+  }
+
+  async completeIdempotencyKey(
+    businessId: string,
+    manager: EntityManager,
+    key: string,
+    saleId: string,
+  ): Promise<void> {
+    await manager.update(IdempotencyKey, { businessId, key }, { saleId });
+  }
+
   createSale(
     businessId: string,
     manager: EntityManager,
     data: {
+      receiptNumber: number;
+      subtotal: number;
+      discountAmount: number;
+      vatAmount: number;
       total: number;
       paymentMethod: Sale['paymentMethod'];
       status: 'completed';
@@ -87,21 +198,19 @@ export class SalesRepository extends TransactionalRepository<Sale> {
       accountCredit?: number;
       items: Array<{
         productId: string;
-        quantity: number;
-        price: number;
         productName: string;
+        unit: SaleItem['unit'];
+        quantity: number;
+        unitsPerItem: number;
+        price: number;
+        total: number;
       }>;
     },
   ): Promise<Sale> {
     const sale = manager.create(Sale, {
       ...data,
       businessId,
-      items: data.items.map((item) =>
-        manager.create(SaleItem, {
-          ...item,
-          total: Number(item.price) * item.quantity,
-        }),
-      ),
+      items: data.items.map((item) => manager.create(SaleItem, item)),
     });
     return manager.save(sale);
   }
@@ -115,6 +224,26 @@ export class SalesRepository extends TransactionalRepository<Sale> {
       where: { id, businessId },
       relations: ['items'],
     });
+  }
+
+  /** Locks the sale row (so refunds of one sale run one at a time), then loads its lines. */
+  async lockSale(
+    businessId: string,
+    manager: EntityManager,
+    id: string,
+  ): Promise<Sale | null> {
+    const sale = await manager
+      .createQueryBuilder(Sale, 'sale')
+      .setLock('pessimistic_write')
+      .where('sale.id = :id', { id })
+      .andWhere('sale.businessId = :businessId', { businessId })
+      .getOne();
+    if (!sale) return null;
+    sale.items = await manager.find(SaleItem, {
+      where: { saleId: sale.id },
+      order: { createdAt: 'ASC', id: 'ASC' },
+    });
+    return sale;
   }
 
   async resolveSellerNames(
@@ -240,10 +369,15 @@ export class SalesRepository extends TransactionalRepository<Sale> {
     };
   }
 
-  async listHeld(businessId: string): Promise<HeldTransaction[]> {
+  /** A cashier sees only the sales they parked themselves. */
+  async listHeld(
+    businessId: string,
+    heldBy: string,
+  ): Promise<HeldTransaction[]> {
     return this.manager
       .createQueryBuilder(HeldTransaction, 'held')
       .where('held.businessId = :businessId', { businessId })
+      .andWhere('held.heldBy = :heldBy', { heldBy })
       .andWhere('held.expiresAt > :now', { now: new Date() })
       .orderBy('held.createdAt', 'DESC')
       .getMany();
@@ -251,10 +385,11 @@ export class SalesRepository extends TransactionalRepository<Sale> {
 
   async findHeld(
     businessId: string,
+    heldBy: string,
     id: string,
   ): Promise<HeldTransaction | null> {
     return this.manager.findOne(HeldTransaction, {
-      where: { id, businessId },
+      where: { id, businessId, heldBy },
     });
   }
 
@@ -262,7 +397,7 @@ export class SalesRepository extends TransactionalRepository<Sale> {
     businessId: string,
     data: {
       customerName: string;
-      items: Array<{ productId: string; quantity: number; price: number }>;
+      items: HeldTransaction['items'];
       heldBy: string;
       discountPercent: number;
       paymentMethod: Sale['paymentMethod'];

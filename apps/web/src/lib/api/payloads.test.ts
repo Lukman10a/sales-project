@@ -52,7 +52,7 @@ describe("toSalePayload", () => {
     discount: 10,
   };
 
-  it("maps items to productId/quantity/price when productId is present", () => {
+  it("maps items to productId/quantity/unit, never a price, when productId is present", () => {
     const payload = toSalePayload({
       ...sale,
       items: [
@@ -62,8 +62,8 @@ describe("toSalePayload", () => {
     });
 
     expect(payload.items).toEqual([
-      { productId: "p1", quantity: 2, price: 50 },
-      { productId: "p2", quantity: 1, price: 30 },
+      { productId: "p1", quantity: 2, unit: "unit" },
+      { productId: "p2", quantity: 1, unit: "unit" },
     ]);
   });
 
@@ -156,7 +156,7 @@ describe("toSalePayload", () => {
     const payload = toSalePayload(record);
 
     expect(payload.items.length).toBeGreaterThan(0);
-    expect(payload.items).toEqual([{ productId: "p1", quantity: 2, price: 50 }]);
+    expect(payload.items).toEqual([{ productId: "p1", quantity: 2, unit: "unit" }]);
   });
 });
 
@@ -165,7 +165,7 @@ describe("toHeldPayload", () => {
   const held: HeldTransaction = {
     id: "h1",
     customerName: "Ada",
-    items: [{ productId: "p1", quantity: 2, price: 50 }],
+    items: [{ productId: "p1", quantity: 2, unit: "unit", price: 50 }],
     heldBy: "u1",
     discountPercent: 5,
     paymentMethod: "cash",
@@ -178,7 +178,7 @@ describe("toHeldPayload", () => {
 
     expect(payload).toEqual({
       customerName: "Ada",
-      items: [{ productId: "p1", quantity: 2, price: 50 }],
+      items: [{ productId: "p1", quantity: 2, unit: "unit" }],
       discountPercent: 5,
       paymentMethod: "cash",
     });

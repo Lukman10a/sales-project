@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { RequestMethod, type INestApplication } from '@nestjs/common';
 import { METHOD_METADATA, PATH_METADATA } from '@nestjs/common/constants';
 import { ModulesContainer } from '@nestjs/core';
@@ -125,6 +126,7 @@ suite('Tenant isolation (e2e, real Postgres)', () => {
       'get' | 'post' | 'patch' | 'put' | 'delete';
     const req = http()
       [verb](path)
+      .set('Idempotency-Key', randomUUID())
       .set('Origin', ORIGIN)
       .set('X-Forwarded-For', ip())
       .set('Cookie', cookieHeader(jar));
@@ -171,7 +173,7 @@ suite('Tenant isolation (e2e, real Postgres)', () => {
     const sale = bodyOf<{ id: string }>(
       await call('POST', '/sales', a.jar)
         .send({
-          items: [{ productId: product.id, quantity: 1, price: 100 }],
+          items: [{ productId: product.id, quantity: 1 }],
           paymentMethod: 'cash',
         })
         .expect(201),
@@ -180,7 +182,7 @@ suite('Tenant isolation (e2e, real Postgres)', () => {
       await call('POST', '/sales/held', a.jar)
         .send({
           customerName: 'Walk-in',
-          items: [{ productId: product.id, quantity: 1, price: 100 }],
+          items: [{ productId: product.id, quantity: 1 }],
         })
         .expect(201),
     );
@@ -242,7 +244,7 @@ suite('Tenant isolation (e2e, real Postgres)', () => {
     'PATCH /inventory/:id': { quantity: 1 },
     'POST /inventory/:id/confirm': undefined,
     'POST /inventory/:id/decrement': { quantity: 1 },
-    'PATCH /sales/:id/refund': {},
+    'PATCH /sales/:id/refund': { refundReason: 'test' },
     'PATCH /team/:id': { department: 'Front' },
     'PATCH /team/:id/permissions': { permissions: ['sales.record'] },
     'PATCH /notifications/:id/read': undefined,
@@ -308,7 +310,7 @@ suite('Tenant isolation (e2e, real Postgres)', () => {
     // Cashier preset: can sell, cannot refund, discount, or see reports.
     await call('GET', '/sales', cashier).expect(200);
     await call('PATCH', `/sales/${ids['/sales/:id']}/refund`, cashier)
-      .send({})
+      .send({ refundReason: 'test' })
       .expect(403);
     await call('GET', '/reports', cashier).expect(403);
     await call('GET', '/team', cashier).expect(403);
@@ -329,7 +331,7 @@ suite('Tenant isolation (e2e, real Postgres)', () => {
     const product = ids['/inventory/:id'];
     const sell = (discountPercent: number) =>
       call('POST', '/sales', cashier).send({
-        items: [{ productId: product, quantity: 1, price: 100 }],
+        items: [{ productId: product, quantity: 1 }],
         paymentMethod: 'cash',
         discountPercent,
       });

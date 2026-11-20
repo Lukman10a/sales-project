@@ -17,6 +17,13 @@ export interface BuildSaleRecordParams {
   saleDate: string;
 }
 
+function newCheckoutId(): string {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return crypto.randomUUID();
+  }
+  return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
 export function buildSaleRecord(params: BuildSaleRecordParams): SaleRecord {
   const {
     cart,
@@ -40,7 +47,9 @@ export function buildSaleRecord(params: BuildSaleRecordParams): SaleRecord {
     cartSubtotal - cartDiscount - loyaltyDiscount - accountCreditUsed;
 
   return {
-    id: String(Date.now()),
+    // Also the Idempotency-Key: one key per checkout, so a resubmit of the
+    // same record can never make a second sale.
+    id: newCheckoutId(),
     items: cart.map((c) => ({
       name: c.name,
       productId: c.id,

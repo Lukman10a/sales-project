@@ -93,6 +93,10 @@ export class User {
   @Column({ type: 'boolean', default: false })
   requireTwoFactor!: boolean;
 
+  /** Business setting, read from the owner's row: charge 7.5% VAT on sales. */
+  @Column({ type: 'boolean', default: false })
+  vatEnabled!: boolean;
+
   // Relations
   @OneToMany(() => Sale, (sale) => sale.owner)
   sales!: Sale[];

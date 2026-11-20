@@ -10,6 +10,7 @@ import {
   UseGuards,
   HttpCode,
   ParseUUIDPipe,
+  Headers,
 } from '@nestjs/common';
 import {
   JwtAuthGuard,
@@ -24,6 +25,9 @@ import { CreateSaleDtoSchema } from './dto/create-sale.dto';
 import { QuerySalesDtoSchema } from './dto/query-sales.dto';
 import { RefundSaleDtoSchema } from './dto/refund-sale.dto';
 import { CreateHeldTransactionDtoSchema } from './dto/create-held-transaction.dto';
+import { UpdateSalesSettingsDtoSchema } from './dto/sales-settings.dto';
+import type { UpdateSalesSettingsDto } from './dto/sales-settings.dto';
+import { requireIdempotencyKey } from './idempotency';
 import type { CreateSaleDto } from './dto/create-sale.dto';
 import type { QuerySalesDto } from './dto/query-sales.dto';
 import type { RefundSaleDto } from './dto/refund-sale.dto';
@@ -34,8 +38,9 @@ export class SalesController {
   constructor(private salesService: SalesService) {}
 
   /**
-   * Record a new sale atomically, decrementing stock
-   * POST /sales
+   * Record a new sale atomically, priced by the server, decrementing stock.
+   * POST /sales with an `Idempotency-Key` header; a repeat returns the
+   * original sale.
    * Requires: sales.record
    */
   @Post()
@@ -44,10 +49,40 @@ export class SalesController {
   @HttpCode(201)
   create(
     @CurrentUser() user: CurrentUserPayload,
+    @Headers('idempotency-key') idempotencyKey: string | undefined,
     @Body(new ZodValidationPipe(CreateSaleDtoSchema))
     createSaleDto: CreateSaleDto,
   ) {
-    return this.salesService.create(user, createSaleDto);
+    const key = requireIdempotencyKey(idempotencyKey);
+    return this.salesService.create(user, createSaleDto, key);
+  }
+
+  /**
+   * Business-wide sale settings (VAT)
+   * GET /sales/settings
+   * Requires: sales.record
+   */
+  @Get('settings')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions('sales.record')
+  settings(@CurrentUser() user: CurrentUserPayload) {
+    return this.salesService.settings(user);
+  }
+
+  /**
+   * Turn VAT on or off for the business
+   * PATCH /sales/settings
+   * Requires: settings.manage
+   */
+  @Patch('settings')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions('settings.manage')
+  updateSettings(
+    @CurrentUser() user: CurrentUserPayload,
+    @Body(new ZodValidationPipe(UpdateSalesSettingsDtoSchema))
+    dto: UpdateSalesSettingsDto,
+  ) {
+    return this.salesService.updateSettings(user, dto);
   }
 
   /**

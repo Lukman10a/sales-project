@@ -31,7 +31,6 @@ interface CartSidebarProps {
   paymentMethod: "cash" | "card" | "transfer" | "split" | "account";
   onRemoveItem: (itemId: string) => void;
   onUpdateQuantity: (itemId: string, delta: number) => void;
-  onUpdatePrice: (itemId: string, price: number) => void;
   onDiscountChange: (discount: number) => void;
   onPaymentMethodChange: (
     method: "cash" | "card" | "transfer" | "split" | "account",
@@ -52,7 +51,6 @@ export default function CartSidebar({
   paymentMethod,
   onRemoveItem,
   onUpdateQuantity,
-  onUpdatePrice,
   onDiscountChange,
   onPaymentMethodChange,
   onCompleteSale,
@@ -173,19 +171,10 @@ export default function CartSidebar({
                       <Plus className="w-3 h-3" />
                     </button>
                   </div>
-                  <div className="mt-2">
-                    <label className="text-xs text-muted-foreground">
-                      {t("Actual Price")}
-                    </label>
-                    <Input
-                      type="number"
-                      value={item.actualPrice}
-                      onChange={(e) =>
-                        onUpdatePrice(item.id, Number(e.target.value))
-                      }
-                      className="h-8 text-sm mt-1"
-                    />
-                  </div>
+                  {/* The server charges the catalogue price (T35); negotiate with a discount. */}
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    {t("Price")}: {formatCurrency(item.actualPrice)}
+                  </p>
                 </div>
               </motion.div>
             ))}

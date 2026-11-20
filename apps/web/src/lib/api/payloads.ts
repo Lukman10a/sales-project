@@ -32,10 +32,17 @@ export function toTeamPermissions(permissions: Permission[]): string[] {
 /**
  * Write-guard for recording a sale. Maps the UI SaleRecord to the backend
  * CreateSaleDto. The backend is Zod `.strict()` — only known keys are emitted
- * and items are reduced to `{ productId, quantity, price }`.
+ * and items are reduced to `{ productId, quantity, unit }`. Prices are never
+ * sent: the server reads them from the catalogue (T35).
  */
+export interface SaleLinePayload {
+  productId: string;
+  quantity: number;
+  unit: "unit" | "carton";
+}
+
 export interface SalePayload {
-  items: Array<{ productId: string; quantity: number; price: number }>;
+  items: SaleLinePayload[];
   paymentMethod: "cash" | "card" | "transfer" | "split" | "account";
   discountPercent?: number;
   customerId?: string;
@@ -53,7 +60,7 @@ export function toSalePayload(sale: SaleRecord): SalePayload {
       .map((item) => ({
         productId: item.productId as string,
         quantity: item.quantity,
-        price: item.price,
+        unit: item.unit ?? "unit",
       })),
     paymentMethod: sale.paymentMethod ?? "cash",
   };
@@ -79,7 +86,7 @@ export function toSalePayload(sale: SaleRecord): SalePayload {
  */
 export interface HeldPayload {
   customerName: string;
-  items: Array<{ productId: string; quantity: number; price: number }>;
+  items: SaleLinePayload[];
   discountPercent?: number;
   paymentMethod: "cash" | "card" | "transfer" | "split" | "account";
 }
@@ -90,7 +97,7 @@ export function toHeldPayload(held: HeldTransaction): HeldPayload {
     items: held.items.map((item) => ({
       productId: item.productId,
       quantity: item.quantity,
-      price: item.price,
+      unit: item.unit ?? "unit",
     })),
     paymentMethod: held.paymentMethod ?? "cash",
   };

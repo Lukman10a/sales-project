@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
@@ -89,6 +90,7 @@ suite('Audit trail (e2e, real Postgres)', () => {
       .set('Origin', ORIGIN)
       .set('X-Forwarded-For', from)
       .set('User-Agent', 'audit-e2e')
+      .set('Idempotency-Key', randomUUID())
       .set('Cookie', cookieHeader(jar));
     return jar.luxa_csrf ? req.set('x-csrf-token', jar.luxa_csrf) : req;
   };
@@ -131,7 +133,7 @@ suite('Audit trail (e2e, real Postgres)', () => {
     const sale = (
       await call('POST', '/sales', a.jar)
         .send({
-          items: [{ productId: product.id, quantity: 2, price: 120 }],
+          items: [{ productId: product.id, quantity: 2 }],
           paymentMethod: 'cash',
         })
         .expect(201)

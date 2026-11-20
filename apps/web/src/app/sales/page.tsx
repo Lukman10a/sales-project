@@ -15,7 +15,7 @@ import { useInventoryData } from "@/contexts/InventoryDataContext";
 import { useSalesData } from "@/contexts/SalesDataContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { usePermissions } from "@/hooks/usePermissions";
-import { routeRefund } from "@/lib/refund";
+import { routeRefund, type RefundLine } from "@/lib/refund";
 import { submitSale } from "@/lib/sales/completeSale";
 import { buildSaleRecord, buildHeldTransaction } from "@/lib/sales/saleRecord";
 import { filterProducts } from "@/lib/sales/filterProducts";
@@ -193,14 +193,6 @@ export default function Sales() {
     );
   };
 
-  const updatePrice = (itemId: string, price: number) => {
-    setCart(
-      cart.map((item) =>
-        item.id === itemId ? { ...item, actualPrice: price } : item,
-      ),
-    );
-  };
-
   const handleApplySplitPayment = (payments: PaymentPart[]) => {
     setSplitPayments(payments);
     setPaymentMethod("split");
@@ -298,13 +290,13 @@ export default function Sales() {
 
   const handleProcessRefund = async (
     saleId: string,
-    refundAmount: number,
     reason: string,
+    items?: RefundLine[],
   ) => {
     const routed = await routeRefund({
       saleId,
-      refundAmount,
       reason,
+      items,
       recentSales,
       refundSale,
     });
@@ -453,7 +445,6 @@ export default function Sales() {
               paymentMethod={paymentMethod}
               onRemoveItem={removeFromCart}
               onUpdateQuantity={updateQuantity}
-              onUpdatePrice={updatePrice}
               onDiscountChange={setDiscountPercent}
               onPaymentMethodChange={setPaymentMethod}
               onCompleteSale={handleCompleteSale}

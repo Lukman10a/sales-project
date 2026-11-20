@@ -14,6 +14,7 @@ import {
   toSaleRecord,
 } from "@/lib/adapters/sale.adapter";
 import { toSalePayload, toHeldPayload } from "@/lib/api/payloads";
+import type { RefundLine } from "@/lib/refund";
 import { toastMutationError } from "@/lib/toastError";
 import type { HeldTransaction, SaleRecord } from "@/types/salesTypes";
 
@@ -22,8 +23,8 @@ interface SalesDataContextType {
   addSaleRecord: (sale: SaleRecord) => Promise<void>;
   refundSale: (
     saleId: string,
-    refundAmount: number,
     reason: string,
+    items?: RefundLine[],
   ) => Promise<void>;
   getSaleById: (id: string) => Promise<SaleRecord | null>;
   heldTransactions: HeldTransaction[];
@@ -74,7 +75,9 @@ export function SalesDataProvider({ children }: { children: React.ReactNode }) {
 
   const addMutation = useMutation({
     mutationFn: (sale: SaleRecord) =>
-      api.post<BackendSale>("/sales", toSalePayload(sale)),
+      api.post<BackendSale>("/sales", toSalePayload(sale), {
+        headers: { "Idempotency-Key": sale.id },
+      }),
     onSuccess: invalidate,
     onError: toastMutationError,
   });
@@ -82,16 +85,16 @@ export function SalesDataProvider({ children }: { children: React.ReactNode }) {
   const refundMutation = useMutation({
     mutationFn: ({
       saleId,
-      refundAmount,
       reason,
+      items,
     }: {
       saleId: string;
-      refundAmount: number;
       reason: string;
+      items?: RefundLine[];
     }) =>
       api.patch<BackendSale>(`/sales/${saleId}/refund`, {
-        refundAmount,
         refundReason: reason,
+        ...(items && items.length > 0 ? { items } : {}),
       }),
     onSuccess: invalidate,
     onError: toastMutationError,
@@ -121,10 +124,10 @@ export function SalesDataProvider({ children }: { children: React.ReactNode }) {
   const refundSale = useCallback(
     async (
       saleId: string,
-      refundAmount: number,
       reason: string,
+      items?: RefundLine[],
     ): Promise<void> => {
-      await refundMutation.mutateAsync({ saleId, refundAmount, reason });
+      await refundMutation.mutateAsync({ saleId, reason, items });
     },
     [refundMutation],
   );

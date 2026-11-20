@@ -5,6 +5,7 @@ import { User } from '../entities/user.entity';
 import { TeamMember } from '../entities/team-member.entity';
 import { InventoryItem } from '../entities/inventory-item.entity';
 import { Sale } from '../entities/sale.entity';
+import { ReceiptCounter } from '../entities/receipt-counter.entity';
 import { SaleItem } from '../entities/sale-item.entity';
 import { buildDemoData, DEMO_OWNER_EMAIL, stockStatus } from './demo-data';
 
@@ -113,10 +114,16 @@ async function seed() {
         productIds.set(p.sku, { id: item.id, name: item.name });
       }
 
+      let receiptNumber = 0;
       for (const s of sales) {
+        receiptNumber += 1;
         await em.save(
           em.create(Sale, {
             businessId: owner.id,
+            receiptNumber,
+            subtotal: s.total,
+            discountAmount: 0,
+            vatAmount: 0,
             total: s.total,
             paymentMethod: s.paymentMethod,
             status: 'completed',
@@ -136,6 +143,13 @@ async function seed() {
           }),
         );
       }
+
+      await em.save(
+        em.create(ReceiptCounter, {
+          businessId: owner.id,
+          lastNumber: receiptNumber,
+        }),
+      );
 
       console.log(
         `Seeded ${businessName}: 3 users, ${products.length} products, ${sales.length} sales.`,

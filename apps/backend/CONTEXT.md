@@ -5,15 +5,22 @@ The sales and inventory operations API. Owns the data model and the business rul
 ## Language
 
 **Sale**:
-A completed transaction recording items sold to a customer.
+A completed transaction recording items sold to a customer. Always priced by the server from the catalogue: subtotal, less discount, plus VAT when the business charges it. Carries a per-business **Receipt number** (`#1218`).
 _Avoid_: Purchase, transaction
 
+**Sale line**:
+One product on a sale, sold by the `unit` or the `carton` (the product's bundle size and bundle price). Records how many were sold and how many have since been refunded.
+_Avoid_: Order line
+
+**Idempotency key**:
+The `Idempotency-Key` header a till sends with each new sale. Within 24 hours, the same key with the same body returns the original sale; with a different body it is refused (422).
+
 **Held sale**:
-A sale kept in progress without payment, set aside to be resumed or completed later.
+A sale kept in progress without payment, set aside to be resumed or completed later. Seen only by the person who held it; holds no prices, which are read again on resume.
 _Avoid_: Pending sale, draft
 
 **Refund**:
-A reversal of a completed sale that returns funds to the customer.
+A reversal of a completed sale that returns funds to the customer and puts the stock back. Needs a reason; may cover only some quantities of some lines (a partial refund), never more than was sold.
 _Avoid_: Return, void
 
 **Inventory item**:

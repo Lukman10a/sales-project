@@ -37,6 +37,7 @@ interface RequestOptions {
   method?: "GET" | "POST" | "PATCH" | "DELETE";
   body?: unknown;
   formData?: FormData;
+  headers?: Record<string, string>;
 }
 
 type FetchInit = {
@@ -160,6 +161,9 @@ async function request<T>(
   if (options.method && options.method !== "GET") {
     Object.assign(headers, csrfHeaders());
   }
+  if (options.headers) {
+    Object.assign(headers, options.headers);
+  }
 
   const init: FetchInit = { headers, credentials: "include" };
   if (options.method) {
@@ -194,8 +198,11 @@ async function request<T>(
 
 export const api = {
   get: <T>(path: string) => request<T>(path, { method: "GET" }),
-  post: <T>(path: string, body?: unknown) =>
-    request<T>(path, { method: "POST", body }),
+  post: <T>(
+    path: string,
+    body?: unknown,
+    extra?: { headers?: Record<string, string> },
+  ) => request<T>(path, { method: "POST", body, headers: extra?.headers }),
   postForm: <T>(path: string, formData: FormData) =>
     request<T>(path, { method: "POST", formData }),
   patch: <T>(path: string, body?: unknown) =>
