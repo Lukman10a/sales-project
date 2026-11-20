@@ -14,6 +14,7 @@ jest.mock('bcrypt', () => ({
 
 describe('ProfileService', () => {
   let service: ProfileService;
+  let sessionsService: { revokeOthers: jest.Mock };
   let usersRepository: {
     findById: jest.Mock<Promise<User | null>, [string]>;
     save: jest.Mock<Promise<User>, [User]>;
@@ -79,9 +80,11 @@ describe('ProfileService', () => {
     (bcrypt.hash as jest.Mock).mockResolvedValue('new-hash');
     (bcrypt.compare as jest.Mock).mockResolvedValue(true);
 
+    sessionsService = { revokeOthers: jest.fn().mockResolvedValue(2) };
     service = new ProfileService(
       usersRepository as unknown as UsersRepository,
       profilesRepository as unknown as UserProfileRepository,
+      sessionsService as never,
     );
   });
 
@@ -180,13 +183,17 @@ describe('ProfileService', () => {
     it('hashes and saves the new password', async () => {
       usersRepository.findById.mockResolvedValue(user);
 
-      const result = await service.changePassword('u1', dto);
+      const result = await service.changePassword('u1', dto, 'sid-1');
 
-      expect(bcrypt.hash).toHaveBeenCalledWith('NewPassword2', 10);
+      expect(bcrypt.hash).toHaveBeenCalledWith('NewPassword2', 12);
       expect(usersRepository.save).toHaveBeenCalledWith(
         expect.objectContaining({ password: 'new-hash' }),
       );
-      expect(result).toEqual({ message: 'Password changed successfully' });
+      expect(result).toEqual({
+        message: 'Password changed successfully',
+        signedOut: 2,
+      });
+      expect(sessionsService.revokeOthers).toHaveBeenCalledWith('u1', 'sid-1');
     });
   });
 

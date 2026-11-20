@@ -4,6 +4,7 @@ import {
   PrimaryGeneratedColumn,
   Column,
   CreateDateColumn,
+  Index,
   ManyToOne,
   OneToMany,
 } from 'typeorm';
@@ -11,6 +12,9 @@ import { User } from './user.entity';
 import { SaleItem } from './sale-item.entity';
 
 @Entity('sales')
+@Index('UQ_sales_business_receipt', ['businessId', 'receiptNumber'], {
+  unique: true,
+})
 export class Sale {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
@@ -18,6 +22,21 @@ export class Sale {
   @Column({ type: 'uuid' })
   businessId!: string;
 
+  /** Per-business receipt sequence, shown as `#1218`. */
+  @Column({ type: 'int' })
+  receiptNumber!: number;
+
+  /** Catalogue prices × quantities, before discount and VAT. */
+  @Column(moneyColumn())
+  subtotal!: number;
+
+  @Column(moneyColumn())
+  discountAmount!: number;
+
+  @Column(moneyColumn())
+  vatAmount!: number;
+
+  /** What the customer pays: subtotal − discount + VAT. */
   @Column(moneyColumn())
   total!: number;
 

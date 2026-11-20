@@ -2,11 +2,13 @@ import { validateEnv } from './env.schema';
 
 const SECRET_A = 'a'.repeat(32);
 const SECRET_B = 'b'.repeat(32);
+const ENC_KEY = Buffer.alloc(32, 7).toString('base64');
 
 const valid = (overrides: Record<string, unknown> = {}) => ({
   NODE_ENV: 'production',
   JWT_SECRET: SECRET_A,
   JWT_REFRESH_SECRET: SECRET_B,
+  ENCRYPTION_KEY: ENC_KEY,
   DATABASE_URL: 'postgresql://luxa:pw@db.internal:5432/luxa',
   FRONTEND_URL: 'https://app.luxa.app',
   ...overrides,
@@ -39,6 +41,20 @@ describe('validateEnv', () => {
     expect(() => validateEnv(valid({ JWT_SECRET: 'short' }))).toThrow(
       /JWT_SECRET.*32/,
     );
+  });
+
+  it('rejects a missing or malformed ENCRYPTION_KEY', () => {
+    expect(() => validateEnv(valid({ ENCRYPTION_KEY: undefined }))).toThrow(
+      /ENCRYPTION_KEY is required/,
+    );
+    expect(() =>
+      validateEnv(
+        valid({ ENCRYPTION_KEY: Buffer.alloc(16).toString('base64') }),
+      ),
+    ).toThrow(/ENCRYPTION_KEY must be 32 bytes/);
+    expect(() =>
+      validateEnv(valid({ ENCRYPTION_KEY: 'k'.repeat(44) })),
+    ).toThrow(/ENCRYPTION_KEY must be 32 bytes/);
   });
 
   it('rejects identical access and refresh secrets', () => {

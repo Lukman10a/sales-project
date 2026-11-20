@@ -17,6 +17,7 @@ env:
   # Test-only values; never used outside CI.
   CI_ENV_JWT_SECRET: ci-access-secret-0123456789abcdefghijkl
   CI_ENV_JWT_REFRESH_SECRET: ci-refresh-secret-0123456789abcdefghijk
+  CI_ENV_ENCRYPTION_KEY: Y2ktZW5jcnlwdGlvbi1rZXktMDEyMzQ1Njc4OWFiY2Q=
 
 jobs:
   ci:
@@ -78,6 +79,7 @@ jobs:
           DATABASE_SSL: disable
           JWT_SECRET: ${{ env.CI_ENV_JWT_SECRET }}
           JWT_REFRESH_SECRET: ${{ env.CI_ENV_JWT_REFRESH_SECRET }}
+          ENCRYPTION_KEY: ${{ env.CI_ENV_ENCRYPTION_KEY }}
           FRONTEND_URL: http://localhost:3000
         run: |
           npm run typeorm -- schema:drop
@@ -137,6 +139,7 @@ jobs:
         env:
           JWT_SECRET: ${{ env.CI_ENV_JWT_SECRET }}
           JWT_REFRESH_SECRET: ${{ env.CI_ENV_JWT_REFRESH_SECRET }}
+          ENCRYPTION_KEY: ${{ env.CI_ENV_ENCRYPTION_KEY }}
         run: npm run migration:run
 
       - name: Install Chromium
@@ -146,6 +149,7 @@ jobs:
         env:
           JWT_SECRET: ${{ env.CI_ENV_JWT_SECRET }}
           JWT_REFRESH_SECRET: ${{ env.CI_ENV_JWT_REFRESH_SECRET }}
+          ENCRYPTION_KEY: ${{ env.CI_ENV_ENCRYPTION_KEY }}
         run: pnpm --filter @luxa/e2e run test:e2e
 
       - name: Upload Playwright report and traces

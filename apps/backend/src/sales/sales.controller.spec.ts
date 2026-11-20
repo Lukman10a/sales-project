@@ -1,7 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { SalesController } from './sales.controller';
 import { SalesService } from './sales.service';
-import { JwtAuthGuard, PermissionsGuard, RolesGuard } from '../common';
+import { BadRequestException } from '@nestjs/common';
+import { JwtAuthGuard, PermissionsGuard } from '../common';
+import { PERMISSIONS_KEY } from '../common/decorators/permissions.decorator';
 
 describe('SalesController', () => {
   let controller: SalesController;
@@ -13,12 +15,16 @@ describe('SalesController', () => {
     createHeld: jest.Mock;
     listHeld: jest.Mock;
     removeHeld: jest.Mock;
+    settings: jest.Mock;
+    updateSettings: jest.Mock;
   };
 
   const currentUser = {
     id: 'u1',
     email: 'owner@luxa.com',
-    role: 'owner',
+    role: 'owner' as const,
+    permissions: [],
+    maxDiscountPercent: 100,
     businessName: 'LUXA',
     businessId: 'b1',
   };
@@ -32,6 +38,8 @@ describe('SalesController', () => {
       createHeld: jest.fn(),
       listHeld: jest.fn(),
       removeHeld: jest.fn(),
+      settings: jest.fn(),
+      updateSettings: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -42,24 +50,52 @@ describe('SalesController', () => {
       .useValue({ canActivate: () => true })
       .overrideGuard(PermissionsGuard)
       .useValue({ canActivate: () => true })
-      .overrideGuard(RolesGuard)
-      .useValue({ canActivate: () => true })
       .compile();
 
     controller = module.get(SalesController);
   });
 
-  it('delegates create to the service', async () => {
+  it('delegates create to the service with the Idempotency-Key', async () => {
     const dto = {
-      items: [{ productId: 'p1', quantity: 2, price: 50 }],
+      items: [{ productId: 'p1', quantity: 2, unit: 'unit' as const }],
       paymentMethod: 'cash' as const,
     };
     salesService.create.mockResolvedValue({ id: 's1' });
 
-    await expect(controller.create(currentUser, dto)).resolves.toEqual({
-      id: 's1',
+    await expect(controller.create(currentUser, 'key-1', dto)).resolves.toEqual(
+      { id: 's1' },
+    );
+    expect(salesService.create).toHaveBeenCalledWith(currentUser, dto, 'key-1');
+  });
+
+  it('requires an Idempotency-Key to record a sale', () => {
+    const dto = {
+      items: [{ productId: 'p1', quantity: 1, unit: 'unit' as const }],
+      paymentMethod: 'cash' as const,
+    };
+    expect(() => controller.create(currentUser, undefined, dto)).toThrow(
+      BadRequestException,
+    );
+    expect(salesService.create).not.toHaveBeenCalled();
+  });
+
+  it('reads and changes sale settings, changing needs settings.manage', async () => {
+    salesService.settings.mockResolvedValue({ vatEnabled: false });
+    salesService.updateSettings.mockResolvedValue({ vatEnabled: true });
+    await expect(controller.settings(currentUser)).resolves.toEqual({
+      vatEnabled: false,
     });
-    expect(salesService.create).toHaveBeenCalledWith(currentUser, dto);
+    await expect(
+      controller.updateSettings(currentUser, { vatEnabled: true }),
+    ).resolves.toEqual({ vatEnabled: true });
+    const required: unknown = Reflect.getMetadata(
+      PERMISSIONS_KEY,
+      Object.getOwnPropertyDescriptor(
+        SalesController.prototype,
+        'updateSettings',
+      )?.value as object,
+    );
+    expect(required).toEqual(['settings.manage']);
   });
 
   it('delegates list to the service', async () => {
@@ -83,7 +119,7 @@ describe('SalesController', () => {
   });
 
   it('delegates refund to the service', async () => {
-    const dto = { refundAmount: 100, refundReason: 'reason' };
+    const dto = { refundReason: 'reason' };
     salesService.refund.mockResolvedValue({ id: 's1', status: 'refunded' });
 
     await expect(controller.refund(currentUser, 's1', dto)).resolves.toEqual({
@@ -96,7 +132,7 @@ describe('SalesController', () => {
   it('delegates createHeld to the service', async () => {
     const dto = {
       customerName: 'Customer',
-      items: [{ productId: 'p1', quantity: 1, price: 10 }],
+      items: [{ productId: 'p1', quantity: 1, unit: 'unit' as const }],
       paymentMethod: 'cash' as const,
     };
     salesService.createHeld.mockResolvedValue({ id: 'h1' });

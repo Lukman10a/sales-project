@@ -6,6 +6,7 @@ import {
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InventoryService, calculateStatus } from './inventory.service';
 import { InventoryRepository } from './inventory.repository';
+import type { AuditService } from '../audit/audit.service';
 import { InventoryItem } from '../entities/inventory-item.entity';
 
 describe('calculateStatus', () => {
@@ -26,20 +27,28 @@ describe('calculateStatus', () => {
 });
 
 describe('InventoryService', () => {
+  let audit: { record: jest.Mock };
   let service: InventoryService;
   let repository: {
     list: jest.Mock;
-    findByIdAndBusiness: jest.Mock;
-    create: jest.Mock;
-    save: jest.Mock;
-    remove: jest.Mock;
+    findById: jest.Mock;
+    createItem: jest.Mock;
+    saveItem: jest.Mock;
+    removeItem: jest.Mock;
     decrementStock: jest.Mock;
     bulkUpsert: jest.Mock;
     resolveCreatorNames: jest.Mock;
+    transaction: jest.Mock;
   };
   let eventEmitter: { emit: jest.Mock };
 
-  const user = { id: 'u1', businessId: 'b1', role: 'apprentice' };
+  const user = {
+    id: 'u1',
+    businessId: 'b1',
+    role: 'cashier' as const,
+    permissions: ['products.edit_price' as const, 'products.restock' as const],
+    maxDiscountPercent: 0,
+  };
   const item = {
     id: 'i1',
     businessId: 'b1',
@@ -56,19 +65,22 @@ describe('InventoryService', () => {
   beforeEach(() => {
     repository = {
       list: jest.fn(),
-      findByIdAndBusiness: jest.fn(),
-      create: jest.fn(),
-      save: jest.fn(),
-      remove: jest.fn(),
+      findById: jest.fn(),
+      createItem: jest.fn(),
+      saveItem: jest.fn(),
+      removeItem: jest.fn(),
       decrementStock: jest.fn(),
       bulkUpsert: jest.fn(),
       resolveCreatorNames: jest.fn(),
+      transaction: jest.fn(<T>(fn: () => Promise<T>) => fn()),
     };
     eventEmitter = { emit: jest.fn() };
+    audit = { record: jest.fn().mockResolvedValue(undefined) };
 
     service = new InventoryService(
       repository as unknown as InventoryRepository,
       eventEmitter as unknown as EventEmitter2,
+      audit as unknown as AuditService,
     );
   });
 
@@ -96,8 +108,7 @@ describe('InventoryService', () => {
 
       const result = await service.list(user, query);
 
-      expect(repository.list).toHaveBeenCalledWith({
-        businessId: 'b1',
+      expect(repository.list).toHaveBeenCalledWith('b1', {
         page: 1,
         limit: 20,
         search: 'wid',
@@ -105,7 +116,7 @@ describe('InventoryService', () => {
         status: 'in-stock',
         sort: 'name',
       });
-      expect(repository.resolveCreatorNames).toHaveBeenCalledWith(['u1']);
+      expect(repository.resolveCreatorNames).toHaveBeenCalledWith('b1', ['u1']);
       expect(result.data).toEqual([{ ...item, createdByName: 'Ada Lovelace' }]);
     });
 
@@ -128,7 +139,7 @@ describe('InventoryService', () => {
 
   describe('findOne', () => {
     it('throws NotFoundException when item is missing', async () => {
-      repository.findByIdAndBusiness.mockResolvedValue(null);
+      repository.findById.mockResolvedValue(null);
 
       await expect(service.findOne(user, 'missing')).rejects.toBeInstanceOf(
         NotFoundException,
@@ -136,7 +147,7 @@ describe('InventoryService', () => {
     });
 
     it('returns the item enriched with the creator name', async () => {
-      repository.findByIdAndBusiness.mockResolvedValue({ ...item });
+      repository.findById.mockResolvedValue({ ...item });
       repository.resolveCreatorNames.mockResolvedValue(
         new Map([['u1', 'Ada Lovelace']]),
       );
@@ -145,7 +156,7 @@ describe('InventoryService', () => {
         ...item,
         createdByName: 'Ada Lovelace',
       });
-      expect(repository.findByIdAndBusiness).toHaveBeenCalledWith('i1', 'b1');
+      expect(repository.findById).toHaveBeenCalledWith('b1', 'i1');
     });
   });
 
@@ -158,22 +169,22 @@ describe('InventoryService', () => {
         quantity: 2,
         reorderPoint: 5,
       };
-      repository.create.mockReturnValue({});
-      repository.save.mockImplementation((e: InventoryItem) =>
+      repository.createItem.mockReturnValue({});
+      repository.saveItem.mockImplementation((_b: string, e: InventoryItem) =>
         Promise.resolve({ ...e, id: 'i1' }),
       );
 
       const result = await service.create(user, dto);
 
-      expect(repository.create).toHaveBeenCalledWith(
+      expect(repository.createItem).toHaveBeenCalledWith(
+        'b1',
         expect.objectContaining({
-          businessId: 'b1',
           createdBy: 'u1',
           name: 'Widget',
           status: 'low-stock',
         }),
       );
-      expect(repository.save).toHaveBeenCalled();
+      expect(repository.saveItem).toHaveBeenCalled();
       expect(result.id).toBe('i1');
     });
 
@@ -188,21 +199,22 @@ describe('InventoryService', () => {
         lastRestocked: new Date('2026-08-01'),
         confirmedByApprentice: true,
       };
-      repository.create.mockReturnValue({});
-      repository.save.mockImplementation((e: InventoryItem) =>
+      repository.createItem.mockReturnValue({});
+      repository.saveItem.mockImplementation((_b: string, e: InventoryItem) =>
         Promise.resolve({ ...e, id: 'i1' }),
       );
 
       await service.create(user, dto);
 
-      expect(repository.create).toHaveBeenCalledWith(
+      expect(repository.createItem).toHaveBeenCalledWith(
+        'b1',
         expect.objectContaining({
           image: 'https://example.com/img.png',
           lastRestocked: dto.lastRestocked,
           confirmedByApprentice: true,
         }),
       );
-      expect(repository.save).toHaveBeenCalled();
+      expect(repository.saveItem).toHaveBeenCalled();
     });
 
     it('auto-confirms an item created by the owner', async () => {
@@ -212,8 +224,8 @@ describe('InventoryService', () => {
         wholesalePrice: 5,
         quantity: 2,
       };
-      repository.create.mockReturnValue({});
-      repository.save.mockImplementation((e: InventoryItem) =>
+      repository.createItem.mockReturnValue({});
+      repository.saveItem.mockImplementation((_b: string, e: InventoryItem) =>
         Promise.resolve({ ...e, id: 'i1' }),
       );
 
@@ -222,7 +234,8 @@ describe('InventoryService', () => {
         dto,
       );
 
-      expect(repository.create).toHaveBeenCalledWith(
+      expect(repository.createItem).toHaveBeenCalledWith(
+        'b1',
         expect.objectContaining({
           confirmedBy: 'owner1',
           confirmedAt: expect.any(Date) as Date,
@@ -234,7 +247,7 @@ describe('InventoryService', () => {
 
   describe('confirm', () => {
     it('throws NotFoundException when item is missing', async () => {
-      repository.findByIdAndBusiness.mockResolvedValue(null);
+      repository.findById.mockResolvedValue(null);
 
       await expect(
         service.confirm(
@@ -245,7 +258,7 @@ describe('InventoryService', () => {
     });
 
     it('throws BadRequestException when the item is already confirmed', async () => {
-      repository.findByIdAndBusiness.mockResolvedValue({
+      repository.findById.mockResolvedValue({
         ...item,
         confirmedBy: 'u2',
         confirmedAt: new Date(),
@@ -254,12 +267,12 @@ describe('InventoryService', () => {
       await expect(
         service.confirm({ id: 'u1', businessId: 'b1', role: 'owner' }, 'i1'),
       ).rejects.toBeInstanceOf(BadRequestException);
-      expect(repository.save).not.toHaveBeenCalled();
+      expect(repository.saveItem).not.toHaveBeenCalled();
     });
 
     it('confirms any item for an owner', async () => {
-      repository.findByIdAndBusiness.mockResolvedValue({ ...item });
-      repository.save.mockImplementation((e: InventoryItem) =>
+      repository.findById.mockResolvedValue({ ...item });
+      repository.saveItem.mockImplementation((_b: string, e: InventoryItem) =>
         Promise.resolve(e),
       );
 
@@ -268,7 +281,8 @@ describe('InventoryService', () => {
         'i1',
       );
 
-      expect(repository.save).toHaveBeenCalledWith(
+      expect(repository.saveItem).toHaveBeenCalledWith(
+        'b1',
         expect.objectContaining({
           confirmedBy: 'owner1',
           confirmedByApprentice: true,
@@ -278,8 +292,8 @@ describe('InventoryService', () => {
     });
 
     it('lets a manager confirm an item created by someone else', async () => {
-      repository.findByIdAndBusiness.mockResolvedValue({ ...item });
-      repository.save.mockImplementation((e: InventoryItem) =>
+      repository.findById.mockResolvedValue({ ...item });
+      repository.saveItem.mockImplementation((_b: string, e: InventoryItem) =>
         Promise.resolve(e),
       );
 
@@ -288,54 +302,56 @@ describe('InventoryService', () => {
         'i1',
       );
 
-      expect(repository.save).toHaveBeenCalledWith(
+      expect(repository.saveItem).toHaveBeenCalledWith(
+        'b1',
         expect.objectContaining({ confirmedBy: 'm1' }),
       );
       expect(result.confirmedByApprentice).toBe(true);
     });
 
     it('blocks a manager from confirming their own entry', async () => {
-      repository.findByIdAndBusiness.mockResolvedValue({ ...item });
+      repository.findById.mockResolvedValue({ ...item });
 
       await expect(
         service.confirm({ id: 'u1', businessId: 'b1', role: 'manager' }, 'i1'),
       ).rejects.toBeInstanceOf(ForbiddenException);
-      expect(repository.save).not.toHaveBeenCalled();
+      expect(repository.saveItem).not.toHaveBeenCalled();
     });
 
-    it('lets an apprentice confirm an item they created', async () => {
-      repository.findByIdAndBusiness.mockResolvedValue({ ...item });
-      repository.save.mockImplementation((e: InventoryItem) =>
+    it('lets an cashier confirm an item they created', async () => {
+      repository.findById.mockResolvedValue({ ...item });
+      repository.saveItem.mockImplementation((_b: string, e: InventoryItem) =>
         Promise.resolve(e),
       );
 
       const result = await service.confirm(
-        { id: 'u1', businessId: 'b1', role: 'apprentice' },
+        { id: 'u1', businessId: 'b1', role: 'cashier' },
         'i1',
       );
 
-      expect(repository.save).toHaveBeenCalledWith(
+      expect(repository.saveItem).toHaveBeenCalledWith(
+        'b1',
         expect.objectContaining({ confirmedBy: 'u1' }),
       );
       expect(result.confirmedByApprentice).toBe(true);
     });
 
     it('blocks an apprentice from confirming someone else item', async () => {
-      repository.findByIdAndBusiness.mockResolvedValue({ ...item });
+      repository.findById.mockResolvedValue({ ...item });
 
       await expect(
         service.confirm(
-          { id: 'other', businessId: 'b1', role: 'apprentice' },
+          { id: 'other', businessId: 'b1', role: 'cashier' },
           'i1',
         ),
       ).rejects.toBeInstanceOf(ForbiddenException);
-      expect(repository.save).not.toHaveBeenCalled();
+      expect(repository.saveItem).not.toHaveBeenCalled();
     });
   });
 
   describe('update', () => {
     it('throws NotFoundException when item is missing', async () => {
-      repository.findByIdAndBusiness.mockResolvedValue(null);
+      repository.findById.mockResolvedValue(null);
 
       await expect(service.update(user, 'missing', {})).rejects.toBeInstanceOf(
         NotFoundException,
@@ -343,8 +359,8 @@ describe('InventoryService', () => {
     });
 
     it('updates fields and recalculates status', async () => {
-      repository.findByIdAndBusiness.mockResolvedValue({ ...item });
-      repository.save.mockImplementation((e: InventoryItem) =>
+      repository.findById.mockResolvedValue({ ...item });
+      repository.saveItem.mockImplementation((_b: string, e: InventoryItem) =>
         Promise.resolve(e),
       );
 
@@ -357,12 +373,12 @@ describe('InventoryService', () => {
       expect(result.name).toBe('Updated');
       expect(result.quantity).toBe(1);
       expect(result.status).toBe('low-stock');
-      expect(repository.save).toHaveBeenCalled();
+      expect(repository.saveItem).toHaveBeenCalled();
     });
 
     it('persists image, lastRestocked, confirmedByApprentice and recalculates status', async () => {
-      repository.findByIdAndBusiness.mockResolvedValue({ ...item });
-      repository.save.mockImplementation((e: InventoryItem) =>
+      repository.findById.mockResolvedValue({ ...item });
+      repository.saveItem.mockImplementation((_b: string, e: InventoryItem) =>
         Promise.resolve(e),
       );
 
@@ -382,7 +398,7 @@ describe('InventoryService', () => {
 
   describe('remove', () => {
     it('throws NotFoundException when item is missing', async () => {
-      repository.findByIdAndBusiness.mockResolvedValue(null);
+      repository.findById.mockResolvedValue(null);
 
       await expect(service.remove(user, 'missing')).rejects.toBeInstanceOf(
         NotFoundException,
@@ -390,39 +406,46 @@ describe('InventoryService', () => {
     });
 
     it('removes the item and returns a confirmation', async () => {
-      repository.findByIdAndBusiness.mockResolvedValue({ ...item });
+      repository.findById.mockResolvedValue({ ...item });
 
       const result = await service.remove(user, 'i1');
 
-      expect(repository.remove).toHaveBeenCalledWith(item);
+      expect(repository.removeItem).toHaveBeenCalledWith('b1', item);
       expect(result).toEqual({ message: 'Product deleted successfully' });
     });
   });
 
   describe('decrement', () => {
     it('throws NotFoundException when item is missing', async () => {
-      repository.decrementStock.mockResolvedValue(null);
+      repository.decrementStock.mockResolvedValue({
+        item: null,
+        decremented: false,
+      });
 
       await expect(
         service.decrement(user, 'missing', { quantity: 1 }),
       ).rejects.toBeInstanceOf(NotFoundException);
+      expect(audit.record).not.toHaveBeenCalled();
     });
 
     it('throws BadRequestException when stock is insufficient', async () => {
       repository.decrementStock.mockResolvedValue({
-        ...item,
-        quantity: 1,
-        status: 'in-stock',
+        item: { ...item, quantity: 1, status: 'in-stock' },
+        decremented: false,
       });
 
       await expect(
         service.decrement(user, 'i1', { quantity: 5 }),
       ).rejects.toBeInstanceOf(BadRequestException);
+      expect(audit.record).not.toHaveBeenCalled();
     });
 
     it('emits low-stock when the item drops to low-stock', async () => {
       const lowItem = { ...item, quantity: 8, status: 'low-stock' };
-      repository.decrementStock.mockResolvedValue(lowItem);
+      repository.decrementStock.mockResolvedValue({
+        item: lowItem,
+        decremented: true,
+      });
 
       const result = await service.decrement(user, 'i1', { quantity: 8 });
 
@@ -435,14 +458,111 @@ describe('InventoryService', () => {
 
     it('does not emit when stock remains healthy', async () => {
       repository.decrementStock.mockResolvedValue({
-        ...item,
-        quantity: 8,
-        status: 'in-stock',
+        item: { ...item, quantity: 8, status: 'in-stock' },
+        decremented: true,
       });
 
       await service.decrement(user, 'i1', { quantity: 2 });
 
       expect(eventEmitter.emit).not.toHaveBeenCalled();
+    });
+
+    it('records one stock adjustment with the before and after quantity', async () => {
+      repository.decrementStock.mockResolvedValue({
+        item: { ...item, quantity: 8, status: 'in-stock' },
+        decremented: true,
+      });
+
+      await service.decrement(user, 'i1', { quantity: 2 });
+
+      expect(repository.transaction).toHaveBeenCalledTimes(1);
+      expect(audit.record).toHaveBeenCalledTimes(1);
+      expect((audit.record.mock.lastCall as unknown[])[0]).toMatchObject({
+        businessId: 'b1',
+        action: 'product.stock_adjusted',
+        entityId: 'i1',
+        before: { quantity: 10 },
+        after: { quantity: 8 },
+      });
+    });
+  });
+
+  describe('audit trail', () => {
+    const lastEvent = () =>
+      (audit.record.mock.lastCall as unknown[])[0] as Record<string, unknown>;
+
+    beforeEach(() => {
+      repository.saveItem.mockImplementation((_b: string, i: InventoryItem) =>
+        Promise.resolve(i),
+      );
+    });
+
+    it('records a creation', async () => {
+      repository.createItem.mockImplementation(
+        (_b: string, d: Partial<InventoryItem>) => ({ id: 'new', ...d }),
+      );
+      await service.create(
+        { id: 'u1', businessId: 'b1', role: 'owner' },
+        { name: 'Rice', wholesalePrice: 5, sellingPrice: 10, quantity: 3 },
+      );
+      expect(audit.record).toHaveBeenCalledTimes(1);
+      expect(lastEvent()).toMatchObject({
+        action: 'product.created',
+        entityId: 'new',
+        after: { name: 'Rice', quantity: 3 },
+      });
+    });
+
+    it.each([
+      [{ sellingPrice: 12 }, 'product.price_changed'],
+      [{ quantity: 4 }, 'product.stock_adjusted'],
+      [{ name: 'Brown rice' }, 'product.updated'],
+    ] as const)('classifies %o as %s', async (dto, action) => {
+      repository.findById.mockResolvedValue({ ...item });
+      await service.update(
+        { ...user, role: 'owner', permissions: [], maxDiscountPercent: 100 },
+        'i1',
+        dto,
+      );
+      expect(audit.record).toHaveBeenCalledTimes(1);
+      const key = Object.keys(dto)[0];
+      expect(lastEvent()).toMatchObject({
+        action,
+        before: { [key]: (item as never)[key] },
+        after: dto,
+      });
+    });
+
+    it('records a confirmation', async () => {
+      repository.findById.mockResolvedValue({
+        ...item,
+        createdBy: 'u2',
+        confirmedBy: undefined,
+      });
+      await service.confirm(
+        { id: 'u1', businessId: 'b1', role: 'owner' },
+        'i1',
+      );
+      expect(audit.record).toHaveBeenCalledTimes(1);
+      expect(lastEvent()).toMatchObject({ action: 'product.confirmed' });
+    });
+
+    it('records a deletion with the product as it was', async () => {
+      repository.findById.mockResolvedValue({ ...item });
+      await service.remove(user, 'i1');
+      expect(audit.record).toHaveBeenCalledTimes(1);
+      expect(lastEvent()).toMatchObject({
+        action: 'product.deleted',
+        entityId: 'i1',
+        before: { name: item.name },
+      });
+    });
+
+    it('records nothing when the change fails', async () => {
+      repository.findById.mockResolvedValue({ ...item });
+      repository.removeItem.mockRejectedValue(new Error('db down'));
+      await expect(service.remove(user, 'i1')).rejects.toThrow('db down');
+      expect(audit.record).not.toHaveBeenCalled();
     });
   });
 
@@ -463,13 +583,18 @@ describe('InventoryService', () => {
       expect(result.imported).toBe(2);
       expect(result.skipped).toBe(0);
       expect(repository.bulkUpsert).toHaveBeenCalledWith(
+        'b1',
         expect.arrayContaining([
           expect.objectContaining({ name: 'A', status: 'in-stock' }),
           expect.objectContaining({ name: 'B', status: 'in-stock' }),
         ]),
-        'b1',
         'u1',
       );
+      expect(audit.record).toHaveBeenCalledTimes(1);
+      expect((audit.record.mock.lastCall as unknown[])[0]).toMatchObject({
+        action: 'product.imported',
+        after: { imported: 2, skipped: 0, names: ['A', 'B'] },
+      });
     });
 
     it('parses CSV rows', async () => {
@@ -483,6 +608,7 @@ describe('InventoryService', () => {
 
       expect(result.imported).toBe(1);
       expect(repository.bulkUpsert).toHaveBeenCalledWith(
+        'b1',
         [
           expect.objectContaining({
             name: 'C',
@@ -490,7 +616,6 @@ describe('InventoryService', () => {
             status: 'low-stock',
           }),
         ],
-        'b1',
         'u1',
       );
     });

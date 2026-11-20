@@ -10,7 +10,7 @@ describe("toTeamMember", () => {
     email: "jane@luxa.com",
     role: "manager",
     status: "active",
-    permissions: ["view-products", "record-sales"],
+    permissions: ["sales.record"],
     department: "Sales",
     joinedDate: new Date("2026-08-01T00:00:00.000Z"),
     createdAt: new Date("2026-08-01T00:00:00.000Z"),
@@ -24,8 +24,16 @@ describe("toTeamMember", () => {
     expect(member.email).toBe("jane@luxa.com");
     expect(member.role).toBe("manager");
     expect(member.status).toBe("active");
-    expect(member.permissions).toEqual(["view-products", "record-sales"]);
+    expect(member.permissions).toEqual(
+      expect.arrayContaining(["view-products", "record-sales"]),
+    );
     expect(member.department).toBe("Sales");
+  });
+
+  it("shows a backend cashier as the checkout role", () => {
+    expect(toTeamMember({ ...backendMember, role: "cashier" }).role).toBe(
+      "checkout",
+    );
   });
 
   it("converts joinedDate Date to an ISO string", () => {

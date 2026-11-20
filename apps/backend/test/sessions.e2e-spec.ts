@@ -35,7 +35,7 @@ const header = (jar: Jar, names = Object.keys(jar)) =>
 
 suite('Cookie sessions (e2e, real Postgres)', () => {
   let app: INestApplication<App>;
-  const password = 'Password1';
+  const password = 'Session-pass-2026';
   let seq = 0;
   const email = () => `session-${Date.now()}-${seq++}@e2e.luxa.test`;
 

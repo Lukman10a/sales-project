@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import Sidebar from "./Sidebar";
 import Header from "./Header";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
+import { VerifyEmailBanner } from "@/components/auth/VerifyEmailBanner";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useUI } from "@/contexts/UIContext";
@@ -57,6 +58,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
             transition: "margin 0.3s ease-in-out",
           }}
         >
+          <VerifyEmailBanner user={user} />
           {children}
         </main>
       </div>

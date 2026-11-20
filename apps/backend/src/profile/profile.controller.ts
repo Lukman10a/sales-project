@@ -60,7 +60,11 @@ export class ProfileController {
     @Body(new ZodValidationPipe(ChangePasswordDtoSchema))
     changePasswordDto: ChangePasswordDto,
   ) {
-    return this.profileService.changePassword(user.id, changePasswordDto);
+    return this.profileService.changePassword(
+      user.id,
+      changePasswordDto,
+      user.sessionId,
+    );
   }
 
   /**

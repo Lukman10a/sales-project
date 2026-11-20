@@ -21,6 +21,18 @@ const secret = (name: string) =>
       message: `${name} is still a placeholder value; generate one with \`openssl rand -base64 48\``,
     });
 
+/** 32 random bytes, base64 (`openssl rand -base64 32`). Seals secrets at rest. */
+const encryptionKey = z.string({ error: 'ENCRYPTION_KEY is required' }).refine(
+  (v) => {
+    const bytes = Buffer.from(v, 'base64');
+    return bytes.length === 32 && bytes.toString('base64') === v.trim();
+  },
+  {
+    message:
+      'ENCRYPTION_KEY must be 32 bytes, base64-encoded; generate one with `openssl rand -base64 32`',
+  },
+);
+
 const optionalString = z
   .string()
   .optional()
@@ -63,6 +75,7 @@ const schema = z
     JWT_REFRESH_SECRET: secret('JWT_REFRESH_SECRET'),
     JWT_EXPIRES_IN: z.string().default('15m'),
     JWT_REFRESH_EXPIRATION: z.string().default('7d'),
+    ENCRYPTION_KEY: encryptionKey,
 
     DATABASE_URL: optionalString,
     DATABASE_HOST: optionalString,

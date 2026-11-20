@@ -1,3 +1,4 @@
+import { RateLimitGuard } from '../common/guards/rate-limit.guard';
 import { Test } from '@nestjs/testing';
 import { InsightsController } from './insights.controller';
 import { InsightsService } from './insights.service';
@@ -15,7 +16,10 @@ describe('InsightsController', () => {
     const moduleRef = await Test.createTestingModule({
       controllers: [InsightsController],
       providers: [{ provide: InsightsService, useValue: service }],
-    }).compile();
+    })
+      .overrideGuard(RateLimitGuard)
+      .useValue({ canActivate: () => true })
+      .compile();
     controller = moduleRef.get(InsightsController);
   });
 

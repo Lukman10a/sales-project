@@ -43,17 +43,21 @@ describe('ReportsRepository', () => {
 
   describe('create', () => {
     it('creates and saves the report through the repository', async () => {
-      const entity = {
+      const entity = { name: 'August Sales' };
+      reportRepo.save.mockResolvedValue({
+        ...entity,
         businessId: 'b1',
-        name: 'August Sales',
-      } as Partial<Report>;
-      reportRepo.save.mockResolvedValue({ ...entity, id: 'r1' });
+        id: 'r1',
+      });
 
-      const result = await repository.create(entity);
+      const result = await repository.create('b1', entity);
 
-      expect(reportRepo.create).toHaveBeenCalledWith(entity);
+      expect(reportRepo.create).toHaveBeenCalledWith({
+        ...entity,
+        businessId: 'b1',
+      });
       expect(reportRepo.save).toHaveBeenCalled();
-      expect(result).toEqual({ ...entity, id: 'r1' });
+      expect(result).toEqual({ ...entity, businessId: 'b1', id: 'r1' });
     });
   });
 
@@ -103,10 +107,10 @@ describe('ReportsRepository', () => {
 
   describe('remove', () => {
     it('removes the report through the repository', async () => {
-      const report = { id: 'r1' } as Report;
+      const report = { id: 'r1', businessId: 'b1' } as Report;
       reportRepo.remove.mockResolvedValue(report);
 
-      await repository.remove(report);
+      await repository.remove('b1', report);
 
       expect(reportRepo.remove).toHaveBeenCalledWith(report);
     });
@@ -120,10 +124,10 @@ describe('ReportsRepository', () => {
       ];
       userRepo.find.mockResolvedValue(users);
 
-      const result = await repository.resolveCreatorNames(['u1', 'u2']);
+      const result = await repository.resolveCreatorNames('b1', ['u1', 'u2']);
 
       expect(userRepo.find).toHaveBeenCalledWith({
-        where: { id: In(['u1', 'u2']) },
+        where: { id: In(['u1', 'u2']), businessId: 'b1' },
         select: ['id', 'firstName', 'lastName'],
       });
       expect(result.get('u1')).toBe('Ada Lovelace');
@@ -132,7 +136,7 @@ describe('ReportsRepository', () => {
 
     it('returns an empty map for an empty id list', async () => {
       userRepo.find.mockClear();
-      const result = await repository.resolveCreatorNames([]);
+      const result = await repository.resolveCreatorNames('b1', []);
 
       expect(userRepo.find).not.toHaveBeenCalled();
       expect(result.size).toBe(0);

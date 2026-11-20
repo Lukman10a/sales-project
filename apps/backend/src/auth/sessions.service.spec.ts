@@ -42,6 +42,7 @@ describe('SessionsService', () => {
       | 'revokeFamily'
       | 'revokeFamilyForUser'
       | 'revokeAllForUser'
+      | 'revokeAllForUserExcept'
       | 'findActiveForUser'
       | 'isFamilyActive'
       | 'create'
@@ -59,6 +60,7 @@ describe('SessionsService', () => {
       revokeFamily: jest.fn().mockResolvedValue(2),
       revokeFamilyForUser: jest.fn().mockResolvedValue(1),
       revokeAllForUser: jest.fn().mockResolvedValue(3),
+      revokeAllForUserExcept: jest.fn().mockResolvedValue(1),
       findActiveForUser: jest.fn().mockResolvedValue([]),
       isFamilyActive: jest.fn().mockResolvedValue(true),
       create: jest.fn((data) => data as Session) as never,
@@ -182,6 +184,17 @@ describe('SessionsService', () => {
   it('revokes the current session on logout', async () => {
     await service.revoke('fam-1');
     expect(repo.revokeFamily).toHaveBeenCalledWith('fam-1', 'logout');
+  });
+
+  it('revokes every other session, keeping the current one', async () => {
+    await expect(service.revokeOthers('u1', 'fam-1')).resolves.toBe(1);
+    expect(repo.revokeAllForUserExcept).toHaveBeenCalledWith(
+      'u1',
+      'fam-1',
+      'revoked',
+    );
+    await service.revokeOthers('u1');
+    expect(repo.revokeAllForUser).toHaveBeenCalledWith('u1', 'revoked');
   });
 
   it('revokes every session of the user', async () => {

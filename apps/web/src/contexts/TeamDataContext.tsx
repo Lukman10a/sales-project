@@ -14,6 +14,7 @@ import {
   toTeamMember,
 } from "@/lib/adapters/team.adapter";
 import { toTeamPermissions } from "@/lib/api/payloads";
+import { toBackendRole } from "@/lib/api/access-compat";
 import type { Permission, TeamMember, TeamRole, TeamStatus } from "@/types/teamTypes";
 
 interface TeamInviteData {
@@ -78,7 +79,7 @@ export function TeamDataProvider({ children }: { children: React.ReactNode }) {
       api.post<InviteResult>("/team", {
         email: member.email,
         name: member.name,
-        role: member.role,
+        role: toBackendRole(member.role),
         permissions: toTeamPermissions(member.permissions),
         ...(member.department ? { department: member.department } : {}),
       }),
@@ -87,7 +88,10 @@ export function TeamDataProvider({ children }: { children: React.ReactNode }) {
 
   const updateMutation = useMutation({
     mutationFn: ({ id, updates }: { id: string; updates: TeamUpdateData }) =>
-      api.patch<BackendTeamMember>(`/team/${id}`, updates),
+      api.patch<BackendTeamMember>(`/team/${id}`, {
+        ...updates,
+        ...(updates.role ? { role: toBackendRole(updates.role) } : {}),
+      }),
     onSuccess: invalidate,
   });
 

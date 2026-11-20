@@ -69,7 +69,7 @@ describe("sale adapter", () => {
       backendSale({ itemCount: 1, items: [backendItem()] }),
     );
 
-    expect(sale.items).toEqual([{ name: "Widget", quantity: 2, price: 50 }]);
+    expect(sale.items).toEqual([{ id: "item1", name: "Widget", productId: "p1", quantity: 2, unit: "unit", price: 50, refundedQuantity: 0 }]);
     expect(sale.itemCount).toBe(1);
   });
 
@@ -81,7 +81,7 @@ describe("sale adapter", () => {
       }),
     );
 
-    expect(sale.items).toEqual([{ name: "Widget", quantity: 2, price: 50 }]);
+    expect(sale.items).toEqual([{ id: "item1", name: "Widget", productId: "p1", quantity: 2, unit: "unit", price: 50, refundedQuantity: 0 }]);
   });
 
   it("passes through soldByName when present", () => {

@@ -16,11 +16,12 @@ export class HeldTransaction {
   @Column()
   customerName!: string;
 
+  /** What was in the cart. Prices are not kept: they are read on resume. */
   @Column({ type: 'json' })
   items!: Array<{
     productId: string;
     quantity: number;
-    price: number;
+    unit?: 'unit' | 'carton';
   }>;
 
   @Column({ type: 'uuid' })

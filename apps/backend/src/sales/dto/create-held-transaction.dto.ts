@@ -1,17 +1,11 @@
 import { z } from 'zod';
+import { CreateSaleItemSchema } from './create-sale.dto';
 
-export const CreateHeldTransactionItemSchema = z
-  .object({
-    productId: z.string().uuid(),
-    quantity: z.coerce.number().int().min(1),
-    price: z.coerce.number().min(0),
-  })
-  .strict();
-
+/** A parked cart. Like a sale, it carries no prices. */
 export const CreateHeldTransactionDtoSchema = z
   .object({
     customerName: z.string().min(1).max(200),
-    items: z.array(CreateHeldTransactionItemSchema).min(1),
+    items: z.array(CreateSaleItemSchema).min(1).max(200),
     discountPercent: z.coerce.number().min(0).max(100).optional(),
     paymentMethod: z
       .enum(['cash', 'card', 'transfer', 'split', 'account'])

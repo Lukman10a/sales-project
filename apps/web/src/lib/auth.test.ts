@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 
 const authApi = vi.hoisted(() => ({
   login: vi.fn(),
+  verifyTwoFactor: vi.fn(),
   register: vi.fn(),
   logout: vi.fn(),
   getMe: vi.fn(),
@@ -12,7 +13,11 @@ const client = vi.hoisted(() => ({ hasSession: vi.fn() }));
 vi.mock("@/lib/api/auth", () => ({ authApi }));
 vi.mock("@/lib/api/client", () => client);
 
-import { AuthService, landingPathFor } from "@/lib/auth";
+import {
+  AuthService,
+  TwoFactorRequiredError,
+  landingPathFor,
+} from "@/lib/auth";
 import type { User } from "@/lib/auth";
 
 const backendUser = {
@@ -31,6 +36,7 @@ const authResponse = { user: backendUser };
 describe("AuthService", () => {
   beforeEach(() => {
     authApi.login.mockReset();
+    authApi.verifyTwoFactor.mockReset();
     authApi.register.mockReset();
     authApi.logout.mockReset();
     authApi.getMe.mockReset();
@@ -56,6 +62,28 @@ describe("AuthService", () => {
     expect(user).toMatchObject({ role: "owner", firstName: "Ada" });
     expect(localStorage.length).toBe(0);
     expect(document.cookie).toBe("");
+  });
+
+  it("asks for the two-step code when the api returns a challenge", async () => {
+    authApi.login.mockResolvedValue({ mfaRequired: true, challenge: "ch-1" });
+
+    const attempt = AuthService.login({
+      email: "owner@luxa.com",
+      password: "Password1",
+      role: "owner",
+    });
+
+    await expect(attempt).rejects.toBeInstanceOf(TwoFactorRequiredError);
+    await expect(attempt).rejects.toMatchObject({ challenge: "ch-1" });
+  });
+
+  it("completes two-step sign-in with a trimmed code", async () => {
+    authApi.verifyTwoFactor.mockResolvedValue(authResponse);
+
+    const user = await AuthService.verifyTwoFactor("ch-1", " 123456 ");
+
+    expect(authApi.verifyTwoFactor).toHaveBeenCalledWith("ch-1", "123456");
+    expect(user).toMatchObject({ role: "owner", firstName: "Ada" });
   });
 
   it("passes 'trust this device' through to the api", async () => {
@@ -178,7 +206,7 @@ describe("AuthService", () => {
       user: {
         ...backendUser,
         role: "manager",
-        permissions: ["record-sales", "view-inventory"],
+        permissions: ["sales.record", "products.restock"],
       },
     });
 
@@ -191,7 +219,9 @@ describe("AuthService", () => {
     expect(user).toMatchObject({
       role: "apprentice",
       staffRole: "manager",
-      permissions: ["record-sales", "view-inventory"],
     });
+    expect(user.permissions).toEqual(
+      expect.arrayContaining(["record-sales", "edit-inventory", "view-inventory"]),
+    );
   });
 });

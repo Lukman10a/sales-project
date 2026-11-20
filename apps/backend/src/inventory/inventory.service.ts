@@ -8,6 +8,9 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { parse } from 'csv-parse/sync';
 import type { InventoryItem } from '../entities/inventory-item.entity';
 import { InventoryRepository } from './inventory.repository';
+import { AuditService } from '../audit/audit.service';
+import { assertMayEditProduct } from '../common/constants/access-policy';
+import type { CurrentUserPayload } from '../common';
 import { CreateInventoryDto } from './dto/create-inventory.dto';
 import { UpdateInventoryDto } from './dto/update-inventory.dto';
 import { QueryInventoryDto } from './dto/query-inventory.dto';
@@ -23,16 +26,50 @@ export function calculateStatus(
   return 'in-stock';
 }
 
+/** Who is acting, for the audit trail. */
+type Actor = Pick<CurrentUserPayload, 'id' | 'businessId'> &
+  Partial<Pick<CurrentUserPayload, 'name' | 'email' | 'sessionId'>>;
+
+/** Product fields the audit trail records. */
+const AUDITED_FIELDS = [
+  'name',
+  'category',
+  'sku',
+  'barcode',
+  'description',
+  'wholesalePrice',
+  'sellingPrice',
+  'bundleQuantity',
+  'bundlePrice',
+  'quantity',
+  'reorderPoint',
+  'supplier',
+  'lastRestocked',
+] as const;
+const PRICE_FIELDS = new Set(['wholesalePrice', 'sellingPrice', 'bundlePrice']);
+const STOCK_FIELDS = new Set(['quantity', 'reorderPoint', 'lastRestocked']);
+
+function pick(
+  item: InventoryItem,
+  fields: readonly (keyof InventoryItem)[],
+): Record<string, unknown> {
+  return Object.fromEntries(fields.map((f) => [f, item[f] ?? null]));
+}
+
+function only(record: Record<string, unknown>, keys: string[]) {
+  return Object.fromEntries(keys.map((k) => [k, record[k]]));
+}
+
 @Injectable()
 export class InventoryService {
   constructor(
     private inventoryRepository: InventoryRepository,
     private eventEmitter: EventEmitter2,
+    private audit: AuditService,
   ) {}
 
   async list(user: { businessId: string }, query: QueryInventoryDto) {
-    const result = await this.inventoryRepository.list({
-      businessId: user.businessId,
+    const result = await this.inventoryRepository.list(user.businessId, {
       page: query.page,
       limit: query.limit,
       search: query.search,
@@ -41,7 +78,7 @@ export class InventoryService {
       sort: query.sort,
     });
 
-    const data = await this.enrichCreators(result.data);
+    const data = await this.enrichCreators(user.businessId, result.data);
 
     return { ...result, data };
   }
@@ -50,18 +87,16 @@ export class InventoryService {
     user: { businessId: string },
     id: string,
   ): Promise<InventoryItem> {
-    const item = await this.inventoryRepository.findByIdAndBusiness(
-      id,
-      user.businessId,
-    );
+    const item = await this.inventoryRepository.findById(user.businessId, id);
     if (!item) {
       throw new NotFoundException('Product not found');
     }
-    const [enriched] = await this.enrichCreators([item]);
+    const [enriched] = await this.enrichCreators(user.businessId, [item]);
     return enriched;
   }
 
   private async enrichCreators(
+    businessId: string,
     items: InventoryItem[],
   ): Promise<
     Array<InventoryItem & { createdByName?: string; confirmedByName?: string }>
@@ -75,7 +110,10 @@ export class InventoryService {
           .filter((id): id is string => Boolean(id)),
       ),
     ];
-    const names = await this.inventoryRepository.resolveCreatorNames(ids);
+    const names = await this.inventoryRepository.resolveCreatorNames(
+      businessId,
+      ids,
+    );
 
     return items.map((item) => ({
       ...item,
@@ -87,12 +125,11 @@ export class InventoryService {
   }
 
   async create(
-    user: { businessId: string; id: string; role: string },
+    user: Actor & { role: string },
     createInventoryDto: CreateInventoryDto,
   ): Promise<InventoryItem> {
     const isOwner = user.role === 'owner';
-    const item = this.inventoryRepository.create({
-      businessId: user.businessId,
+    const item = this.inventoryRepository.createItem(user.businessId, {
       createdBy: user.id,
       name: createInventoryDto.name,
       category: createInventoryDto.category ?? [],
@@ -119,17 +156,28 @@ export class InventoryService {
       ),
     });
 
-    return this.inventoryRepository.save(item);
+    return this.inventoryRepository.transaction(async () => {
+      const saved = await this.inventoryRepository.saveItem(
+        user.businessId,
+        item,
+      );
+      await this.audit.record({
+        businessId: user.businessId,
+        actor: user,
+        action: 'product.created',
+        entityType: 'product',
+        entityId: saved.id,
+        after: pick(saved, AUDITED_FIELDS),
+      });
+      return saved;
+    });
   }
 
   async confirm(
-    user: { businessId: string; id: string; role: string },
+    user: Actor & { role: string },
     id: string,
   ): Promise<InventoryItem> {
-    const item = await this.inventoryRepository.findByIdAndBusiness(
-      id,
-      user.businessId,
-    );
+    const item = await this.inventoryRepository.findById(user.businessId, id);
     if (!item) {
       throw new NotFoundException('Product not found');
     }
@@ -140,7 +188,7 @@ export class InventoryService {
     const canConfirm =
       user.role === 'owner' ||
       (user.role === 'manager' && item.createdBy !== user.id) ||
-      (user.role === 'apprentice' && item.createdBy === user.id);
+      (user.role === 'cashier' && item.createdBy === user.id);
     if (!canConfirm) {
       throw new ForbiddenException('You are not allowed to confirm this item');
     }
@@ -149,21 +197,40 @@ export class InventoryService {
     item.confirmedAt = new Date();
     item.confirmedByApprentice = true;
 
-    return this.inventoryRepository.save(item);
+    return this.inventoryRepository.transaction(async () => {
+      const saved = await this.inventoryRepository.saveItem(
+        user.businessId,
+        item,
+      );
+      await this.audit.record({
+        businessId: user.businessId,
+        actor: user,
+        action: 'product.confirmed',
+        entityType: 'product',
+        entityId: saved.id,
+        after: { name: saved.name },
+      });
+      return saved;
+    });
   }
 
   async update(
-    user: { businessId: string },
+    user: Actor &
+      Pick<CurrentUserPayload, 'role' | 'permissions' | 'maxDiscountPercent'>,
     id: string,
     updateInventoryDto: UpdateInventoryDto,
   ): Promise<InventoryItem> {
-    const item = await this.inventoryRepository.findByIdAndBusiness(
-      id,
-      user.businessId,
+    assertMayEditProduct(
+      user,
+      Object.keys(updateInventoryDto).filter(
+        (k) => updateInventoryDto[k as keyof UpdateInventoryDto] !== undefined,
+      ),
     );
+    const item = await this.inventoryRepository.findById(user.businessId, id);
     if (!item) {
       throw new NotFoundException('Product not found');
     }
+    const before = pick(item, AUDITED_FIELDS);
 
     if (updateInventoryDto.name !== undefined)
       item.name = updateInventoryDto.name;
@@ -197,40 +264,77 @@ export class InventoryService {
 
     item.status = calculateStatus(item.quantity, item.reorderPoint);
 
-    return this.inventoryRepository.save(item);
+    return this.inventoryRepository.transaction(async () => {
+      const saved = await this.inventoryRepository.saveItem(
+        user.businessId,
+        item,
+      );
+      const after = pick(saved, AUDITED_FIELDS);
+      const changed = Object.keys(after).filter(
+        (k) => JSON.stringify(after[k]) !== JSON.stringify(before[k]),
+      );
+      await this.audit.record({
+        businessId: user.businessId,
+        actor: user,
+        action: changed.some((k) => PRICE_FIELDS.has(k))
+          ? 'product.price_changed'
+          : changed.some((k) => STOCK_FIELDS.has(k))
+            ? 'product.stock_adjusted'
+            : 'product.updated',
+        entityType: 'product',
+        entityId: saved.id,
+        before: only(before, changed),
+        after: only(after, changed),
+      });
+      return saved;
+    });
   }
 
-  async remove(
-    user: { businessId: string },
-    id: string,
-  ): Promise<{ message: string }> {
-    const item = await this.inventoryRepository.findByIdAndBusiness(
-      id,
-      user.businessId,
-    );
+  async remove(user: Actor, id: string): Promise<{ message: string }> {
+    const item = await this.inventoryRepository.findById(user.businessId, id);
     if (!item) {
       throw new NotFoundException('Product not found');
     }
-    await this.inventoryRepository.remove(item);
+    await this.inventoryRepository.transaction(async () => {
+      await this.inventoryRepository.removeItem(user.businessId, item);
+      await this.audit.record({
+        businessId: user.businessId,
+        actor: user,
+        action: 'product.deleted',
+        entityType: 'product',
+        entityId: id,
+        before: pick(item, AUDITED_FIELDS),
+      });
+    });
     return { message: 'Product deleted successfully' };
   }
 
   async decrement(
-    user: { businessId: string },
+    user: Actor,
     id: string,
     decrementInventoryDto: DecrementInventoryDto,
   ): Promise<InventoryItem> {
-    const item = await this.inventoryRepository.decrementStock(
-      id,
-      user.businessId,
-      decrementInventoryDto.quantity,
-    );
-    if (!item) {
-      throw new NotFoundException('Product not found');
-    }
-    if (item.quantity < decrementInventoryDto.quantity) {
-      throw new BadRequestException('Insufficient stock');
-    }
+    const qty = decrementInventoryDto.quantity;
+    const item = await this.inventoryRepository.transaction(async () => {
+      const { item, decremented } =
+        await this.inventoryRepository.decrementStock(user.businessId, id, qty);
+      if (!item) {
+        throw new NotFoundException('Product not found');
+      }
+      if (!decremented) {
+        throw new BadRequestException('Insufficient stock');
+      }
+      await this.audit.record({
+        businessId: user.businessId,
+        actor: user,
+        action: 'product.stock_adjusted',
+        entityType: 'product',
+        entityId: id,
+        before: { quantity: item.quantity + qty },
+        after: { quantity: item.quantity },
+      });
+      return item;
+    });
     if (item.status === 'low-stock' || item.status === 'out-of-stock') {
       this.eventEmitter.emit('inventory.low-stock', {
         businessId: item.businessId,
@@ -241,7 +345,7 @@ export class InventoryService {
   }
 
   async bulkImport(
-    user: { businessId: string; id: string },
+    user: Actor,
     file: { buffer: Buffer; mimetype: string },
   ): Promise<{ imported: number; skipped: number; errors: string[] }> {
     const rows = this.parseFile(file);
@@ -277,11 +381,21 @@ export class InventoryService {
       );
     }
 
-    const imported = await this.inventoryRepository.bulkUpsert(
-      valid,
-      user.businessId,
-      user.id,
-    );
+    const imported = await this.inventoryRepository.transaction(async () => {
+      const count = await this.inventoryRepository.bulkUpsert(
+        user.businessId,
+        valid,
+        user.id,
+      );
+      await this.audit.record({
+        businessId: user.businessId,
+        actor: user,
+        action: 'product.imported',
+        entityType: 'product',
+        after: { imported: count, skipped, names: valid.map((v) => v.name) },
+      });
+      return count;
+    });
 
     return { imported, skipped, errors };
   }

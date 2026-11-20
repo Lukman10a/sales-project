@@ -113,7 +113,13 @@ function Harness() {
       <button onClick={() => void addSaleRecord(newRecord).catch(() => {})}>
         add
       </button>
-      <button onClick={() => refundSale("s1", 50, "reason")}>refund</button>
+      <button
+        onClick={() =>
+          refundSale("s1", "reason", [{ saleItemId: "l1", quantity: 1 }])
+        }
+      >
+        refund
+      </button>
       <button onClick={() => void getSaleById("s1")}>receipt</button>
       <button onClick={() => createHeld(backendHeld)}>createHeld</button>
       <button onClick={() => deleteHeld("h1")}>deleteHeld</button>
@@ -202,9 +208,10 @@ describe("SalesDataContext", () => {
       expect(apiMock.post).toHaveBeenCalledWith(
         "/sales",
         expect.objectContaining({
-          items: [{ productId: "p1", quantity: 2, price: 50 }],
+          items: [{ productId: "p1", quantity: 2, unit: "unit" }],
           paymentMethod: "cash",
         }),
+        { headers: { "Idempotency-Key": newRecord.id } },
       ),
     );
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ["sales"] });
@@ -224,8 +231,8 @@ describe("SalesDataContext", () => {
 
     await waitFor(() =>
       expect(apiMock.patch).toHaveBeenCalledWith("/sales/s1/refund", {
-        refundAmount: 50,
         refundReason: "reason",
+        items: [{ saleItemId: "l1", quantity: 1 }],
       }),
     );
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ["sales"] });
@@ -265,7 +272,7 @@ describe("SalesDataContext", () => {
     expect(apiMock.get).toHaveBeenCalledWith("/sales/s1");
     expect(sale).not.toBeNull();
     expect(sale?.items).toEqual([
-      { name: "Widget", quantity: 2, price: 50 },
+      { id: "item1", name: "Widget", productId: "p1", quantity: 2, unit: "unit", price: 50, refundedQuantity: 0 },
     ]);
   });
 
@@ -290,7 +297,7 @@ describe("SalesDataContext", () => {
     await waitFor(() =>
       expect(apiMock.post).toHaveBeenCalledWith("/sales/held", {
         customerName: "Ada",
-        items: [{ productId: "p1", quantity: 1, price: 50 }],
+        items: [{ productId: "p1", quantity: 1, unit: "unit" }],
         paymentMethod: "cash",
       }),
     );

@@ -13,7 +13,7 @@ import type { UserProfile } from "@/types/profileTypes";
 import { buildSaleRecord } from "@/lib/sales/saleRecord";
 
 describe("toTeamPermissions", () => {
-  it("keeps backend-valid permission names", () => {
+  it("sends the canonical backend names", () => {
     expect(
       toTeamPermissions([
         "view-products",
@@ -21,25 +21,19 @@ describe("toTeamPermissions", () => {
         "assign-roles",
         "view-reports",
       ]),
-    ).toEqual(["view-products", "record-sales", "assign-roles", "view-reports"]);
+    ).toEqual(["sales.record", "staff.manage", "reports.view_profit"]);
   });
 
-  it("strips the deprecated checkout-sales alias", () => {
-    expect(toTeamPermissions(["view-products", "checkout-sales"])).toEqual([
-      "view-products",
+  it("folds the deprecated checkout-sales alias into sales.record", () => {
+    expect(toTeamPermissions(["checkout-sales", "record-sales"])).toEqual([
+      "sales.record",
     ]);
   });
 
-  it("strips the deprecated view-out-of-stock alias", () => {
-    expect(toTeamPermissions(["view-inventory", "view-out-of-stock"])).toEqual([
-      "view-inventory",
-    ]);
-  });
-
-  it("returns an empty array when only aliases are sent", () => {
-    expect(toTeamPermissions(["checkout-sales", "view-out-of-stock"])).toEqual(
-      [],
-    );
+  it("returns an empty array when only view permissions are sent", () => {
+    expect(
+      toTeamPermissions(["view-inventory", "view-out-of-stock", "view-products"]),
+    ).toEqual([]);
   });
 });
 
@@ -58,7 +52,7 @@ describe("toSalePayload", () => {
     discount: 10,
   };
 
-  it("maps items to productId/quantity/price when productId is present", () => {
+  it("maps items to productId/quantity/unit, never a price, when productId is present", () => {
     const payload = toSalePayload({
       ...sale,
       items: [
@@ -68,8 +62,8 @@ describe("toSalePayload", () => {
     });
 
     expect(payload.items).toEqual([
-      { productId: "p1", quantity: 2, price: 50 },
-      { productId: "p2", quantity: 1, price: 30 },
+      { productId: "p1", quantity: 2, unit: "unit" },
+      { productId: "p2", quantity: 1, unit: "unit" },
     ]);
   });
 
@@ -162,7 +156,7 @@ describe("toSalePayload", () => {
     const payload = toSalePayload(record);
 
     expect(payload.items.length).toBeGreaterThan(0);
-    expect(payload.items).toEqual([{ productId: "p1", quantity: 2, price: 50 }]);
+    expect(payload.items).toEqual([{ productId: "p1", quantity: 2, unit: "unit" }]);
   });
 });
 
@@ -171,7 +165,7 @@ describe("toHeldPayload", () => {
   const held: HeldTransaction = {
     id: "h1",
     customerName: "Ada",
-    items: [{ productId: "p1", quantity: 2, price: 50 }],
+    items: [{ productId: "p1", quantity: 2, unit: "unit", price: 50 }],
     heldBy: "u1",
     discountPercent: 5,
     paymentMethod: "cash",
@@ -184,7 +178,7 @@ describe("toHeldPayload", () => {
 
     expect(payload).toEqual({
       customerName: "Ada",
-      items: [{ productId: "p1", quantity: 2, price: 50 }],
+      items: [{ productId: "p1", quantity: 2, unit: "unit" }],
       discountPercent: 5,
       paymentMethod: "cash",
     });

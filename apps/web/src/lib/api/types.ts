@@ -26,14 +26,38 @@ export interface AuthUser {
   businessId: string;
   role: string;
   avatar?: string;
+  /** @deprecated removed by T33; role is now owner, manager or cashier. */
   staffRole?: string;
+  /** Canonical backend names, e.g. `sales.record`. */
   permissions?: string[];
+  maxDiscountPercent?: number;
+  /** Owners only: false until the emailed link is used. */
+  emailVerified?: boolean;
+  /** ISO date after which an unverified owner can no longer sign in. */
+  verifyBy?: string | null;
+  /** Two-step verification (authenticator app) is on. */
+  twoFactorEnabled?: boolean;
+  /** The business requires two-step verification for this user's role. */
+  twoFactorRequired?: boolean;
+  /** Required but not set up yet. */
+  twoFactorSetupRequired?: boolean;
 }
 
 /** Tokens travel only in httpOnly cookies, never in the body. */
 export interface AuthResponse {
   user: AuthUser;
 }
+
+/**
+ * POST /auth/login when two-step verification is on: no session yet. Send
+ * the challenge with a code to POST /auth/2fa/verify.
+ */
+export interface MfaChallengeResponse {
+  mfaRequired: true;
+  challenge: string;
+}
+
+export type LoginResponse = AuthResponse | MfaChallengeResponse;
 
 /** A signed-in device (GET /auth/sessions). */
 export interface AuthSession {

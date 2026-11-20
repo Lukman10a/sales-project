@@ -17,9 +17,14 @@ export interface PaymentPart {
   amount: number;
 }
 
+export type SaleUnit = "unit" | "carton";
+
+/** A held line; `price` is today's catalogue price, set by the server. */
 export interface HeldTransactionItem {
   productId: string;
+  productName?: string;
   quantity: number;
+  unit?: SaleUnit;
   price: number;
 }
 
@@ -37,11 +42,19 @@ export interface HeldTransaction {
 export interface SaleRecord {
   id: string;
   items: {
+    /** The sale line id, used to refund that line. */
+    id?: string;
     name: string;
     productId?: string;
     quantity: number;
+    unit?: SaleUnit;
     price: number;
+    refundedQuantity?: number;
   }[];
+  /** Per-business receipt number (#1218). */
+  receiptNumber?: number;
+  subtotal?: number;
+  vatAmount?: number;
   itemCount?: number;
   total: number;
   soldBy: string;

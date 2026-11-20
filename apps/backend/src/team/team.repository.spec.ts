@@ -2,6 +2,7 @@ import { TeamRepository } from './team.repository';
 import type { EntityManager } from 'typeorm';
 import { TeamMember } from '../entities/team-member.entity';
 import { User } from '../entities/user.entity';
+import { TenantMismatchError } from '../common/tenancy/assert-tenant';
 
 describe('TeamRepository', () => {
   let repository: TeamRepository;
@@ -11,11 +12,13 @@ describe('TeamRepository', () => {
   const managerMock = {
     findOne: jest.fn(),
     create: jest.fn((_entity: unknown, data: unknown) => data),
-    save: jest.fn(),
+    save: jest.fn((e: unknown) => Promise.resolve(e)),
     remove: jest.fn(),
+    update: jest.fn(),
   };
 
   beforeEach(() => {
+    jest.clearAllMocks();
     transactionFn = jest.fn();
     manager = managerMock as unknown as EntityManager;
     repository = new TeamRepository({
@@ -40,65 +43,67 @@ describe('TeamRepository', () => {
   });
 
   describe('manager helpers', () => {
-    it('createUser creates a User via the manager', () => {
-      const user = { id: 'u1' } as User;
-      managerMock.create.mockReturnValue(user);
-
+    it('createUser stamps the business on the new login', () => {
       const data = {
         email: 'staff@luxa.com',
         password: 'hashed',
         firstName: 'Jane',
         lastName: 'Doe',
         businessName: 'LUXA',
-        businessId: 'b1',
-        role: 'apprentice' as const,
-        staffRole: 'sales-assistant' as const,
+        role: 'cashier' as const,
         status: 'invited' as const,
       };
 
-      const result = repository.createUser(manager, data);
+      repository.createUser('b1', manager, data);
 
-      expect(managerMock.create).toHaveBeenCalledWith(User, data);
-      expect(result).toBe(user);
-    });
-
-    it('saveUser saves a User through the manager', async () => {
-      const user = { id: 'u1' } as User;
-      managerMock.save.mockResolvedValue(user);
-
-      await expect(repository.saveUser(manager, user)).resolves.toBe(user);
-      expect(managerMock.save).toHaveBeenCalledWith(user);
-    });
-
-    it('createMember creates a TeamMember via the manager', () => {
-      const member = { id: 'm1' } as TeamMember;
-      managerMock.create.mockReturnValue(member);
-
-      const data = {
+      expect(managerMock.create).toHaveBeenCalledWith(User, {
+        ...data,
         businessId: 'b1',
+      });
+    });
+
+    it('createMember stamps the business on the member row', () => {
+      const data = {
         userId: 'u1',
         name: 'Jane Doe',
-        role: 'sales-assistant' as const,
-        permissions: ['view-products'],
-        department: 'Sales',
+        role: 'cashier' as const,
+        permissions: ['sales.record'],
+        maxDiscountPercent: 0,
         status: 'invited' as const,
-        joinedDate: new Date('2024-01-01'),
+        joinedDate: new Date('2026-01-01'),
       };
 
-      const result = repository.createMember(manager, data);
+      repository.createMember('b1', manager, data);
 
-      expect(managerMock.create).toHaveBeenCalledWith(TeamMember, data);
-      expect(result).toBe(member);
+      expect(managerMock.create).toHaveBeenCalledWith(TeamMember, {
+        ...data,
+        businessId: 'b1',
+      });
     });
 
-    it('saveMember saves a TeamMember through the manager', async () => {
-      const member = { id: 'm1' } as TeamMember;
-      managerMock.save.mockResolvedValue(member);
+    it('saves users and members of the same business only', async () => {
+      const user = { id: 'u1', businessId: 'b1' } as User;
+      const member = { id: 'm1', businessId: 'b1' } as TeamMember;
+      await repository.saveUser('b1', manager, user);
+      await repository.saveMember('b1', manager, member);
+      expect(managerMock.save).toHaveBeenCalledTimes(2);
 
-      await expect(repository.saveMember(manager, member)).resolves.toBe(
-        member,
+      expect(() => repository.saveUser('b2', manager, user)).toThrow(
+        TenantMismatchError,
       );
-      expect(managerMock.save).toHaveBeenCalledWith(member);
+      expect(() => repository.saveMember('b2', manager, member)).toThrow(
+        TenantMismatchError,
+      );
+      expect(managerMock.save).toHaveBeenCalledTimes(2);
+    });
+
+    it('updateUser only touches a login inside the business', async () => {
+      await repository.updateUser('b1', 'u1', { role: 'manager' });
+      expect(managerMock.update).toHaveBeenCalledWith(
+        User,
+        { id: 'u1', businessId: 'b1' },
+        { role: 'manager' },
+      );
     });
   });
 
@@ -118,8 +123,7 @@ describe('TeamRepository', () => {
       };
       jest.spyOn(repository, 'createQueryBuilder').mockReturnValue(qb as never);
 
-      const result = await repository.list({
-        businessId: 'b1',
+      const result = await repository.list('b1', {
         page: 1,
         limit: 20,
         role: 'manager',
@@ -161,7 +165,7 @@ describe('TeamRepository', () => {
       };
       jest.spyOn(repository, 'createQueryBuilder').mockReturnValue(qb as never);
 
-      await repository.list({ businessId: 'b1', page: 1, limit: 20 });
+      await repository.list('b1', { page: 1, limit: 20 });
 
       expect(qb.where).toHaveBeenCalledWith('team.businessId = :businessId', {
         businessId: 'b1',
@@ -189,8 +193,7 @@ describe('TeamRepository', () => {
       };
       jest.spyOn(repository, 'createQueryBuilder').mockReturnValue(qb as never);
 
-      const result = await repository.list({
-        businessId: 'b1',
+      const result = await repository.list('b1', {
         page: 1,
         limit: 20,
       });
@@ -206,27 +209,17 @@ describe('TeamRepository', () => {
     });
   });
 
-  describe('findByIdAndBusiness', () => {
-    it('queries a member by id and businessId', async () => {
+  describe('findById', () => {
+    it('queries a member by id within the business', async () => {
       const member = { id: 'm1', businessId: 'b1' } as TeamMember;
       const findOne = jest
         .spyOn(repository, 'findOne')
         .mockResolvedValue(member);
 
-      await expect(repository.findByIdAndBusiness('m1', 'b1')).resolves.toBe(
-        member,
-      );
+      await expect(repository.findById('b1', 'm1')).resolves.toBe(member);
       expect(findOne).toHaveBeenCalledWith({
         where: { id: 'm1', businessId: 'b1' },
       });
-    });
-
-    it('returns null when no member matches', async () => {
-      jest.spyOn(repository, 'findOne').mockResolvedValue(null);
-
-      await expect(
-        repository.findByIdAndBusiness('missing', 'b1'),
-      ).resolves.toBeNull();
     });
   });
 
@@ -234,56 +227,46 @@ describe('TeamRepository', () => {
     it('applies the update data to the member and saves it', async () => {
       const member = {
         id: 'm1',
-        role: 'sales-assistant',
-        status: 'invited',
-        department: 'Sales',
+        businessId: 'b1',
+        role: 'cashier',
       } as TeamMember;
-      const saved = {
-        ...member,
-        role: 'manager',
-        status: 'active',
-      } as TeamMember;
-      managerMock.save.mockResolvedValue(saved);
 
-      const result = await repository.updateMember(member, {
+      const result = await repository.updateMember('b1', member, {
         role: 'manager',
-        status: 'active',
+        permissions: ['sales.record', 'sales.refund'],
+        maxDiscountPercent: 10,
       });
 
-      expect(member.role).toBe('manager');
-      expect(member.status).toBe('active');
+      expect(result).toMatchObject({
+        role: 'manager',
+        permissions: ['sales.record', 'sales.refund'],
+        maxDiscountPercent: 10,
+      });
       expect(managerMock.save).toHaveBeenCalledWith(member);
-      expect(result).toBe(saved);
     });
-  });
 
-  describe('updatePermissions', () => {
-    it('sets the permissions array and saves the member', async () => {
-      const member = { id: 'm1' } as TeamMember;
-      const saved = {
-        ...member,
-        permissions: ['view-products'],
-      };
-      managerMock.save.mockResolvedValue(saved);
-
-      const result = await repository.updatePermissions(member, [
-        'view-products',
-      ]);
-
-      expect(member.permissions).toEqual(['view-products']);
-      expect(managerMock.save).toHaveBeenCalledWith(member);
-      expect(result).toBe(saved);
+    it("refuses another business's member", async () => {
+      const member = { id: 'm1', businessId: 'b2' } as TeamMember;
+      await expect(
+        repository.updateMember('b1', member, { role: 'manager' }),
+      ).rejects.toThrow(TenantMismatchError);
+      expect(member.role).toBeUndefined();
     });
   });
 
   describe('removeMember', () => {
-    it('removes the member through the manager', async () => {
-      const member = { id: 'm1' } as TeamMember;
-      managerMock.remove.mockResolvedValue(member);
-
-      await repository.removeMember(member);
-
+    it('removes a member of the business', async () => {
+      const member = { id: 'm1', businessId: 'b1' } as TeamMember;
+      await repository.removeMember('b1', member);
       expect(managerMock.remove).toHaveBeenCalledWith(member);
+    });
+
+    it("refuses another business's member", async () => {
+      const member = { id: 'm1', businessId: 'b2' } as TeamMember;
+      await expect(repository.removeMember('b1', member)).rejects.toThrow(
+        TenantMismatchError,
+      );
+      expect(managerMock.remove).not.toHaveBeenCalled();
     });
   });
 });

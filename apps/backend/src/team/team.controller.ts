@@ -16,8 +16,6 @@ import {
   JwtAuthGuard,
   PermissionsGuard,
   RequirePermissions,
-  Roles,
-  RolesGuard,
   ZodValidationPipe,
 } from '../common';
 import type { CurrentUserPayload } from '../common';
@@ -38,12 +36,11 @@ export class TeamController {
   /**
    * List all team members for the current business
    * GET /team?page=1&limit=20&role=manager&status=active
-   * Requires: owner | manager with assign-roles
+   * Requires: staff.manage
    */
   @Get()
-  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
-  @Roles('owner', 'manager')
-  @RequirePermissions('assign-roles')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions('staff.manage')
   list(
     @CurrentUser() user: CurrentUserPayload,
     @Query(new ZodValidationPipe(QueryTeamDtoSchema)) query: QueryTeamDto,
@@ -54,10 +51,11 @@ export class TeamController {
   /**
    * Get a single team member's details
    * GET /team/:id
-   * Requires: authenticated
+   * Requires: staff.manage
    */
   @Get(':id')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions('staff.manage')
   findOne(
     @CurrentUser() user: CurrentUserPayload,
     @Param('id', ParseUUIDPipe) id: string,
@@ -68,12 +66,11 @@ export class TeamController {
   /**
    * Invite a new member (creates User + TeamMember atomically)
    * POST /team
-   * Requires: owner | manager with assign-roles
+   * Requires: staff.manage
    */
   @Post()
-  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
-  @Roles('owner', 'manager')
-  @RequirePermissions('assign-roles')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions('staff.manage')
   @HttpCode(201)
   invite(
     @CurrentUser() user: CurrentUserPayload,
@@ -86,12 +83,11 @@ export class TeamController {
   /**
    * Update a member's role, status, or department
    * PATCH /team/:id
-   * Requires: owner | manager with assign-roles
+   * Requires: staff.manage
    */
   @Patch(':id')
-  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
-  @Roles('owner', 'manager')
-  @RequirePermissions('assign-roles')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions('staff.manage')
   update(
     @CurrentUser() user: CurrentUserPayload,
     @Param('id', ParseUUIDPipe) id: string,
@@ -104,12 +100,11 @@ export class TeamController {
   /**
    * Update a member's granular permissions array
    * PATCH /team/:id/permissions
-   * Requires: owner | manager with assign-roles
+   * Requires: staff.manage
    */
   @Patch(':id/permissions')
-  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
-  @Roles('owner', 'manager')
-  @RequirePermissions('assign-roles')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions('staff.manage')
   updatePermissions(
     @CurrentUser() user: CurrentUserPayload,
     @Param('id', ParseUUIDPipe) id: string,
@@ -122,11 +117,11 @@ export class TeamController {
   /**
    * Remove a team member
    * DELETE /team/:id
-   * Requires: owner only
+   * Requires: staff.manage
    */
   @Delete(':id')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('owner')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions('staff.manage')
   remove(
     @CurrentUser() user: CurrentUserPayload,
     @Param('id', ParseUUIDPipe) id: string,

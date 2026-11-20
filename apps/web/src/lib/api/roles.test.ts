@@ -20,6 +20,13 @@ describe("roles", () => {
     });
   });
 
+  it("maps backend cashier to apprentice with staffRole checkout", () => {
+    expect(backendRoleToUserRole("cashier")).toEqual({
+      role: "apprentice",
+      staffRole: "checkout",
+    });
+  });
+
   it("maps backend apprentice to apprentice", () => {
     expect(backendRoleToUserRole("apprentice")).toEqual({
       role: "apprentice",
@@ -48,6 +55,8 @@ describe("roles", () => {
       businessName: "LUXA",
       businessId: "b1",
       avatar: "",
+      emailVerified: true,
+      verifyBy: null,
     });
   });
 
@@ -109,14 +118,20 @@ describe("roles", () => {
       businessName: "LUXA",
       businessId: "b1",
       role: "manager",
-      permissions: ["record-sales", "view-inventory"],
+      permissions: ["sales.record", "products.restock"],
+      maxDiscountPercent: 10,
     };
 
-    expect(mapAuthUser(backend)).toMatchObject({
+    const user = mapAuthUser(backend);
+    expect(user).toMatchObject({
       role: "apprentice",
       staffRole: "manager",
-      permissions: ["record-sales", "view-inventory"],
+      maxDiscountPercent: 10,
     });
+    expect(user.permissions).toEqual(
+      expect.arrayContaining(["record-sales", "edit-inventory", "view-products"]),
+    );
+    expect(user.permissions).not.toContain("assign-roles");
   });
 
   it("assertStaffRole throws the coming soon error for investor", () => {

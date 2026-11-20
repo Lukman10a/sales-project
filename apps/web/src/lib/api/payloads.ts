@@ -5,6 +5,7 @@ import type {
   SaleRecord,
 } from "@/types/salesTypes";
 import type { Permission } from "@/types/teamTypes";
+import { toBackendPermissions } from "./access-compat";
 import type {
   AppearanceSettings,
   DashboardSettings,
@@ -13,14 +14,9 @@ import type {
 
 /**
  * Write-guard for team permission payloads. The backend `UpdatePermissionsDto`
- * and `InviteMemberDto` are Zod `.strict()` with a `z.enum(TEAM_PERMISSIONS)`
- * — deprecated UI aliases (`checkout-sales`, `view-out-of-stock`) are silently
- * stripped rather than sent (the backend would otherwise 400).
+ * and `InviteMemberDto` are Zod `.strict()` over the canonical permission
+ * names (T33), so screen names are translated and view-only ones dropped.
  */
-const DEPRECATED_PERMISSIONS: ReadonlySet<string> = new Set([
-  "checkout-sales",
-  "view-out-of-stock",
-]);
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -29,17 +25,24 @@ function isUuid(value: string): boolean {
   return UUID_PATTERN.test(value);
 }
 
-export function toTeamPermissions(permissions: Permission[]): Permission[] {
-  return permissions.filter((permission) => !DEPRECATED_PERMISSIONS.has(permission));
+export function toTeamPermissions(permissions: Permission[]): string[] {
+  return toBackendPermissions(permissions);
 }
 
 /**
  * Write-guard for recording a sale. Maps the UI SaleRecord to the backend
  * CreateSaleDto. The backend is Zod `.strict()` — only known keys are emitted
- * and items are reduced to `{ productId, quantity, price }`.
+ * and items are reduced to `{ productId, quantity, unit }`. Prices are never
+ * sent: the server reads them from the catalogue (T35).
  */
+export interface SaleLinePayload {
+  productId: string;
+  quantity: number;
+  unit: "unit" | "carton";
+}
+
 export interface SalePayload {
-  items: Array<{ productId: string; quantity: number; price: number }>;
+  items: SaleLinePayload[];
   paymentMethod: "cash" | "card" | "transfer" | "split" | "account";
   discountPercent?: number;
   customerId?: string;
@@ -57,7 +60,7 @@ export function toSalePayload(sale: SaleRecord): SalePayload {
       .map((item) => ({
         productId: item.productId as string,
         quantity: item.quantity,
-        price: item.price,
+        unit: item.unit ?? "unit",
       })),
     paymentMethod: sale.paymentMethod ?? "cash",
   };
@@ -83,7 +86,7 @@ export function toSalePayload(sale: SaleRecord): SalePayload {
  */
 export interface HeldPayload {
   customerName: string;
-  items: Array<{ productId: string; quantity: number; price: number }>;
+  items: SaleLinePayload[];
   discountPercent?: number;
   paymentMethod: "cash" | "card" | "transfer" | "split" | "account";
 }
@@ -94,7 +97,7 @@ export function toHeldPayload(held: HeldTransaction): HeldPayload {
     items: held.items.map((item) => ({
       productId: item.productId,
       quantity: item.quantity,
-      price: item.price,
+      unit: item.unit ?? "unit",
     })),
     paymentMethod: held.paymentMethod ?? "cash",
   };

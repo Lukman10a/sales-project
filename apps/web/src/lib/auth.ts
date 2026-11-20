@@ -31,6 +31,20 @@ export interface SignupData {
 
 const ROLE_STORAGE_KEY = "luxa_last_role";
 
+/**
+ * Thrown by `AuthService.login` when the password was right and the account
+ * now needs its two-step code. Pass `challenge` to `verifyTwoFactor`.
+ */
+export class TwoFactorRequiredError extends Error {
+  readonly challenge: string;
+
+  constructor(challenge: string) {
+    super("Enter the 6-digit code from your authenticator app.");
+    this.name = "TwoFactorRequiredError";
+    this.challenge = challenge;
+  }
+}
+
 export class AuthService {
   static async login(credentials: LoginCredentials): Promise<User> {
     assertStaffRole(credentials.role);
@@ -39,6 +53,15 @@ export class AuthService {
       credentials.password,
       credentials.remember ?? false,
     );
+    if ("mfaRequired" in response) {
+      throw new TwoFactorRequiredError(response.challenge);
+    }
+    return mapAuthUser(response.user);
+  }
+
+  /** Completes a two-step sign-in with an authenticator or backup code. */
+  static async verifyTwoFactor(challenge: string, code: string): Promise<User> {
+    const response = await authApi.verifyTwoFactor(challenge, code.trim());
     return mapAuthUser(response.user);
   }
 

@@ -1,9 +1,11 @@
-import * as bcrypt from 'bcrypt';
+import { hashPassword } from '../auth/passwords/password-hasher';
+import { ROLE_PRESETS } from '../common/constants/permissions';
 import dataSource from './data-source';
 import { User } from '../entities/user.entity';
 import { TeamMember } from '../entities/team-member.entity';
 import { InventoryItem } from '../entities/inventory-item.entity';
 import { Sale } from '../entities/sale.entity';
+import { ReceiptCounter } from '../entities/receipt-counter.entity';
 import { SaleItem } from '../entities/sale-item.entity';
 import { buildDemoData, DEMO_OWNER_EMAIL, stockStatus } from './demo-data';
 
@@ -35,7 +37,7 @@ async function seed() {
         return;
       }
 
-      const hash = await bcrypt.hash(password, 10);
+      const hash = await hashPassword(password);
       const businessName = 'Ade Mart (demo)';
       const owner = await em.save(
         em.create(User, {
@@ -46,6 +48,7 @@ async function seed() {
           businessName,
           role: 'owner',
           status: 'active',
+          emailVerifiedAt: new Date(),
         }),
       );
       owner.businessId = owner.id;
@@ -53,7 +56,7 @@ async function seed() {
 
       const staff = {
         manager: { first: 'Bisi', last: 'Adeyemi', role: 'manager' as const },
-        cashier: { first: 'Chidi', last: 'Eze', role: 'apprentice' as const },
+        cashier: { first: 'Chidi', last: 'Eze', role: 'cashier' as const },
       };
       const ids: Record<'owner' | 'manager' | 'cashier', string> = {
         owner: owner.id,
@@ -81,8 +84,9 @@ async function seed() {
             businessId: owner.id,
             userId: user.id,
             name: `${s.first} ${s.last}`,
-            role: key === 'manager' ? 'manager' : 'checkout',
-            permissions: [],
+            role: s.role,
+            permissions: [...ROLE_PRESETS[s.role].permissions],
+            maxDiscountPercent: ROLE_PRESETS[s.role].maxDiscountPercent,
             status: 'active',
             joinedDate: new Date(),
           }),
@@ -110,10 +114,16 @@ async function seed() {
         productIds.set(p.sku, { id: item.id, name: item.name });
       }
 
+      let receiptNumber = 0;
       for (const s of sales) {
+        receiptNumber += 1;
         await em.save(
           em.create(Sale, {
             businessId: owner.id,
+            receiptNumber,
+            subtotal: s.total,
+            discountAmount: 0,
+            vatAmount: 0,
             total: s.total,
             paymentMethod: s.paymentMethod,
             status: 'completed',
@@ -133,6 +143,13 @@ async function seed() {
           }),
         );
       }
+
+      await em.save(
+        em.create(ReceiptCounter, {
+          businessId: owner.id,
+          lastNumber: receiptNumber,
+        }),
+      );
 
       console.log(
         `Seeded ${businessName}: 3 users, ${products.length} products, ${sales.length} sales.`,

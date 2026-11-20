@@ -14,6 +14,12 @@ import { useRouter } from "next/navigation";
 interface AuthContextType {
   user: User | null;
   login: (credentials: LoginCredentials) => Promise<void>;
+  /** Second sign-in step after `login` threw TwoFactorRequiredError. */
+  completeTwoFactor: (
+    challenge: string,
+    code: string,
+    role: LoginCredentials["role"],
+  ) => Promise<void>;
   register: (data: SignupData) => Promise<void>;
   logout: () => Promise<void>;
   updateUser: (updates: Partial<User>) => void;
@@ -53,6 +59,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [router],
   );
 
+  const completeTwoFactor = useCallback(
+    async (challenge: string, code: string, role: LoginCredentials["role"]) => {
+      const loggedInUser = await AuthService.verifyTwoFactor(challenge, code);
+      setUser(loggedInUser);
+      AuthService.setLastRole(role);
+      router.push(landingPathFor(loggedInUser));
+    },
+    [router],
+  );
+
   const register = useCallback(
     async (data: SignupData) => {
       const newUser = await AuthService.register(data);
@@ -77,13 +93,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     () => ({
       user,
       login,
+      completeTwoFactor,
       logout,
       register,
       updateUser,
       isAuthenticated: !!user,
       isLoading,
     }),
-    [user, login, logout, register, updateUser, isLoading],
+    [user, login, completeTwoFactor, logout, register, updateUser, isLoading],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

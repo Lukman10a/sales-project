@@ -22,28 +22,21 @@ export class TeamMember {
   @Column()
   name!: string;
 
+  /** Role preset the member started from (see ROLE_PRESETS). */
   @Column({
     type: 'enum',
-    enum: [
-      'owner',
-      'manager',
-      'sales-assistant',
-      'checkout',
-      'inventory',
-      'investor',
-    ],
-    default: 'sales-assistant',
+    enum: ['manager', 'cashier'],
+    default: 'cashier',
   })
-  role!:
-    | 'owner'
-    | 'manager'
-    | 'sales-assistant'
-    | 'checkout'
-    | 'inventory'
-    | 'investor';
+  role!: 'manager' | 'cashier';
 
+  /** Canonical permissions (PERMISSIONS), editable switch by switch. */
   @Column({ type: 'text', array: true, default: () => "'{}'" })
   permissions!: string[];
+
+  /** Largest discount this member may give, in percent of the sale. */
+  @Column({ type: 'integer', default: 0 })
+  maxDiscountPercent!: number;
 
   @Column({ nullable: true })
   department?: string;

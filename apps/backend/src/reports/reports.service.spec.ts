@@ -87,16 +87,15 @@ describe('ReportsService', () => {
 
       const result = await service.generate(user, dto);
 
-      expect(salesRepository.list).toHaveBeenCalledWith({
-        businessId: 'b1',
+      expect(salesRepository.list).toHaveBeenCalledWith('b1', {
         page: 1,
         limit: 100,
         dateFrom: '2026-08-01',
         dateTo: '2026-08-20',
       });
       expect(reportsRepository.create).toHaveBeenCalledWith(
+        'b1',
         expect.objectContaining({
-          businessId: 'b1',
           name: 'August Sales',
           type: 'sales',
           format: 'pdf',
@@ -153,12 +152,12 @@ describe('ReportsService', () => {
 
       await service.generate(user, dto);
 
-      expect(inventoryRepository.list).toHaveBeenCalledWith({
-        businessId: 'b1',
+      expect(inventoryRepository.list).toHaveBeenCalledWith('b1', {
         page: 1,
         limit: 1000,
       });
       expect(reportsRepository.create).toHaveBeenCalledWith(
+        'b1',
         expect.objectContaining({
           snapshot: {
             type: 'inventory',
@@ -202,6 +201,7 @@ describe('ReportsService', () => {
         '2026-08-20',
       );
       expect(reportsRepository.create).toHaveBeenCalledWith(
+        'b1',
         expect.objectContaining({
           snapshot: {
             type: 'profit',
@@ -228,7 +228,7 @@ describe('ReportsService', () => {
       const result = await service.list(user, { page: 1, limit: 20 });
 
       expect(reportsRepository.list).toHaveBeenCalledWith('b1', 1, 20);
-      expect(reportsRepository.resolveCreatorNames).toHaveBeenCalledWith([
+      expect(reportsRepository.resolveCreatorNames).toHaveBeenCalledWith('b1', [
         'u1',
       ]);
       expect(result).toEqual({
@@ -276,7 +276,7 @@ describe('ReportsService', () => {
 
       const result = await service.remove(user, 'r1');
 
-      expect(reportsRepository.remove).toHaveBeenCalledWith(report);
+      expect(reportsRepository.remove).toHaveBeenCalledWith('b1', report);
       expect(result).toEqual({ message: 'Report deleted successfully' });
     });
   });

@@ -1,4 +1,4 @@
-import { IsNull } from 'typeorm';
+import { IsNull, Not } from 'typeorm';
 import { SessionsRepository } from './sessions.repository';
 import type { Session } from '../entities/session.entity';
 
@@ -60,6 +60,17 @@ describe('SessionsRepository', () => {
     await expect(repository.revokeAllForUser('u1', 'logout')).resolves.toBe(2);
     expect(update).toHaveBeenCalledWith(
       { userId: 'u1', revokedAt: IsNull() },
+      expect.anything(),
+    );
+  });
+
+  it('revokes all of a user’s sessions except one family', async () => {
+    const update = updated(2);
+    await expect(
+      repository.revokeAllForUserExcept('u1', 'f1', 'revoked'),
+    ).resolves.toBe(2);
+    expect(update).toHaveBeenCalledWith(
+      { userId: 'u1', familyId: Not('f1'), revokedAt: IsNull() },
       expect.anything(),
     );
   });

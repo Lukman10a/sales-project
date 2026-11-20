@@ -19,14 +19,12 @@ describe('InventoryRepository', () => {
     jest.restoreAllMocks();
   });
 
-  describe('findByIdAndBusiness', () => {
+  describe('findById', () => {
     it('queries by id and businessId', async () => {
       const item = { id: 'i1', businessId: 'b1' } as InventoryItem;
       const findOne = jest.spyOn(repository, 'findOne').mockResolvedValue(item);
 
-      await expect(repository.findByIdAndBusiness('i1', 'b1')).resolves.toBe(
-        item,
-      );
+      await expect(repository.findById('b1', 'i1')).resolves.toBe(item);
       expect(findOne).toHaveBeenCalledWith({
         where: { id: 'i1', businessId: 'b1' },
       });
@@ -35,9 +33,7 @@ describe('InventoryRepository', () => {
     it('returns null when no item matches', async () => {
       jest.spyOn(repository, 'findOne').mockResolvedValue(null);
 
-      await expect(
-        repository.findByIdAndBusiness('missing', 'b1'),
-      ).resolves.toBeNull();
+      await expect(repository.findById('b1', 'missing')).resolves.toBeNull();
     });
   });
 
@@ -67,7 +63,7 @@ describe('InventoryRepository', () => {
         .spyOn(repository, 'findOne')
         .mockResolvedValue(reloaded);
 
-      const result = await repository.decrementStock('i1', 'b1', 2);
+      const result = await repository.decrementStock('b1', 'i1', 2);
 
       expect(qb.update).toHaveBeenCalledWith(InventoryItem);
       expect(qb.set).toHaveBeenCalled();
@@ -79,7 +75,7 @@ describe('InventoryRepository', () => {
       expect(findOne).toHaveBeenCalledWith({
         where: { id: 'i1', businessId: 'b1' },
       });
-      expect(result).toBe(reloaded);
+      expect(result).toEqual({ item: reloaded, decremented: true });
     });
   });
 
@@ -95,10 +91,10 @@ describe('InventoryRepository', () => {
         transaction: transactionFn,
       } as never);
 
-      const result = await repo.resolveCreatorNames(['u1', 'u2']);
+      const result = await repo.resolveCreatorNames('b1', ['u1', 'u2']);
 
       expect(manager.find).toHaveBeenCalledWith(User, {
-        where: { id: In(['u1', 'u2']) },
+        where: { id: In(['u1', 'u2']), businessId: 'b1' },
         select: ['id', 'firstName', 'lastName'],
       });
       expect(result.get('u1')).toBe('Ada Lovelace');
@@ -112,7 +108,7 @@ describe('InventoryRepository', () => {
         transaction: transactionFn,
       } as never);
 
-      const result = await repo.resolveCreatorNames([]);
+      const result = await repo.resolveCreatorNames('b1', []);
 
       expect(manager.find).not.toHaveBeenCalled();
       expect(result.size).toBe(0);
@@ -131,6 +127,7 @@ describe('InventoryRepository', () => {
       jest.spyOn(repository, 'createQueryBuilder').mockReturnValue(qb as never);
 
       const count = await repository.bulkUpsert(
+        'b1',
         [
           {
             name: 'A',
@@ -141,7 +138,6 @@ describe('InventoryRepository', () => {
             status: 'in-stock',
           },
         ],
-        'b1',
         'u1',
       );
 

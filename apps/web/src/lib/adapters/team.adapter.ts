@@ -1,13 +1,20 @@
 import type { TeamMember } from "@/types/teamTypes";
+import {
+  fromBackendPermissions,
+  fromBackendTeamRole,
+} from "@/lib/api/access-compat";
 
 export interface BackendTeamMember {
   id: string;
   userId: string;
   name: string;
   email: string;
-  role: TeamMember["role"];
+  /** Backend team role: manager or cashier. */
+  role: string;
   status: TeamMember["status"];
-  permissions: TeamMember["permissions"];
+  /** Canonical backend permission names. */
+  permissions: string[];
+  maxDiscountPercent?: number;
   department?: string | null;
   joinedDate: string | Date;
   createdAt: string | Date;
@@ -19,9 +26,9 @@ export function toTeamMember(member: BackendTeamMember): TeamMember {
     id: member.id,
     name: member.name,
     email: member.email,
-    role: member.role,
+    role: fromBackendTeamRole(member.role),
     status: member.status,
-    permissions: member.permissions,
+    permissions: fromBackendPermissions(member.permissions),
     department: member.department ?? undefined,
     joinedDate: new Date(member.joinedDate).toISOString(),
     lastActive: undefined,

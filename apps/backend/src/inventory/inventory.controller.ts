@@ -39,11 +39,10 @@ export class InventoryController {
   /**
    * List inventory with pagination, category/status/search filter, and sort
    * GET /inventory
-   * Requires: view-inventory OR view-products
+   * Requires: membership of the business
    */
   @Get()
-  @UseGuards(JwtAuthGuard, PermissionsGuard)
-  @RequirePermissions('view-inventory', 'view-products')
+  @UseGuards(JwtAuthGuard)
   list(
     @CurrentUser() user: CurrentUserPayload,
     @Query(new ZodValidationPipe(QueryInventoryDtoSchema))
@@ -69,11 +68,11 @@ export class InventoryController {
   /**
    * Create product (auto-calculates initial status)
    * POST /inventory
-   * Requires: edit-inventory OR edit-products
+   * Requires: products.edit_price (a new product sets its prices)
    */
   @Post()
   @UseGuards(JwtAuthGuard, PermissionsGuard)
-  @RequirePermissions('edit-inventory', 'edit-products')
+  @RequirePermissions('products.edit_price')
   @HttpCode(201)
   create(
     @CurrentUser() user: CurrentUserPayload,
@@ -86,11 +85,12 @@ export class InventoryController {
   /**
    * Update product & recalculate status
    * PATCH /inventory/:id
-   * Requires: edit-inventory OR edit-products
+   * Requires: products.edit_price or products.restock; price fields need
+   * products.edit_price (checked in the service)
    */
   @Patch(':id')
   @UseGuards(JwtAuthGuard, PermissionsGuard)
-  @RequirePermissions('edit-inventory', 'edit-products')
+  @RequirePermissions('products.edit_price', 'products.restock')
   update(
     @CurrentUser() user: CurrentUserPayload,
     @Param('id', ParseUUIDPipe) id: string,
@@ -103,12 +103,12 @@ export class InventoryController {
   /**
    * Confirm receipt of an inventory entry.
    * POST /inventory/:id/confirm
-   * Requires: view-inventory OR view-products (role rules enforced in service:
-   * owner confirms any; manager confirms others' entries; apprentice confirms own)
+   * Requires: products.restock (role rules enforced in service: owner
+   * confirms any; manager confirms others' entries; cashier confirms own)
    */
   @Post(':id/confirm')
   @UseGuards(JwtAuthGuard, PermissionsGuard)
-  @RequirePermissions('view-inventory', 'view-products')
+  @RequirePermissions('products.restock')
   @HttpCode(200)
   confirm(
     @CurrentUser() user: CurrentUserPayload,
@@ -120,11 +120,11 @@ export class InventoryController {
   /**
    * Delete product
    * DELETE /inventory/:id
-   * Requires: delete-products
+   * Requires: products.delete
    */
   @Delete(':id')
   @UseGuards(JwtAuthGuard, PermissionsGuard)
-  @RequirePermissions('delete-products')
+  @RequirePermissions('products.delete')
   remove(
     @CurrentUser() user: CurrentUserPayload,
     @Param('id', ParseUUIDPipe) id: string,
@@ -135,11 +135,11 @@ export class InventoryController {
   /**
    * Reduce stock; emits inventory.low-stock if low
    * POST /inventory/:id/decrement
-   * Requires: record-sales
+   * Requires: sales.record
    */
   @Post(':id/decrement')
   @UseGuards(JwtAuthGuard, PermissionsGuard)
-  @RequirePermissions('record-sales')
+  @RequirePermissions('sales.record')
   @HttpCode(200)
   decrement(
     @CurrentUser() user: CurrentUserPayload,
@@ -153,11 +153,11 @@ export class InventoryController {
   /**
    * Parse CSV/JSON file and batch create/update items
    * POST /inventory/bulk-import
-   * Requires: edit-inventory OR owner
+   * Requires: products.edit_price (imports set prices)
    */
   @Post('bulk-import')
   @UseGuards(JwtAuthGuard, PermissionsGuard)
-  @RequirePermissions('edit-inventory')
+  @RequirePermissions('products.edit_price')
   @UseInterceptors(FileInterceptor('file'))
   @HttpCode(200)
   bulkImport(
