@@ -5,7 +5,8 @@ import { ReportingController } from './reporting.controller';
 import { ReportingService } from './reporting.service';
 import { ReportingRepository } from './reporting.repository';
 import { ReportingListener } from './reporting.listener';
-import { ReportCache } from './report-cache';
+import { RedisConnection } from '../common/redis/redis';
+import { RedisReportCache, ReportCache, ReportStore } from './report-cache';
 
 /** Dashboard and reports API v2 (T38). */
 @Module({
@@ -14,14 +15,19 @@ import { ReportCache } from './report-cache';
   providers: [
     ReportingRepository,
     ReportingListener,
-    { provide: ReportCache, useFactory: () => new ReportCache() },
+    {
+      provide: ReportStore,
+      inject: [RedisConnection],
+      useFactory: (redis: RedisConnection) =>
+        redis.client ? new RedisReportCache(redis.client) : new ReportCache(),
+    },
     {
       provide: ReportingService,
-      inject: [ReportingRepository, ExpensesService, ReportCache],
+      inject: [ReportingRepository, ExpensesService, ReportStore],
       useFactory: (
         repo: ReportingRepository,
         expenses: ExpensesService,
-        cache: ReportCache,
+        cache: ReportStore,
       ) => new ReportingService(repo, expenses, cache),
     },
   ],

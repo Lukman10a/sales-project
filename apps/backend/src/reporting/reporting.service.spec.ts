@@ -119,7 +119,7 @@ describe('ReportingService', () => {
       await service.summary(cashier, 'today');
       expect(repo.totals).toHaveBeenCalledTimes(2);
 
-      cache.invalidate('b1');
+      await cache.invalidate('b1');
       repo.totals.mockResolvedValue(totals());
       await service.summary(owner, 'today');
       expect(repo.totals).toHaveBeenCalledTimes(4);

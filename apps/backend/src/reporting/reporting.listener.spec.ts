@@ -1,12 +1,12 @@
-import { ReportCache } from './report-cache';
+import type { ReportStore } from './report-cache';
 import { ReportingListener } from './reporting.listener';
 
 describe('ReportingListener', () => {
-  it("clears the business's cached reports", () => {
-    const cache = { invalidate: jest.fn() };
-    const listener = new ReportingListener(cache as unknown as ReportCache);
+  it("clears the business's cached reports", async () => {
+    const cache = { invalidate: jest.fn().mockResolvedValue(undefined) };
+    const listener = new ReportingListener(cache as unknown as ReportStore);
 
-    listener.invalidate({ businessId: 'b1' });
+    await listener.invalidate({ businessId: 'b1' });
 
     expect(cache.invalidate).toHaveBeenCalledWith('b1');
   });

@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import type { CurrentUserPayload } from '../common';
 import { holds } from '../common/constants/access-policy';
 import { ExpensesService } from '../expenses/expenses.service';
-import { ReportCache } from './report-cache';
+import { ReportStore } from './report-cache';
 import { ReportingRepository } from './reporting.repository';
 import {
   percentChange,
@@ -66,7 +66,7 @@ export class ReportingService {
   constructor(
     private readonly reports: ReportingRepository,
     private readonly expenses: ExpensesService,
-    private readonly cache: ReportCache,
+    private readonly cache: ReportStore,
     private readonly clock: () => Date = () => new Date(),
   ) {}
 

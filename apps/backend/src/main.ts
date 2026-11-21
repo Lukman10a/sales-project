@@ -7,6 +7,8 @@ import { configureApp } from './bootstrap';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   configureApp(app);
+  // Closes queues and Redis cleanly when Railway stops the instance.
+  app.enableShutdownHooks();
 
   const port = app.get(ConfigService).getOrThrow<number>('PORT');
   await app.listen(port);

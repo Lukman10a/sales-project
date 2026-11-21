@@ -130,6 +130,18 @@ New endpoints (all figures in naira, days in Africa/Lagos):
 
 ---
 
+## Redis, jobs and email (T39)
+
+- **Railway:** add the Redis plugin. Give both services `REDIS_URL`, `RESEND_API_KEY` and `EMAIL_FROM`.
+  - API service: `pnpm --filter @luxa/backend run start:prod`.
+  - Worker service: `pnpm --filter @luxa/backend run start:worker`. Same image and env. It needs the database too, and it exits if `REDIS_URL` is missing.
+- **Queues:** `email`, `digest`, `maintenance`, `webhooks`. 5 attempts with exponential backoff (30 s, 1, 2, 4 min), then the `dead-letter` queue.
+- **Shared in Redis:** rate limits, the principal cache (30 s) and the report cache (60 s). When Redis is unreachable, caches fall back to the database and rate limits let requests through, with an error in the logs.
+- **Email templates:** verify email, password reset, lockout, staff invite (sent now); new-device sign-in, trial ending (3 days, 1 day), payment receipt and payment failed (built, sent once the tickets that detect those events land).
+- **Schedules** now run on Lagos time: `AI_INSIGHTS_DIGEST_CRON` (default 07:00) and `STOCK_INTEGRITY_CRON` (default 02:30). They were on the server clock (UTC).
+
+---
+
 ## Deferred (not blocking â€” Phase 6 in old numbering)
 
 Backend modules: **Investors** (auth, ROI), **Withdrawals** (approval workflow), **Reports** (PDF/CSV), **Data management** (backup/import/export), **AI insights**, **Activity logs**, **Dashboard customisation** persistence, notification producers for `alert`/`ai`/`system`, real **invite-acceptance** flow (invited staff cannot log in â€” guard the UI with a "pending activation" state), server-side **pagination** for inventory/sales contexts, `sms` preference persistence (frontend strips it), `lastActive`/`invitedBy` columns on `team_members`.

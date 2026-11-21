@@ -1,6 +1,5 @@
 import { Module } from '@nestjs/common';
 import { EventEmitterModule } from '@nestjs/event-emitter';
-import { ScheduleModule } from '@nestjs/schedule';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AppController } from './app.controller';
@@ -19,6 +18,8 @@ import { InsightsModule } from './insights/insights.module';
 import { getDatabaseConfig } from './database/database.config';
 import { configModuleOptions } from './config/config.options';
 import { MailModule } from './mail/mail.module';
+import { RedisModule } from './common/redis/redis.module';
+import { JobsModule } from './jobs/jobs.module';
 import { RateLimitModule } from './common/rate-limit/rate-limit.module';
 import { AuditModule } from './audit/audit.module';
 
@@ -32,7 +33,8 @@ import { AuditModule } from './audit/audit.module';
       inject: [ConfigService],
     }),
     EventEmitterModule.forRoot(),
-    ScheduleModule.forRoot(),
+    RedisModule,
+    JobsModule,
     RateLimitModule,
     MailModule,
     AuditModule,

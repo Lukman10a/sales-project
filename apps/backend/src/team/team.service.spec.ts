@@ -1,3 +1,5 @@
+import type { ConfigService } from '@nestjs/config';
+import { RecordingMailer } from '../mail/mailer';
 import {
   BadRequestException,
   ForbiddenException,
@@ -19,6 +21,7 @@ jest.mock('bcrypt', () => ({
 }));
 
 describe('TeamService', () => {
+  let mailer: RecordingMailer;
   let audit: { record: jest.Mock };
   let service: TeamService;
   let teamRepository: {
@@ -114,11 +117,14 @@ describe('TeamService', () => {
     );
 
     audit = { record: jest.fn().mockResolvedValue(undefined) };
+    mailer = new RecordingMailer();
     service = new TeamService(
       teamRepository as unknown as TeamRepository,
       usersRepository as unknown as UsersRepository,
       principals as unknown as PrincipalService,
       audit as unknown as AuditService,
+      mailer,
+      { getOrThrow: () => 'https://app.luxa.app' } as unknown as ConfigService,
     );
   });
 
@@ -146,6 +152,27 @@ describe('TeamService', () => {
   });
 
   describe('inviteMember', () => {
+    it('emails the new member a sign-in link, never the password', async () => {
+      const result = await service.inviteMember(
+        { ...owner, name: 'Ada Obi' },
+        dto,
+      );
+
+      expect(mailer.sent).toHaveLength(1);
+      const [mail] = mailer.sent;
+      expect(mail).toMatchObject({ to: result.email, kind: 'staff-invite' });
+      expect(mail.text).toContain('Ada Obi added you to LUXA');
+      expect(mail.text).toContain('https://app.luxa.app/auth/login');
+      expect(mail.text).not.toContain(result.temporaryPassword);
+      expect(mail.html).not.toContain(result.temporaryPassword);
+    });
+
+    it('sends nothing when the invite fails', async () => {
+      usersRepository.findByEmail.mockResolvedValue({ id: 'other' });
+      await expect(service.inviteMember(owner, dto)).rejects.toThrow();
+      expect(mailer.sent).toHaveLength(0);
+    });
+
     it('refuses an email that already has an account', async () => {
       usersRepository.findByEmail.mockResolvedValue({ id: 'other' });
       await expect(service.inviteMember(owner, dto)).rejects.toBeInstanceOf(

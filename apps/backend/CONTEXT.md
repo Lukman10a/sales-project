@@ -37,6 +37,12 @@ _Avoid_: Stock log, inventory transaction
 **Import**:
 Adding or updating inventory items from a CSV or Excel file (at most 5,000 rows and 5 MB). First a preview reports each row's verdict and writes nothing; the confirm applies the valid rows in one transaction. A row updates the item with the same SKU, else barcode, else name; its quantity is the stock now on hand, recorded as an `import` movement for the difference.
 
+**Job**:
+Background work on a named queue: `email`, `digest`, `maintenance` or `webhooks`. With Redis (`REDIS_URL`) the API only adds jobs and the worker process (`start:worker`) runs them, retrying with backoff; a job that fails every attempt becomes a **dead letter** (what failed and why, never its data). Without Redis, jobs run inside the API. Scheduled jobs (the AI digest at 07:00, the stock-ledger check at 02:30) run on Lagos time, once across instances.
+
+**Email**:
+Always sent as an `email` job, never inline in a request. Delivered by Resend when `RESEND_API_KEY` is set; development writes previews to `MAIL_PREVIEW_DIR`; tests only record. Bodies, links and tokens are never logged. A staff invite email never contains the temporary password.
+
 **Business day**:
 The calendar day in Africa/Lagos (UTC+1). A sale belongs to the business day it was made (`saleDate`); every report period and range is a run of business days, so a sale at 00:30 Lagos time counts on the new day.
 

@@ -25,6 +25,25 @@ describe('validateEnv', () => {
     expect(env.CORS_ORIGINS).toEqual(['https://app.luxa.app']);
   });
 
+  it('takes Redis and Resend settings, refusing a key without a sender', () => {
+    expect(
+      validateEnv(
+        valid({
+          REDIS_URL: 'rediss://default:pw@redis.internal:6379',
+          RESEND_API_KEY: 're_123',
+          EMAIL_FROM: 'LUXA <hello@luxa.app>',
+        }),
+      ),
+    ).toMatchObject({ REDIS_URL: 'rediss://default:pw@redis.internal:6379' });
+    expect(() => validateEnv(valid({ REDIS_URL: 'localhost:6379' }))).toThrow(
+      /REDIS_URL/,
+    );
+    expect(() => validateEnv(valid({ RESEND_API_KEY: 're_123' }))).toThrow(
+      /EMAIL_FROM is required/,
+    );
+    expect(validateEnv(valid({ REDIS_URL: '' })).REDIS_URL).toBeUndefined();
+  });
+
   it('defaults NODE_ENV to production when unset', () => {
     const env = validateEnv(valid({ NODE_ENV: undefined }));
     expect(env.NODE_ENV).toBe('production');

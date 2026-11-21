@@ -3,7 +3,10 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
+  Inject,
+  Logger,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { randomBytes } from 'crypto';
 import { hashPassword } from '../auth/passwords/password-hasher';
 import type { TeamMember } from '../entities/team-member.entity';
@@ -14,6 +17,8 @@ import type { TeamMemberUpdateData } from './team.repository';
 import { UsersRepository } from '../auth/users.repository';
 import { PrincipalService } from '../auth/principal.service';
 import { AuditService } from '../audit/audit.service';
+import { MAILER, type Mailer } from '../mail/mailer';
+import { staffInviteMail } from '../mail/templates';
 import type { AuditAction } from '../entities/audit-event.entity';
 import type { InviteMemberDto } from './dto/invite-member.dto';
 import type { UpdateMemberDto } from './dto/update-member.dto';
@@ -51,7 +56,14 @@ export class TeamService {
     private usersRepository: UsersRepository,
     private principals: PrincipalService,
     private audit: AuditService,
-  ) {}
+    @Inject(MAILER) private mailer: Mailer,
+    config: ConfigService,
+  ) {
+    this.frontendUrl = config.getOrThrow<string>('FRONTEND_URL');
+  }
+
+  private readonly logger = new Logger(TeamService.name);
+  private readonly frontendUrl: string;
 
   async list(actor: Pick<Actor, 'businessId'>, query: QueryTeamDto) {
     return this.teamRepository.list(actor.businessId, {
@@ -90,7 +102,7 @@ export class TeamService {
     const tempPasswordHash = await hashPassword(temporaryPassword);
     const businessId = actor.businessId;
 
-    return this.teamRepository.transaction(async (manager) => {
+    const invited = await this.teamRepository.transaction(async (manager) => {
       const newUser = this.teamRepository.createUser(businessId, manager, {
         email: inviteDto.email,
         password: tempPasswordHash,
@@ -146,6 +158,24 @@ export class TeamService {
         temporaryPassword,
       };
     });
+
+    // After the commit, so a rolled-back invite never emails anyone.
+    this.mailer
+      .send(
+        staffInviteMail(
+          invited.email,
+          invited.name,
+          actor.businessName,
+          actor.name || actor.businessName,
+          this.frontendUrl,
+        ),
+      )
+      .catch((err: unknown) =>
+        this.logger.error(
+          `Could not queue the invite email: ${err instanceof Error ? err.message : String(err)}`,
+        ),
+      );
+    return invited;
   }
 
   /**
@@ -202,7 +232,7 @@ export class TeamService {
       });
       return saved;
     });
-    this.principals.invalidate(member.userId);
+    await this.principals.invalidate(member.userId);
     return saved;
   }
 
@@ -220,7 +250,7 @@ export class TeamService {
         before,
       });
     });
-    this.principals.invalidate(member.userId);
+    await this.principals.invalidate(member.userId);
     return { message: 'Team member removed successfully' };
   }
 
@@ -252,7 +282,7 @@ export class TeamService {
       });
       return saved;
     });
-    this.principals.invalidate(member.userId);
+    await this.principals.invalidate(member.userId);
     return saved;
   }
 

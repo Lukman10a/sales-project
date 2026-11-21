@@ -100,6 +100,23 @@ const schema = z
         )
         .optional(),
     ),
+
+    /** Redis for jobs, caches and rate limits. Unset: in-process fallbacks. */
+    REDIS_URL: optionalString.pipe(
+      z
+        .string()
+        .regex(
+          /^rediss?:\/\//,
+          'REDIS_URL must start with redis:// or rediss://',
+        )
+        .optional(),
+    ),
+    /** Email through Resend. Unset: previews in development, dropped in production. */
+    RESEND_API_KEY: optionalString,
+    /** Sender, e.g. "LUXA <hello@luxa.app>", on a domain verified in Resend. */
+    EMAIL_FROM: optionalString,
+    /** Development: where emails are written instead of sent. */
+    MAIL_PREVIEW_DIR: optionalString,
   })
   .superRefine((env, ctx) => {
     if (
@@ -122,6 +139,14 @@ const schema = z
         path: ['DATABASE_URL'],
         message:
           'set DATABASE_URL, or DATABASE_HOST + DATABASE_USERNAME + DATABASE_NAME',
+      });
+    }
+
+    if (env.RESEND_API_KEY && !env.EMAIL_FROM) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['EMAIL_FROM'],
+        message: 'EMAIL_FROM is required with RESEND_API_KEY',
       });
     }
 

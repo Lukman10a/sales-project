@@ -1,16 +1,16 @@
 import { Injectable } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
-import { ReportCache } from './report-cache';
+import { ReportStore } from './report-cache';
 
 /** Clears a business's cached reports when its figures change. */
 @Injectable()
 export class ReportingListener {
-  constructor(private readonly cache: ReportCache) {}
+  constructor(private readonly cache: ReportStore) {}
 
   @OnEvent('sale.completed')
   @OnEvent('sale.refunded')
   @OnEvent('expense.changed')
-  invalidate(event: { businessId: string }): void {
-    this.cache.invalidate(event.businessId);
+  invalidate(event: { businessId: string }): Promise<void> {
+    return this.cache.invalidate(event.businessId);
   }
 }

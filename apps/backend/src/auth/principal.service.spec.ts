@@ -1,5 +1,7 @@
+import { Logger } from '@nestjs/common';
 import {
   MemoryPrincipalCache,
+  RedisPrincipalCache,
   PrincipalService,
   type Principal,
 } from './principal.service';
@@ -94,7 +96,7 @@ describe('PrincipalService', () => {
     expect((await service.resolve('c1', 'o1'))?.permissions).toEqual([
       'sales.record',
     ]);
-    service.invalidate('c1');
+    await service.invalidate('c1');
     expect((await service.resolve('c1', 'o1'))?.permissions).toEqual([
       'sales.record',
       'sales.refund',
@@ -108,13 +110,65 @@ describe('PrincipalService', () => {
 });
 
 describe('MemoryPrincipalCache', () => {
-  it('expires entries after the TTL', () => {
+  it('expires entries after the TTL', async () => {
     let now = 0;
     const cache = new MemoryPrincipalCache(1000, () => now);
-    cache.set('u', { id: 'u' } as Principal);
+    await cache.set('u', { id: 'u' } as Principal);
     now = 999;
-    expect(cache.get('u')).toBeDefined();
+    expect(await cache.get('u')).toBeDefined();
     now = 1000;
-    expect(cache.get('u')).toBeUndefined();
+    expect(await cache.get('u')).toBeUndefined();
+  });
+});
+
+describe('RedisPrincipalCache', () => {
+  const principal = { id: 'u', businessId: 'b' } as Principal;
+
+  function fakeRedis() {
+    const store = new Map<string, string>();
+    return {
+      store,
+      get: jest.fn((k: string) => Promise.resolve(store.get(k) ?? null)),
+      set: jest.fn((k: string, v: string) => {
+        store.set(k, v);
+        return Promise.resolve('OK');
+      }),
+      del: jest.fn((k: string) => Promise.resolve(Number(store.delete(k)))),
+    };
+  }
+
+  it('stores principals under a prefixed key with the TTL', async () => {
+    const redis = fakeRedis();
+    const cache = new RedisPrincipalCache(redis as never, 30_000);
+
+    await cache.set('u', principal);
+    expect(redis.set).toHaveBeenCalledWith(
+      'luxa:principal:u',
+      JSON.stringify(principal),
+      'PX',
+      30_000,
+    );
+    await expect(cache.get('u')).resolves.toEqual(principal);
+    await cache.delete('u');
+    await expect(cache.get('u')).resolves.toBeUndefined();
+  });
+
+  it('treats an unreachable Redis as a miss and never fails a request', async () => {
+    jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+    const error = jest
+      .spyOn(Logger.prototype, 'error')
+      .mockImplementation(() => undefined);
+    const down = () => Promise.reject(new Error('ECONNREFUSED'));
+    const cache = new RedisPrincipalCache({
+      get: down,
+      set: down,
+      del: down,
+    });
+
+    await expect(cache.get('u')).resolves.toBeUndefined();
+    await expect(cache.set('u', principal)).resolves.toBeUndefined();
+    await expect(cache.delete('u')).resolves.toBeUndefined();
+    expect(error).toHaveBeenCalled();
+    jest.restoreAllMocks();
   });
 });

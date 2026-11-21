@@ -1,3 +1,4 @@
+import { RedisConnection } from '../common/redis/redis';
 import { Module } from '@nestjs/common';
 import {
   JwtModule,
@@ -23,6 +24,7 @@ import { SessionsService } from './sessions.service';
 import {
   MemoryPrincipalCache,
   PRINCIPAL_CACHE,
+  RedisPrincipalCache,
   PrincipalService,
 } from './principal.service';
 import { TwoFactorBackupCode } from '../entities/two-factor-backup-code.entity';
@@ -65,7 +67,14 @@ import {
     BackupCodesRepository,
     TwoFactorService,
     PrincipalService,
-    { provide: PRINCIPAL_CACHE, useValue: new MemoryPrincipalCache() },
+    {
+      provide: PRINCIPAL_CACHE,
+      inject: [RedisConnection],
+      useFactory: (redis: RedisConnection) =>
+        redis.client
+          ? new RedisPrincipalCache(redis.client)
+          : new MemoryPrincipalCache(),
+    },
     {
       provide: SECRET_BOX,
       useFactory: (config: ConfigService) =>

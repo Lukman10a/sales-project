@@ -1,3 +1,4 @@
+import { JobRegistry } from '../jobs/job-registry';
 import type { EventEmitter2 } from '@nestjs/event-emitter';
 import { Logger } from '@nestjs/common';
 import { StockIntegrityListener } from './stock-integrity.listener';
@@ -29,6 +30,7 @@ describe('StockIntegrityListener', () => {
     const listener = new StockIntegrityListener(
       ledger as unknown as StockLedgerRepository,
       events as unknown as EventEmitter2,
+      new JobRegistry(),
     );
 
     await expect(listener.check()).resolves.toHaveLength(3);
@@ -49,8 +51,28 @@ describe('StockIntegrityListener', () => {
         mismatches: jest.fn().mockResolvedValue([]),
       } as unknown as StockLedgerRepository,
       events as unknown as EventEmitter2,
+      new JobRegistry(),
     );
     await listener.check();
     expect(events.emit).not.toHaveBeenCalled();
+  });
+
+  it('registers as a nightly maintenance job', async () => {
+    const jobs = new JobRegistry();
+    const listener = new StockIntegrityListener(
+      {
+        mismatches: jest.fn().mockResolvedValue([]),
+      } as unknown as StockLedgerRepository,
+      { emit: jest.fn() } as unknown as EventEmitter2,
+      jobs,
+    );
+    listener.onModuleInit();
+
+    expect(jobs.schedules()).toEqual([
+      { queue: 'maintenance', name: 'stock-integrity', pattern: '30 2 * * *' },
+    ]);
+    await expect(
+      jobs.run('maintenance', 'stock-integrity', {}),
+    ).resolves.toEqual([]);
   });
 });

@@ -1,6 +1,6 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { Cron } from '@nestjs/schedule';
+import { Injectable, Logger, type OnModuleInit } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
+import { JobRegistry } from '../jobs/job-registry';
 import {
   StockLedgerRepository,
   type LedgerMismatch,
@@ -18,15 +18,25 @@ export interface LedgerMismatchEvent {
  * owner is told (see NotificationsListener) and it is logged as an error.
  */
 @Injectable()
-export class StockIntegrityListener {
+export class StockIntegrityListener implements OnModuleInit {
   private readonly logger = new Logger(StockIntegrityListener.name);
 
   constructor(
     private ledger: StockLedgerRepository,
     private eventEmitter: EventEmitter2,
+    private jobs: JobRegistry,
   ) {}
 
-  @Cron(process.env.STOCK_INTEGRITY_CRON ?? '30 2 * * *')
+  /** A `maintenance` job at 02:30 Lagos, once across instances. */
+  onModuleInit(): void {
+    this.jobs.handle('maintenance', 'stock-integrity', () => this.check());
+    this.jobs.schedule(
+      'maintenance',
+      'stock-integrity',
+      process.env.STOCK_INTEGRITY_CRON ?? '30 2 * * *',
+    );
+  }
+
   async check(): Promise<LedgerMismatch[]> {
     const mismatches = await this.ledger.mismatches();
     const byBusiness = new Map<string, LedgerMismatch[]>();

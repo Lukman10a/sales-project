@@ -338,7 +338,7 @@ export class AuthService {
    * Null when they may not act there, e.g. a deactivated team member.
    */
   private async principalOf(user: User) {
-    this.principals.invalidate(user.id);
+    await this.principals.invalidate(user.id);
     return this.principals.resolve(user.id, user.businessId ?? user.id);
   }
 
