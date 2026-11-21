@@ -9,7 +9,13 @@ import { ReceiptCounter } from '../entities/receipt-counter.entity';
 import { SaleItem } from '../entities/sale-item.entity';
 import { Category } from '../entities/category.entity';
 import { StockMovement } from '../entities/stock-movement.entity';
-import { buildDemoData, DEMO_OWNER_EMAIL, stockStatus } from './demo-data';
+import { Expense } from '../entities/expense.entity';
+import {
+  buildDemoData,
+  buildDemoExpenses,
+  DEMO_OWNER_EMAIL,
+  stockStatus,
+} from './demo-data';
 
 /**
  * `pnpm db:seed` — creates the demo business (owner, manager, cashier,
@@ -95,7 +101,8 @@ async function seed() {
         );
       }
 
-      const { products, sales } = buildDemoData(new Date());
+      const now = new Date();
+      const { products, sales } = buildDemoData(now);
       const productIds = new Map<string, { id: string; name: string }>();
       const categories = new Map<string, Category>();
       for (const name of new Set(products.map((p) => p.category))) {
@@ -163,6 +170,17 @@ async function seed() {
         );
       }
 
+      const expenses = buildDemoExpenses(now);
+      for (const e of expenses) {
+        await em.save(
+          em.create(Expense, {
+            businessId: owner.id,
+            ...e,
+            recordedBy: owner.id,
+          }),
+        );
+      }
+
       await em.save(
         em.create(ReceiptCounter, {
           businessId: owner.id,
@@ -171,7 +189,7 @@ async function seed() {
       );
 
       console.log(
-        `Seeded ${businessName}: 3 users, ${products.length} products, ${sales.length} sales.`,
+        `Seeded ${businessName}: 3 users, ${products.length} products, ${sales.length} sales, ${expenses.length} expenses.`,
       );
       console.log(
         `Sign in as ${DEMO_OWNER_EMAIL} (also manager@/cashier@demo.luxa.app); password from SEED_PASSWORD or the README.`,

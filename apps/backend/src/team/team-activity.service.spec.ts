@@ -98,6 +98,45 @@ describe('TeamActivityService', () => {
     expect(pagination.pages).toBe(3);
   });
 
+  it('phrases expense events', async () => {
+    const spent = { category: 'fuel', amount: 15000, date: '2026-11-20' };
+    page.mockResolvedValue([
+      [
+        event({
+          action: 'expense.recorded',
+          entityType: 'expense',
+          after: spent,
+        }),
+        event({
+          action: 'expense.deleted',
+          entityType: 'expense',
+          before: spent,
+        }),
+        event({
+          action: 'expense.updated',
+          entityType: 'expense',
+          before: { ...spent, amount: 15000 },
+          after: { ...spent, amount: 16000 },
+        }),
+      ],
+      3,
+    ]);
+
+    const { data } = await service.getActivity(
+      { businessId: 'b1' },
+      { page: 1, limit: 10 },
+    );
+
+    const amount = `₦${(15000).toLocaleString()}`;
+    expect(data[0]).toMatchObject({
+      action: 'Recorded Expense',
+      entity: 'expense',
+      details: `fuel: ${amount} on 2026-11-20`,
+    });
+    expect(data[1]).toMatchObject({ action: 'Deleted Expense' });
+    expect(data[2].details).toContain('amount: 15000 → 16000');
+  });
+
   it('keeps events without an actor', async () => {
     page.mockResolvedValue([
       [event({ actorUserId: null, actorName: 'System', entityId: null })],

@@ -35,6 +35,9 @@ const LABELS: Record<AuditAction, [action: string, entity: string]> = {
   'product.confirmed': ['Confirmed Inventory', 'inventory'],
   'product.deleted': ['Deleted Product', 'inventory'],
   'product.imported': ['Imported Products', 'inventory'],
+  'expense.recorded': ['Recorded Expense', 'expense'],
+  'expense.updated': ['Updated Expense', 'expense'],
+  'expense.deleted': ['Deleted Expense', 'expense'],
   'staff.invited': ['Invited User', 'team'],
   'staff.updated': ['Updated Member', 'team'],
   'staff.role_changed': ['Changed Role', 'team'],
@@ -74,6 +77,10 @@ function detailsOf(e: AuditEvent): string | undefined {
       return `Deleted ${str(b.name)}`;
     case 'product.imported':
       return `Imported ${str(a.imported)} product(s)`;
+    case 'expense.recorded':
+      return `${str(a.category)}: ${naira(a.amount)} on ${str(a.date)}`;
+    case 'expense.deleted':
+      return `${str(b.category)}: ${naira(b.amount)} on ${str(b.date)}`;
     case 'staff.invited':
       return `Invited ${str(a.name)} as ${str(a.role)}`;
     case 'staff.removed':

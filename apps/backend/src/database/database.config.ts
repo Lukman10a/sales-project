@@ -21,6 +21,7 @@ import { IdempotencyKey } from '../entities/idempotency-key.entity';
 import { ReceiptCounter } from '../entities/receipt-counter.entity';
 import { Category } from '../entities/category.entity';
 import { StockMovement } from '../entities/stock-movement.entity';
+import { Expense } from '../entities/expense.entity';
 
 export const ENTITIES = [
   User,
@@ -41,6 +42,7 @@ export const ENTITIES = [
   ReceiptCounter,
   Category,
   StockMovement,
+  Expense,
 ];
 
 /** Compiled (.js) or ts-node (.ts) migrations, wherever this file runs from. */

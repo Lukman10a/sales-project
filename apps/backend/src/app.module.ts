@@ -8,6 +8,7 @@ import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
 import { ProfileModule } from './profile/profile.module';
 import { InventoryModule } from './inventory/inventory.module';
+import { ExpensesModule } from './expenses/expenses.module';
 import { SalesModule } from './sales/sales.module';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { NotificationsModule } from './notifications/notifications.module';
@@ -37,6 +38,7 @@ import { AuditModule } from './audit/audit.module';
     AuthModule,
     ProfileModule,
     InventoryModule,
+    ExpensesModule,
     SalesModule,
     AnalyticsModule,
     NotificationsModule,

@@ -1,4 +1,9 @@
-import { buildDemoData, prng, stockStatus } from './demo-data';
+import {
+  buildDemoData,
+  buildDemoExpenses,
+  prng,
+  stockStatus,
+} from './demo-data';
 
 const NOW = new Date('2026-11-17T12:00:00Z');
 
@@ -41,5 +46,50 @@ describe('stockStatus', () => {
     expect(stockStatus(0, 10)).toBe('out-of-stock');
     expect(stockStatus(10, 10)).toBe('low-stock');
     expect(stockStatus(11, 10)).toBe('in-stock');
+  });
+});
+
+describe('buildDemoExpenses', () => {
+  it('books rent on the 1st, salaries on the 28th and diesel on Mondays', () => {
+    // 30 days ending Fri 20 Nov 2026 (Lagos): 22 Oct .. 20 Nov.
+    const expenses = buildDemoExpenses(new Date('2026-11-20T12:00:00Z'));
+    expect(expenses).toEqual([
+      {
+        date: '2026-10-26',
+        category: 'fuel',
+        amount: 15000,
+        note: 'Generator diesel',
+      },
+      {
+        date: '2026-10-28',
+        category: 'salaries',
+        amount: 180000,
+        note: 'Staff salaries',
+      },
+      {
+        date: '2026-11-01',
+        category: 'rent',
+        amount: 250000,
+        note: 'Shop rent',
+      },
+      {
+        date: '2026-11-02',
+        category: 'fuel',
+        amount: 15000,
+        note: 'Generator diesel',
+      },
+      {
+        date: '2026-11-09',
+        category: 'fuel',
+        amount: 15000,
+        note: 'Generator diesel',
+      },
+      {
+        date: '2026-11-16',
+        category: 'fuel',
+        amount: 15000,
+        note: 'Generator diesel',
+      },
+    ]);
   });
 });

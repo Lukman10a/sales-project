@@ -212,6 +212,11 @@ suite('Tenant isolation (e2e, real Postgres)', () => {
       title: 'Hello',
       message: 'Only for A',
     });
+    const expense = bodyOf<{ id: string }>(
+      await call('POST', '/expenses', a.jar)
+        .send({ category: 'rent', amount: 250000, date: '2026-11-01' })
+        .expect(201),
+    );
     const insights = bodyOf<Array<{ id: string }>>(
       await call('GET', '/insights', a.jar).expect(200),
     );
@@ -231,6 +236,7 @@ suite('Tenant isolation (e2e, real Postgres)', () => {
         '/notifications/:id': notification.id,
         '/insights/:id': insights[0].id,
         '/auth/sessions/:id': sessions[0].id,
+        '/expenses/:id': expense.id,
       } as Record<string, string>,
       product,
       sale,
@@ -248,6 +254,7 @@ suite('Tenant isolation (e2e, real Postgres)', () => {
     'PATCH /team/:id': { department: 'Front' },
     'PATCH /team/:id/permissions': { permissions: ['sales.record'] },
     'PATCH /notifications/:id/read': undefined,
+    'PATCH /expenses/:id': { amount: 1 },
   };
 
   it("gives one business a 404 for every other business's id", async () => {
@@ -294,6 +301,107 @@ suite('Tenant isolation (e2e, real Postgres)', () => {
     expect(heldNow.map((h) => h.id)).toContain(held.id);
     await call('GET', `/team/${ids['/team/:id']}`, a.jar).expect(200);
     await call('GET', '/auth/me', a.jar).expect(200);
+    const expenseNow = bodyOf<{ amount: number }>(
+      await call('GET', `/expenses/${ids['/expenses/:id']}`, a.jar).expect(200),
+    );
+    expect(expenseNow.amount).toBe(250000);
+  });
+
+  it('records expenses with an audit trail, totals and permission checks', async () => {
+    const { a, invite } = await businessWithData();
+    const fuel = bodyOf<{ id: string; amount: number; date: string }>(
+      await call('POST', '/expenses', a.jar)
+        .send({
+          category: 'fuel',
+          amount: 15000.5,
+          date: '2026-11-20',
+          note: 'Diesel',
+        })
+        .expect(201),
+    );
+    expect(fuel).toMatchObject({ amount: 15000.5, date: '2026-11-20' });
+    // Outside the range below.
+    await call('POST', '/expenses', a.jar)
+      .send({ category: 'fuel', amount: 999, date: '2026-12-01' })
+      .expect(201);
+    await call('PATCH', `/expenses/${fuel.id}`, a.jar)
+      .send({ amount: 16000 })
+      .expect(200);
+
+    const summary = bodyOf<{
+      total: number;
+      byCategory: Array<{ category: string; amount: number }>;
+      series: Array<{ period: string; amount: number }>;
+    }>(
+      await call(
+        'GET',
+        '/expenses/summary?from=2026-11-01&to=2026-11-30&groupBy=day',
+        a.jar,
+      ).expect(200),
+    );
+    expect(summary.total).toBe(266000);
+    expect(summary.byCategory).toEqual([
+      { category: 'rent', amount: 250000 },
+      { category: 'fuel', amount: 16000 },
+    ]);
+    expect(summary.series).toEqual([
+      { period: '2026-11-01', amount: 250000 },
+      { period: '2026-11-20', amount: 16000 },
+    ]);
+
+    const list = bodyOf<{
+      data: Array<{ id: string }>;
+      pagination: { total: number };
+    }>(
+      await call(
+        'GET',
+        '/expenses?from=2026-11-01&to=2026-11-30&category=fuel',
+        a.jar,
+      ).expect(200),
+    );
+    expect(list.data.map((e) => e.id)).toEqual([fuel.id]);
+
+    await call('DELETE', `/expenses/${fuel.id}`, a.jar).expect(200);
+    await call('GET', `/expenses/${fuel.id}`, a.jar).expect(404);
+
+    const audit = bodyOf<{
+      data: Array<{
+        action: string;
+        before: { amount?: number } | null;
+        after: { amount?: number } | null;
+      }>;
+    }>(await call('GET', '/audit?entityType=expense', a.jar).expect(200));
+    const actions = audit.data.map((e) => e.action);
+    expect(actions).toEqual(
+      expect.arrayContaining([
+        'expense.recorded',
+        'expense.updated',
+        'expense.deleted',
+      ]),
+    );
+    const edit = audit.data.find((e) => e.action === 'expense.updated');
+    expect(edit?.before?.amount).toBe(15000.5);
+    expect(edit?.after?.amount).toBe(16000);
+
+    // A cashier holds neither expenses.manage nor reports.view_profit.
+    const cashier = await signIn(invite.email, invite.temporaryPassword);
+    await call('GET', '/expenses', cashier).expect(403);
+    await call(
+      'GET',
+      '/expenses/summary?from=2026-11-01&to=2026-11-30',
+      cashier,
+    ).expect(403);
+    await call('POST', '/expenses', cashier)
+      .send({ category: 'other', amount: 1 })
+      .expect(403);
+
+    // Granting the permission lets them in on the next request.
+    await call('PATCH', `/team/${invite.id}/permissions`, a.jar)
+      .send({ permissions: ['sales.record', 'expenses.manage'] })
+      .expect(200);
+    await call('POST', '/expenses', cashier)
+      .send({ category: 'other', amount: 1 })
+      .expect(201);
   });
 
   it('applies a permission change on the very next request', async () => {

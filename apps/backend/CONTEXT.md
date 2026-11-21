@@ -37,12 +37,16 @@ _Avoid_: Stock log, inventory transaction
 **Import**:
 Adding or updating inventory items from a CSV or Excel file (at most 5,000 rows and 5 MB). First a preview reports each row's verdict and writes nothing; the confirm applies the valid rows in one transaction. A row updates the item with the same SKU, else barcode, else name; its quantity is the stock now on hand, recorded as an `import` movement for the difference.
 
+**Expense**:
+Money the business spent that is not stock: rent, salaries, fuel, utilities, transport, supplies, or other. Each has an amount, the business-local day it was spent, a note, and who recorded it. Recording, editing and deleting one is audited and needs `expenses.manage`. Net profit for a period is gross profit minus the expenses dated in it.
+_Avoid_: Cost (that is the cost price of stock sold), outgoing
+
 **Staff role**:
 The role a team member holds: `manager` or `cashier`. With `owner`, these are the only login roles; a member's login role is kept equal to their team role. A role sets a member's starting permissions (its preset); the owner can then change them switch by switch.
 _Avoid_: Apprentice, staffRole (both removed in T33), permission (see Permission)
 
 **Permission**:
-A capability held by a team member, stored on their team-member row; owners hold all of them. Canonical set: `sales.record`, `sales.discount`, `sales.refund`, `products.edit_price`, `products.restock`, `products.delete`, `reports.view_profit`, `staff.manage`, `billing.manage`, `settings.manage`. Presets: manager = record, discount, refund, restock (10% discount cap); cashier = record (no discount). Viewing products and stock needs only membership. Checked per request from the database, never from the token, so a change applies on the next request.
+A capability held by a team member, stored on their team-member row; owners hold all of them. Canonical set: `sales.record`, `sales.discount`, `sales.refund`, `products.edit_price`, `products.restock`, `products.delete`, `reports.view_profit`, `expenses.manage`, `staff.manage`, `billing.manage`, `settings.manage`. Presets: manager = record, discount, refund, restock, expenses (10% discount cap); cashier = record (no discount). Viewing products and stock needs only membership. Checked per request from the database, never from the token, so a change applies on the next request.
 _Avoid_: Access right, privilege
 
 **Discount cap**:

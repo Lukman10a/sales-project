@@ -188,6 +188,7 @@ describe('TeamService', () => {
             'sales.discount',
             'sales.refund',
             'products.restock',
+            'expenses.manage',
           ],
           maxDiscountPercent: 10,
         }),
