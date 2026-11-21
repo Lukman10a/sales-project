@@ -41,7 +41,7 @@ function ItemMetricCard({
 
 interface ItemMetricsGridProps {
   sellingPrice: string;
-  wholesalePrice: string;
+  costPrice: string;
   quantity: number;
   sold: number;
   profitPercentage: string;
@@ -52,7 +52,7 @@ interface ItemMetricsGridProps {
 
 export default function ItemMetricsGrid({
   sellingPrice,
-  wholesalePrice,
+  costPrice,
   quantity,
   sold,
   profitPercentage,
@@ -69,7 +69,7 @@ export default function ItemMetricsGrid({
         <ItemMetricCard
           title={t("Selling Price")}
           value={sellingPrice}
-          subtitle={`${t("Cost")}: ${wholesalePrice}`}
+          subtitle={`${t("Cost")}: ${costPrice}`}
           icon={DollarSign}
           colorClass="text-accent"
         />

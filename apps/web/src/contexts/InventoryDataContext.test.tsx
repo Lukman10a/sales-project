@@ -34,12 +34,11 @@ const backendItem1: BackendInventoryItem = {
   name: "Widget",
   category: ["tools"],
   image: null,
-  wholesalePrice: "100.00",
+  costPrice: "100.00",
   sellingPrice: "150.50",
   quantity: 5,
   sold: 2,
   status: "in-stock",
-  confirmedByApprentice: false,
 };
 
 const backendItem2: BackendInventoryItem = {
@@ -47,12 +46,11 @@ const backendItem2: BackendInventoryItem = {
   name: "Gadget",
   category: ["Gadgets"],
   image: "img2.png",
-  wholesalePrice: "10.00",
+  costPrice: "10.00",
   sellingPrice: "20.00",
   quantity: 0,
   sold: 0,
   status: "out-of-stock",
-  confirmedByApprentice: false,
   lastRestocked: "2026-08-01",
 };
 
@@ -61,12 +59,11 @@ const newItem: InventoryItem = {
   name: "Gadget",
   category: ["Gadgets"],
   image: "img2.png",
-  wholesalePrice: 10,
+  costPrice: 10,
   sellingPrice: 20,
   quantity: 3,
   sold: 0,
   status: "in-stock",
-  confirmedByApprentice: true,
   lastRestocked: "2026-08-01T00:00:00.000Z",
 };
 
@@ -85,9 +82,10 @@ function Harness() {
     addInventoryItem,
     updateInventoryItem,
     deleteInventoryItem,
-    decrementInventory,
-    confirmInventoryReceipt,
-    bulkImportInventory,
+    restockItem,
+    adjustStock,
+    previewImport,
+    confirmImport,
     totalItemsInStock,
     lowStockItems,
     outOfStockItems,
@@ -109,7 +107,6 @@ function Harness() {
       <button
         onClick={() =>
           void updateInventoryItem("i1", {
-            confirmedByApprentice: true,
             image: "new.png",
           }).catch(() => {})
         }
@@ -119,14 +116,19 @@ function Harness() {
       <button onClick={() => void deleteInventoryItem("i1").catch(() => {})}>
         delete
       </button>
-      <button onClick={() => void decrementInventory("i1", 2).catch(() => {})}>
-        decrement
+      <button onClick={() => void restockItem("i1", 5, "Delivery").catch(() => {})}>
+        restock
       </button>
-      <button onClick={() => void confirmInventoryReceipt("i1").catch(() => {})}>
-        confirm
+      <button
+        onClick={() => void adjustStock("i1", -2, "Broken").catch(() => {})}
+      >
+        adjust
       </button>
-      <button onClick={() => void bulkImportInventory(file).catch(() => {})}>
-        bulk
+      <button onClick={() => void previewImport(file).catch(() => {})}>
+        preview
+      </button>
+      <button onClick={() => void confirmImport(file).catch(() => {})}>
+        import
       </button>
     </div>
   );
@@ -215,8 +217,7 @@ describe("InventoryDataContext", () => {
         expect.objectContaining({
           name: "Gadget",
           image: "img2.png",
-          lastRestocked: "2026-08-01T00:00:00.000Z",
-          confirmedByApprentice: true,
+          quantity: 3,
         }),
       ),
     );
@@ -241,27 +242,9 @@ describe("InventoryDataContext", () => {
       expect(apiMock.patch).toHaveBeenCalledWith(
         "/inventory/i1",
         expect.objectContaining({
-          confirmedByApprentice: true,
           image: "new.png",
         }),
       ),
-    );
-    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ["inventory"] });
-    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ["dashboard"] });
-  });
-
-  it("confirmInventoryReceipt posts to the confirm endpoint", async () => {
-    apiMock.post.mockResolvedValue(backendItem1);
-    const { queryClient } = renderContext(<Harness />);
-    await waitFor(() =>
-      expect(screen.getByTestId("names").textContent).toContain("Widget"),
-    );
-    const invalidateSpy = vi.spyOn(queryClient, "invalidateQueries");
-
-    fireEvent.click(screen.getByText("confirm"));
-
-    await waitFor(() =>
-      expect(apiMock.post).toHaveBeenCalledWith("/inventory/i1/confirm"),
     );
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ["inventory"] });
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ["dashboard"] });
@@ -284,7 +267,7 @@ describe("InventoryDataContext", () => {
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ["dashboard"] });
   });
 
-  it("decrementInventory posts the quantity and invalidates", async () => {
+  it("restockItem posts the quantity and note, then refreshes the history", async () => {
     apiMock.post.mockResolvedValue(backendItem1);
     const { queryClient } = renderContext(<Harness />);
     await waitFor(() =>
@@ -292,35 +275,67 @@ describe("InventoryDataContext", () => {
     );
     const invalidateSpy = vi.spyOn(queryClient, "invalidateQueries");
 
-    fireEvent.click(screen.getByText("decrement"));
+    fireEvent.click(screen.getByText("restock"));
 
     await waitFor(() =>
-      expect(apiMock.post).toHaveBeenCalledWith("/inventory/i1/decrement", {
-        quantity: 2,
+      expect(apiMock.post).toHaveBeenCalledWith("/inventory/i1/restock", {
+        quantity: 5,
+        note: "Delivery",
       }),
     );
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ["inventory"] });
-    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ["dashboard"] });
+    expect(invalidateSpy).toHaveBeenCalledWith({
+      queryKey: ["stock-movements", "i1"],
+    });
   });
 
-  it("bulkImportInventory posts a multipart FormData file", async () => {
-    apiMock.postForm.mockResolvedValue({ imported: 2, skipped: 0, errors: [] });
+  it("adjustStock posts the delta with its reason", async () => {
+    apiMock.post.mockResolvedValue(backendItem1);
+    renderContext(<Harness />);
+    await waitFor(() =>
+      expect(screen.getByTestId("names").textContent).toContain("Widget"),
+    );
+
+    fireEvent.click(screen.getByText("adjust"));
+
+    await waitFor(() =>
+      expect(apiMock.post).toHaveBeenCalledWith("/inventory/i1/adjust", {
+        delta: -2,
+        reason: "Broken",
+      }),
+    );
+  });
+
+  it("previews an import without refreshing, and confirming refreshes", async () => {
+    apiMock.postForm.mockResolvedValue({
+      summary: { rows: 1, valid: 1, invalid: 0, creates: 1, updates: 0 },
+      rows: [],
+    });
     const { queryClient } = renderContext(<Harness />);
     await waitFor(() =>
       expect(screen.getByTestId("names").textContent).toContain("Widget"),
     );
     const invalidateSpy = vi.spyOn(queryClient, "invalidateQueries");
 
-    fireEvent.click(screen.getByText("bulk"));
-
+    fireEvent.click(screen.getByText("preview"));
     await waitFor(() =>
       expect(apiMock.postForm).toHaveBeenCalledWith(
-        "/inventory/bulk-import",
+        "/inventory/import/preview",
         expect.any(FormData),
       ),
     );
-    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ["inventory"] });
-    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ["dashboard"] });
+    expect(invalidateSpy).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByText("import"));
+    await waitFor(() =>
+      expect(apiMock.postForm).toHaveBeenCalledWith(
+        "/inventory/import/confirm",
+        expect.any(FormData),
+      ),
+    );
+    await waitFor(() =>
+      expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ["inventory"] }),
+    );
   });
 
   it("never reads luxa_inventory from localStorage", async () => {
@@ -348,7 +363,7 @@ describe("InventoryDataContext", () => {
     );
   });
 
-  it("surfaces a toast.error when decrementing inventory fails", async () => {
+  it("surfaces a toast.error when an adjustment fails", async () => {
     apiMock.post.mockRejectedValue(new Error("Insufficient stock"));
     renderContext(<Harness />);
     await waitFor(() =>
@@ -356,7 +371,7 @@ describe("InventoryDataContext", () => {
     );
     toastMock.error.mockClear();
 
-    fireEvent.click(screen.getByText("decrement"));
+    fireEvent.click(screen.getByText("adjust"));
 
     await waitFor(() =>
       expect(toastMock.error).toHaveBeenCalledWith("Insufficient stock"),

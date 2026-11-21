@@ -209,19 +209,24 @@ export interface InventoryPayload {
   sku?: string;
   barcode?: string;
   image?: string;
-  wholesalePrice?: number;
+  costPrice?: number;
   sellingPrice?: number;
   quantity?: number;
   reorderPoint?: number;
   supplier?: string;
-  bundleQuantity?: number;
-  bundlePrice?: number;
-  lastRestocked?: string;
-  confirmedByApprentice?: boolean;
+  cartonSize?: number;
+  cartonPrice?: number;
+  expiryDate?: string | null;
 }
 
+/**
+ * Stock (`quantity`) is sent only when creating a product, as its opening
+ * stock. After that it changes only through restock, adjust, sales and
+ * imports, so an update never carries it.
+ */
 export function toInventoryPayload(
   item: Partial<InventoryItem>,
+  { includeStock = true }: { includeStock?: boolean } = {},
 ): InventoryPayload {
   const payload: InventoryPayload = {};
 
@@ -231,20 +236,20 @@ export function toInventoryPayload(
   if (item.sku) payload.sku = item.sku;
   if (item.barcode) payload.barcode = item.barcode;
   if (item.image) payload.image = item.image;
-  if (item.wholesalePrice !== undefined)
-    payload.wholesalePrice = item.wholesalePrice;
+  if (item.costPrice !== undefined)
+    payload.costPrice = item.costPrice;
   if (item.sellingPrice !== undefined)
     payload.sellingPrice = item.sellingPrice;
-  if (item.quantity !== undefined) payload.quantity = item.quantity;
+  if (includeStock && item.quantity !== undefined)
+    payload.quantity = item.quantity;
   if (item.reorderPoint !== undefined)
     payload.reorderPoint = item.reorderPoint;
   if (item.supplier) payload.supplier = item.supplier;
-  if (item.bundleQuantity !== undefined)
-    payload.bundleQuantity = item.bundleQuantity;
-  if (item.bundlePrice !== undefined) payload.bundlePrice = item.bundlePrice;
-  if (item.lastRestocked) payload.lastRestocked = item.lastRestocked;
-  if (item.confirmedByApprentice !== undefined)
-    payload.confirmedByApprentice = item.confirmedByApprentice;
+  if (item.cartonSize !== undefined)
+    payload.cartonSize = item.cartonSize;
+  if (item.cartonPrice !== undefined) payload.cartonPrice = item.cartonPrice;
+  if (item.expiryDate !== undefined)
+    payload.expiryDate = item.expiryDate || (includeStock ? undefined : null);
 
   return payload;
 }

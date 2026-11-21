@@ -84,15 +84,6 @@ export class SalesRepository extends TransactionalRepository<Sale> {
     });
   }
 
-  saveProduct(
-    businessId: string,
-    manager: EntityManager,
-    product: InventoryItem,
-  ): Promise<InventoryItem> {
-    assertTenant(businessId, product);
-    return manager.save(product);
-  }
-
   saveSale(businessId: string, manager: EntityManager, sale: Sale) {
     assertTenant(businessId, sale);
     return manager.save(sale);

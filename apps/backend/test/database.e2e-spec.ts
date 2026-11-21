@@ -52,18 +52,17 @@ suite('Database migrations & money (e2e, real Postgres)', () => {
     const item = await ds.getRepository(InventoryItem).save({
       businessId,
       name: 'Kobo test',
-      category: ['Test'],
-      wholesalePrice: 0.01,
+      costPrice: 0.01,
       sellingPrice: 0.1 + 0.2,
-      bundlePrice: 90_000_000_000.99,
+      cartonPrice: 90_000_000_000.99,
       createdBy: businessId,
     });
     const back = await ds
       .getRepository(InventoryItem)
       .findOneByOrFail({ id: item.id });
-    expect(back.wholesalePrice).toBe(0.01);
+    expect(back.costPrice).toBe(0.01);
     expect(back.sellingPrice).toBe(0.3);
-    expect(back.bundlePrice).toBe(90_000_000_000.99);
+    expect(back.cartonPrice).toBe(90_000_000_000.99);
   });
 
   it('sums kobo in SQL and returns naira', async () => {

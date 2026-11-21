@@ -11,8 +11,8 @@ const product = {
   id: 'p1',
   name: 'Rice',
   sellingPrice: 1250.5,
-  bundleQuantity: 10,
-  bundlePrice: 12000,
+  cartonSize: 10,
+  cartonPrice: 12000,
 };
 
 describe('pricing', () => {
@@ -42,9 +42,9 @@ describe('pricing', () => {
 
   it('refuses a carton when the product has no carton size or price', () => {
     for (const p of [
-      { ...product, bundleQuantity: undefined },
-      { ...product, bundlePrice: undefined },
-      { ...product, bundleQuantity: 0 },
+      { ...product, cartonSize: undefined },
+      { ...product, cartonPrice: undefined },
+      { ...product, cartonSize: 0 },
     ]) {
       expect(() =>
         priceLine(p, { productId: 'p1', quantity: 1, unit: 'carton' }),

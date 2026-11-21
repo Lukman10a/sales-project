@@ -81,7 +81,7 @@ export function generateInsights(
     const dts = daysToStockout(inv.quantity, vel);
     const margin =
       inv.sellingPrice > 0
-        ? (inv.sellingPrice - inv.wholesalePrice) / inv.sellingPrice
+        ? (inv.sellingPrice - inv.costPrice) / inv.sellingPrice
         : 0;
 
     // restock

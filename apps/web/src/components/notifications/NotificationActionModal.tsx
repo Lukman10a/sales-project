@@ -23,8 +23,6 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  CheckCircle,
-  XCircle,
   Package,
   RotateCcw,
   Tag,
@@ -67,7 +65,6 @@ interface NotificationActionModalProps {
 type ActionState =
   | "idle"
   | "stock-alert"
-  | "pending-confirmation"
   | "sales-related"
   | "system-message"
   | "processing";
@@ -88,7 +85,7 @@ export default function NotificationActionModal({
     returnQuantity: 0,
   });
 
-  const { inventory, updateInventoryItem, addInventoryItem, confirmInventoryReceipt } =
+  const { inventory, updateInventoryItem, addInventoryItem, restockItem, adjustStock } =
     useInventoryData();
   const { t, formatCurrency } = useLanguage();
 
@@ -100,9 +97,6 @@ export default function NotificationActionModal({
   const getInitialState = (): ActionState => {
     if (notification.type === "alert" || notification.type === "ai") {
       return "stock-alert";
-    }
-    if (notification.message.toLowerCase().includes("confirm")) {
-      return "pending-confirmation";
     }
     if (notification.type === "sale") {
       return "sales-related";
@@ -136,11 +130,11 @@ export default function NotificationActionModal({
       // Simulate API call
       await new Promise((resolve) => setTimeout(resolve, 1000));
 
-      const newQuantity = relatedItem.quantity + formData.quantity;
-      await updateInventoryItem(relatedItem.id, {
-        quantity: newQuantity,
-        status: newQuantity > 20 ? "in-stock" : "low-stock",
-      });
+      await restockItem(
+        relatedItem.id,
+        formData.quantity,
+        "Reorder from a stock alert",
+      );
 
       toast(
         t("Reorder placed successfully for {item}", {
@@ -168,7 +162,7 @@ export default function NotificationActionModal({
       await new Promise((resolve) => setTimeout(resolve, 1000));
 
       const discountedPrice = Math.max(
-        relatedItem.wholesalePrice,
+        relatedItem.costPrice,
         relatedItem.sellingPrice * (1 - formData.discountPercent / 100),
       );
 
@@ -191,31 +185,6 @@ export default function NotificationActionModal({
     }
   };
 
-  // Pending Confirmation Actions
-  const handleConfirmReceipt = async (approved: boolean) => {
-    if (!relatedItem) return;
-
-    setIsLoading(true);
-    try {
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-
-      if (approved) {
-        await confirmInventoryReceipt(relatedItem.id);
-        toast(t("Inventory receipt confirmed successfully"));
-      } else {
-        toast(t("Inventory receipt rejected. Please contact admin."));
-      }
-
-      setActionState("idle");
-      handleOpenChange(false);
-      onActionComplete?.();
-    } catch {
-      toast(t("Failed to process confirmation"));
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   // Sales Related Actions
   const handleProcessReturn = async () => {
     if (!relatedItem || !formData.returnQuantity) {
@@ -227,16 +196,11 @@ export default function NotificationActionModal({
     try {
       await new Promise((resolve) => setTimeout(resolve, 1000));
 
-      const newQuantity = relatedItem.quantity + formData.returnQuantity;
-      const newSoldCount = Math.max(
-        0,
-        relatedItem.sold - formData.returnQuantity,
+      await adjustStock(
+        relatedItem.id,
+        formData.returnQuantity,
+        "Customer return (from a sale notification)",
       );
-
-      await updateInventoryItem(relatedItem.id, {
-        quantity: newQuantity,
-        sold: newSoldCount,
-      });
 
       toast(
         t("Return processed: {qty} units returned for {item}", {
@@ -508,85 +472,6 @@ export default function NotificationActionModal({
             </DialogFooter>
           </motion.div>
         )}
-
-        {/* Pending Confirmation */}
-        {actionState === "idle" &&
-        notification.message.toLowerCase().includes("confirm") ? (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="space-y-4 py-4"
-          >
-            <div className="bg-warning/10 border border-warning/20 rounded-lg p-4 flex gap-3">
-              <CheckCircle className="w-5 h-5 text-warning flex-shrink-0 mt-0.5" />
-              <div className="flex-1">
-                <p className="font-medium text-foreground">
-                  {t("Action Required")}
-                </p>
-                <p className="text-sm text-muted-foreground mt-1">
-                  {t("Please approve or reject this request")}
-                </p>
-              </div>
-            </div>
-
-            {relatedItem && (
-              <div className="bg-muted/50 rounded-lg p-4 space-y-3">
-                <p className="font-medium text-foreground">
-                  {t("Item Information")}
-                </p>
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">{t("Item")}</span>
-                    <span className="font-medium">{relatedItem.name}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">
-                      {t("Category")}
-                    </span>
-                    <span className="font-medium">
-                      {relatedItem.category
-                        .map((category) => t(category))
-                        .join(", ")}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">
-                      {t("New Quantity")}
-                    </span>
-                    <span className="font-medium">{relatedItem.quantity}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">
-                      {t("Cost Price")}
-                    </span>
-                    <span className="font-medium">
-                      {formatCurrency(relatedItem.wholesalePrice)}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            <DialogFooter>
-              <Button
-                variant="outline"
-                onClick={() => handleConfirmReceipt(false)}
-                disabled={isLoading}
-              >
-                <XCircle className="w-4 h-4 mr-2" />
-                {t("Reject")}
-              </Button>
-              <Button
-                onClick={() => handleConfirmReceipt(true)}
-                disabled={isLoading}
-                className="bg-success text-success-foreground hover:bg-success/90"
-              >
-                <CheckCircle className="w-4 h-4 mr-2" />
-                {isLoading ? t("Processing...") : t("Approve")}
-              </Button>
-            </DialogFooter>
-          </motion.div>
-        ) : null}
 
         {/* Sales Related Actions */}
         {actionState === "idle" && notification.type === "sale" ? (

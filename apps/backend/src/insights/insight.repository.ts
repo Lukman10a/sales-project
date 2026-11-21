@@ -20,6 +20,7 @@ export class InsightRepository extends Repository<Sale> {
   async inventoryFacts(businessId: string): Promise<InventoryFact[]> {
     const items = await this.manager.find(InventoryItem, {
       where: { businessId },
+      relations: ['categories'],
     });
 
     return items.map((item) => ({
@@ -27,7 +28,7 @@ export class InsightRepository extends Repository<Sale> {
       name: item.name,
       quantity: item.quantity,
       reorderPoint: item.reorderPoint ?? undefined,
-      wholesalePrice: Number(item.wholesalePrice),
+      costPrice: Number(item.costPrice),
       sellingPrice: Number(item.sellingPrice),
       category: item.category ?? [],
     }));

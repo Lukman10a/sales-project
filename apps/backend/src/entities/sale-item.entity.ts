@@ -25,7 +25,7 @@ export class SaleItem {
   @Column()
   productName!: string;
 
-  /** Sold by the single unit or by the carton (`bundlePrice`). */
+  /** Sold by the single unit or by the carton (`cartonPrice`). */
   @Column({ type: 'enum', enum: SALE_UNITS, default: 'unit' })
   unit!: SaleUnit;
 

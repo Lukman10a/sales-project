@@ -17,10 +17,36 @@ import { toInventoryPayload } from "@/lib/api/payloads";
 import { toastMutationError } from "@/lib/toastError";
 import type { InventoryItem } from "@/types/inventoryTypes";
 
-interface BulkImportResult {
-  imported: number;
-  skipped: number;
+/** One row of an import, as the preview reports it (and the confirm applies it). */
+export interface ImportPlanRow {
+  row: number;
+  name: string;
+  action: "create" | "update";
+  productId?: string;
+  quantity: number;
+  stockChange: number;
   errors: string[];
+}
+
+export interface ImportResult {
+  summary: {
+    rows: number;
+    valid: number;
+    invalid: number;
+    creates: number;
+    updates: number;
+  };
+  rows: ImportPlanRow[];
+}
+
+export interface StockMovement {
+  id: string;
+  delta: number;
+  reason: "sale" | "refund" | "restock" | "adjustment" | "import" | "void";
+  refId: string | null;
+  note: string | null;
+  actorName?: string;
+  createdAt: string;
 }
 
 interface InventoryDataContextType {
@@ -33,9 +59,14 @@ interface InventoryDataContextType {
     updates: Partial<InventoryItem>,
   ) => Promise<void>;
   deleteInventoryItem: (id: string) => Promise<void>;
-  decrementInventory: (id: string, quantity: number) => Promise<void>;
-  confirmInventoryReceipt: (id: string) => Promise<void>;
-  bulkImportInventory: (file: File) => Promise<BulkImportResult>;
+  /** Stock received. */
+  restockItem: (id: string, quantity: number, note?: string) => Promise<void>;
+  /** A correction (plus or minus); the reason is required. */
+  adjustStock: (id: string, delta: number, reason: string) => Promise<void>;
+  /** Dry run of an import file: per-row verdicts, nothing saved. */
+  previewImport: (file: File) => Promise<ImportResult>;
+  /** Saves the file's valid rows. */
+  confirmImport: (file: File) => Promise<ImportResult>;
   totalItemsInStock: number;
   lowStockItems: number;
   outOfStockItems: number;
@@ -86,7 +117,7 @@ export function InventoryDataProvider({
     }) =>
       api.patch<BackendInventoryItem>(
         `/inventory/${id}`,
-        toInventoryPayload(updates),
+        toInventoryPayload(updates, { includeStock: false }),
       ),
     onSuccess: invalidate,
     onError: toastMutationError,
@@ -99,28 +130,63 @@ export function InventoryDataProvider({
     onError: toastMutationError,
   });
 
-  const decrementMutation = useMutation({
-    mutationFn: ({ id, quantity }: { id: string; quantity: number }) =>
-      api.post<BackendInventoryItem>(`/inventory/${id}/decrement`, {
+  const restockMutation = useMutation({
+    mutationFn: ({
+      id,
+      quantity,
+      note,
+    }: {
+      id: string;
+      quantity: number;
+      note?: string;
+    }) =>
+      api.post<BackendInventoryItem>(`/inventory/${id}/restock`, {
         quantity,
+        ...(note ? { note } : {}),
       }),
-    onSuccess: invalidate,
-    onError: toastMutationError,
-  });
-
-  const confirmMutation = useMutation({
-    mutationFn: (id: string) =>
-      api.post<BackendInventoryItem>(`/inventory/${id}/confirm`),
-    onSuccess: invalidate,
-    onError: toastMutationError,
-  });
-
-  const bulkImportMutation = useMutation({
-    mutationFn: (file: File) => {
-      const formData = new FormData();
-      formData.append("file", file);
-      return api.postForm<BulkImportResult>("/inventory/bulk-import", formData);
+    onSuccess: (_data, { id }) => {
+      invalidate();
+      queryClient.invalidateQueries({ queryKey: ["stock-movements", id] });
     },
+    onError: toastMutationError,
+  });
+
+  const adjustMutation = useMutation({
+    mutationFn: ({
+      id,
+      delta,
+      reason,
+    }: {
+      id: string;
+      delta: number;
+      reason: string;
+    }) =>
+      api.post<BackendInventoryItem>(`/inventory/${id}/adjust`, {
+        delta,
+        reason,
+      }),
+    onSuccess: (_data, { id }) => {
+      invalidate();
+      queryClient.invalidateQueries({ queryKey: ["stock-movements", id] });
+    },
+    onError: toastMutationError,
+  });
+
+  const importForm = (file: File) => {
+    const formData = new FormData();
+    formData.append("file", file);
+    return formData;
+  };
+
+  const previewMutation = useMutation({
+    mutationFn: (file: File) =>
+      api.postForm<ImportResult>("/inventory/import/preview", importForm(file)),
+    onError: toastMutationError,
+  });
+
+  const confirmImportMutation = useMutation({
+    mutationFn: (file: File) =>
+      api.postForm<ImportResult>("/inventory/import/confirm", importForm(file)),
     onSuccess: invalidate,
     onError: toastMutationError,
   });
@@ -146,23 +212,28 @@ export function InventoryDataProvider({
     [deleteMutation],
   );
 
-  const decrementInventory = useCallback(
-    async (id: string, quantity: number): Promise<void> => {
-      await decrementMutation.mutateAsync({ id, quantity });
+  const restockItem = useCallback(
+    async (id: string, quantity: number, note?: string): Promise<void> => {
+      await restockMutation.mutateAsync({ id, quantity, note });
     },
-    [decrementMutation],
+    [restockMutation],
   );
 
-  const confirmInventoryReceipt = useCallback(
-    async (id: string): Promise<void> => {
-      await confirmMutation.mutateAsync(id);
+  const adjustStock = useCallback(
+    async (id: string, delta: number, reason: string): Promise<void> => {
+      await adjustMutation.mutateAsync({ id, delta, reason });
     },
-    [confirmMutation],
+    [adjustMutation],
   );
 
-  const bulkImportInventory = useCallback(
-    (file: File) => bulkImportMutation.mutateAsync(file),
-    [bulkImportMutation],
+  const previewImport = useCallback(
+    (file: File) => previewMutation.mutateAsync(file),
+    [previewMutation],
+  );
+
+  const confirmImport = useCallback(
+    (file: File) => confirmImportMutation.mutateAsync(file),
+    [confirmImportMutation],
   );
 
   const totalItemsInStock = useMemo(
@@ -188,9 +259,10 @@ export function InventoryDataProvider({
       addInventoryItem,
       updateInventoryItem,
       deleteInventoryItem,
-      decrementInventory,
-      confirmInventoryReceipt,
-      bulkImportInventory,
+      restockItem,
+      adjustStock,
+      previewImport,
+      confirmImport,
       totalItemsInStock,
       lowStockItems,
       outOfStockItems,
@@ -202,9 +274,10 @@ export function InventoryDataProvider({
       addInventoryItem,
       updateInventoryItem,
       deleteInventoryItem,
-      decrementInventory,
-      confirmInventoryReceipt,
-      bulkImportInventory,
+      restockItem,
+      adjustStock,
+      previewImport,
+      confirmImport,
       totalItemsInStock,
       lowStockItems,
       outOfStockItems,
@@ -216,6 +289,16 @@ export function InventoryDataProvider({
       {children}
     </InventoryDataContext.Provider>
   );
+}
+
+/** A product's stock history, newest first. */
+export function useStockMovements(id: string | undefined) {
+  return useQuery({
+    queryKey: ["stock-movements", id],
+    queryFn: () =>
+      api.get<StockMovement[]>(`/inventory/${id}/movements?limit=50`),
+    enabled: Boolean(id),
+  });
 }
 
 export function useInventoryData() {

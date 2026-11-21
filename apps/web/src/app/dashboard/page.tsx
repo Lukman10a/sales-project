@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, memo, useState } from "react";
+import { useEffect, memo, useState } from "react";
+import { expiryState } from "@/lib/expiry";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
@@ -120,9 +121,9 @@ const DashboardContent = memo(function DashboardContent() {
   const inventoryBreakdown = dashboard.data?.inventory;
   const topSellingProducts = dashboard.data?.topProducts ?? [];
 
-  // Calculate pending confirmations for apprentices
-  const pendingConfirmations = inventory.filter(
-    (item) => !item.confirmedByApprentice,
+  // Products expiring within 30 days (or already expired).
+  const expiringSoonCount = inventory.filter(
+    (item) => expiryState(item.expiryDate) !== null,
   ).length;
 
   // Revenue goal (mock - would come from settings)
@@ -169,7 +170,7 @@ const DashboardContent = memo(function DashboardContent() {
       {/* Quick Actions */}
       <QuickActions
         userRole={userRole}
-        pendingConfirmations={pendingConfirmations}
+        expiringSoonCount={expiringSoonCount}
       />
 
       {/* Stats Grid - Owners & Managers only */}

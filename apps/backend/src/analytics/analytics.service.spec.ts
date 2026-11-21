@@ -184,6 +184,8 @@ describe('AnalyticsService', () => {
         totalProducts: 4,
         byStatus: { 'in-stock': 2, 'low-stock': 1, 'out-of-stock': 1 },
         lowStockItems: [],
+        expiringSoonCount: 0,
+        expiringSoonItems: [],
       };
       repository.summary.mockResolvedValue(summaryRow);
       repository.inventoryBreakdown.mockResolvedValue(inventory);
@@ -218,11 +220,13 @@ describe('AnalyticsService', () => {
         todayOrders: 2,
         lowStockCount: 1,
         outOfStockCount: 1,
+        expiringSoonCount: 0,
       });
       expect(result.inventory).toEqual({
         totalProducts: 4,
         byStatus: inventory.byStatus,
         lowStockItems: [],
+        expiringSoonItems: [],
       });
       expect(result.topProducts).toHaveLength(1);
       expect(result.recentSales).toHaveLength(1);

@@ -318,22 +318,37 @@ describe("toPreferencesUpdate", () => {
 });
 
 describe("toInventoryPayload", () => {
-  it("passes image, lastRestocked, and confirmedByApprentice through", () => {
+  it("passes image through and leaves lastRestocked to the server", () => {
     const payload = toInventoryPayload({
       name: "Widget",
       sellingPrice: 150,
       image: "img.png",
       lastRestocked: "2026-08-01T00:00:00.000Z",
-      confirmedByApprentice: true,
     });
 
     expect(payload).toEqual({
       name: "Widget",
       sellingPrice: 150,
       image: "img.png",
-      lastRestocked: "2026-08-01T00:00:00.000Z",
-      confirmedByApprentice: true,
     });
+  });
+
+  it("sends the expiry date, and clears it on update when blank", () => {
+    expect(
+      toInventoryPayload({ name: "Milk", expiryDate: "2030-01-31" }).expiryDate,
+    ).toBe("2030-01-31");
+    expect(
+      toInventoryPayload({ name: "Milk", expiryDate: "" }, { includeStock: false })
+        .expiryDate,
+    ).toBeNull();
+  });
+
+  it("leaves quantity out on update", () => {
+    const payload = toInventoryPayload(
+      { name: "Milk", quantity: 9 },
+      { includeStock: false },
+    );
+    expect(payload.quantity).toBeUndefined();
   });
 
   it("omits an empty-string image", () => {
@@ -368,13 +383,13 @@ describe("toInventoryPayload", () => {
     const payload = toInventoryPayload({
       name: "Widget",
       sellingPrice: 100,
-      bundleQuantity: undefined,
-      bundlePrice: undefined,
+      cartonSize: undefined,
+      cartonPrice: undefined,
       reorderPoint: undefined,
     });
 
-    expect(payload.bundleQuantity).toBeUndefined();
-    expect(payload.bundlePrice).toBeUndefined();
+    expect(payload.cartonSize).toBeUndefined();
+    expect(payload.cartonPrice).toBeUndefined();
     expect(payload.reorderPoint).toBeUndefined();
   });
 
@@ -383,11 +398,9 @@ describe("toInventoryPayload", () => {
       name: "Widget",
       quantity: 0,
       reorderPoint: 0,
-      confirmedByApprentice: false,
     });
 
     expect(payload.quantity).toBe(0);
     expect(payload.reorderPoint).toBe(0);
-    expect(payload.confirmedByApprentice).toBe(false);
   });
 });

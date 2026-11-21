@@ -120,10 +120,10 @@ suite('Sales integrity (e2e, real Postgres)', () => {
       .send({
         name: `Rice ${seq++}`,
         sellingPrice: 100,
-        wholesalePrice: 60,
+        costPrice: 60,
         quantity: 50,
-        bundleQuantity: 10,
-        bundlePrice: 900,
+        cartonSize: 10,
+        cartonPrice: 900,
         ...over,
       })
       .expect(201);

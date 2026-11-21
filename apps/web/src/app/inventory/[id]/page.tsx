@@ -6,7 +6,9 @@ import dynamic from "next/dynamic";
 import { useAuth } from "@/contexts/AuthContext";
 import { useInventoryData } from "@/contexts/InventoryDataContext";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Edit, Package } from "lucide-react";
+import { ArrowLeft, Edit, Package, PackagePlus } from "lucide-react";
+import { usePermissions } from "@/hooks/usePermissions";
+import StockHistoryCard from "@/components/inventory/StockHistoryCard";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { InventoryItem } from "@/types/inventoryTypes";
 import { toast } from "@/components/ui/sonner";
@@ -20,6 +22,10 @@ import SalesTrendChart, {
 } from "@/components/inventory/ItemCharts";
 import { generateSalesTrend } from "@/components/inventory/inventoryConfig";
 
+const StockDialog = dynamic(
+  () => import("@/components/inventory/StockDialog"),
+  { ssr: false, loading: () => null },
+);
 const InventoryFormDialog = dynamic(
   () => import("@/components/inventory/InventoryFormDialog"),
   { ssr: false, loading: () => null },
@@ -36,6 +42,9 @@ export default function InventoryItemDetails({
   const { inventory, updateInventoryItem } = useInventoryData();
   const { t, formatCurrency } = useLanguage();
   const userRole = user?.role || "owner";
+  const { hasPermission, isOwner } = usePermissions();
+  const canChangeStock = isOwner() || hasPermission("edit-inventory");
+  const [isStockOpen, setIsStockOpen] = useState(false);
 
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<Omit<
@@ -61,8 +70,8 @@ export default function InventoryItemDetails({
     if (isDuplicate) return t("An item with this name already exists");
     return "";
   };
-  const getPriceError = (wholesalePrice: number, sellingPrice: number) => {
-    if (sellingPrice <= wholesalePrice)
+  const getPriceError = (costPrice: number, sellingPrice: number) => {
+    if (sellingPrice <= costPrice)
       return t("Selling price must be greater than cost price");
     return "";
   };
@@ -100,7 +109,7 @@ export default function InventoryItemDetails({
       return;
     }
     const priceError = getPriceError(
-      editingItem.wholesalePrice,
+      editingItem.costPrice,
       editingItem.sellingPrice,
     );
     if (priceError) {
@@ -144,8 +153,8 @@ export default function InventoryItemDetails({
     );
   }
 
-  const profitMargin = item.sellingPrice - item.wholesalePrice;
-  const profitPercentage = ((profitMargin / item.wholesalePrice) * 100).toFixed(
+  const profitMargin = item.sellingPrice - item.costPrice;
+  const profitPercentage = ((profitMargin / item.costPrice) * 100).toFixed(
     1,
   );
   const totalRevenue = item.sold * item.sellingPrice;
@@ -154,7 +163,7 @@ export default function InventoryItemDetails({
 
   const metricsData = {
     sellingPrice: formatCurrency(item.sellingPrice),
-    wholesalePrice: formatCurrency(item.wholesalePrice),
+    costPrice: formatCurrency(item.costPrice),
     quantity: item.quantity,
     sold: item.sold,
     profitPercentage,
@@ -175,10 +184,22 @@ export default function InventoryItemDetails({
           <ArrowLeft className="w-4 h-4" />
           {t("Back to Inventory")}
         </Button>
-        <Button onClick={handleEditClick} className="gap-2">
-          <Edit className="w-4 h-4" />
-          {t("Edit Item")}
-        </Button>
+        <div className="flex gap-2">
+          {canChangeStock && (
+            <Button
+              variant="outline"
+              onClick={() => setIsStockOpen(true)}
+              className="gap-2"
+            >
+              <PackagePlus className="w-4 h-4" />
+              {t("Change stock")}
+            </Button>
+          )}
+          <Button onClick={handleEditClick} className="gap-2">
+            <Edit className="w-4 h-4" />
+            {t("Edit Item")}
+          </Button>
+        </div>
       </div>
 
       {/* Main Content */}
@@ -193,10 +214,16 @@ export default function InventoryItemDetails({
         {/* Right Column - Details and Analytics */}
         <div className="lg:col-span-2 space-y-6">
           <ItemMetricsGrid {...metricsData} />
+          <StockHistoryCard productId={item.id} />
           <SalesTrendChart salesTrend={salesTrend} />
           <QuickActionsCard />
         </div>
       </div>
+
+      <StockDialog
+        item={isStockOpen ? item : null}
+        onOpenChange={setIsStockOpen}
+      />
 
       {/* Edit Item Dialog */}
       {editingItem && (
@@ -209,6 +236,7 @@ export default function InventoryItemDetails({
             }
           }}
           title={t("Edit Item")}
+          stockLocked
           item={editingItem}
           onItemChange={(item) => setEditingItem(item)}
           onSave={handleSaveEdit}
@@ -220,7 +248,7 @@ export default function InventoryItemDetails({
             !editingItem?.name?.trim() ||
             !!getNameError(editingItem.name, id) ||
             !!getPriceError(
-              editingItem.wholesalePrice,
+              editingItem.costPrice,
               editingItem.sellingPrice,
             ) ||
             !!getReorderError(editingItem.reorderPoint) ||
@@ -229,7 +257,7 @@ export default function InventoryItemDetails({
           validation={{
             nameError: getNameError(editingItem.name, id),
             priceError: getPriceError(
-              editingItem.wholesalePrice,
+              editingItem.costPrice,
               editingItem.sellingPrice,
             ),
             reorderError: getReorderError(editingItem.reorderPoint),

@@ -9,7 +9,7 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import type { Sale } from '../entities/sale.entity';
 import type { InventoryItem } from '../entities/inventory-item.entity';
 import type { HeldTransaction } from '../entities/held-transaction.entity';
-import { calculateStatus } from '../inventory/inventory.service';
+import { StockLedgerRepository } from '../inventory/stock-ledger.repository';
 import { SalesRepository, type SalesTx } from './sales.repository';
 import { AuditService } from '../audit/audit.service';
 import { assertMayDiscount } from '../common/constants/access-policy';
@@ -55,6 +55,7 @@ export class SalesService {
     private salesRepository: SalesRepository,
     private eventEmitter: EventEmitter2,
     private audit: AuditService,
+    private ledger: StockLedgerRepository,
   ) {}
 
   /**
@@ -109,12 +110,7 @@ export class SalesService {
         const lines = dto.items.map((i) =>
           priceLine(products.get(i.productId)!, i),
         );
-        const lowStock = await this.takeStock(
-          businessId,
-          manager,
-          products,
-          lines,
-        );
+        const demand = this.checkStock(products, lines);
 
         const vatEnabled = await this.salesRepository.vatEnabled(
           businessId,
@@ -156,6 +152,13 @@ export class SalesService {
               total: fromKobo(l.totalKobo),
             })),
           },
+        );
+        const lowStock = await this.takeStock(
+          businessId,
+          user.id,
+          sale.id,
+          products,
+          demand,
         );
         await this.salesRepository.completeIdempotencyKey(
           businessId,
@@ -220,13 +223,11 @@ export class SalesService {
     return byId;
   }
 
-  /** Takes the lines' stock from the locked rows; 409 if any is short. */
-  private async takeStock(
-    businessId: string,
-    manager: SalesTx,
+  /** Stock units each locked product must give; 409 if any is short. */
+  private checkStock(
     products: Map<string, InventoryItem>,
     lines: PricedLine[],
-  ): Promise<InventoryItem[]> {
+  ): Map<string, number> {
     const demand = stockDemand(lines);
     for (const [id, units] of demand) {
       const product = products.get(id)!;
@@ -236,13 +237,26 @@ export class SalesService {
         );
       }
     }
+    return demand;
+  }
+
+  /** Takes the checked stock through the ledger, one `sale` move per product. */
+  private async takeStock(
+    businessId: string,
+    actorUserId: string,
+    saleId: string,
+    products: Map<string, InventoryItem>,
+    demand: Map<string, number>,
+  ): Promise<InventoryItem[]> {
     const lowStock: InventoryItem[] = [];
     for (const [id, units] of demand) {
-      const product = products.get(id)!;
-      product.quantity -= units;
-      product.sold += units;
-      product.status = calculateStatus(product.quantity, product.reorderPoint);
-      await this.salesRepository.saveProduct(businessId, manager, product);
+      const product = await this.ledger.move(businessId, products.get(id)!, {
+        delta: -units,
+        reason: 'sale',
+        refId: saleId,
+        actorUserId,
+        soldDelta: units,
+      });
       if (product.status !== 'in-stock') lowStock.push(product);
     }
     return lowStock;
@@ -359,13 +373,14 @@ export class SalesService {
       );
       for (const product of products) {
         const units = restock.get(product.id)!;
-        product.quantity += units;
-        product.sold = Math.max(0, product.sold - units);
-        product.status = calculateStatus(
-          product.quantity,
-          product.reorderPoint,
-        );
-        await this.salesRepository.saveProduct(businessId, manager, product);
+        await this.ledger.move(businessId, product, {
+          delta: units,
+          reason: 'refund',
+          refId: sale.id,
+          actorUserId: user.id,
+          note: dto.refundReason,
+          soldDelta: -units,
+        });
       }
 
       let linesKobo = 0;

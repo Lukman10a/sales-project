@@ -10,12 +10,11 @@ function backendItem(
     name: "Widget",
     category: ["tools"],
     image: "img.png",
-    wholesalePrice: "100.00",
+    costPrice: "100.00",
     sellingPrice: "150.00",
     quantity: 8,
     sold: 2,
     status: "in-stock",
-    confirmedByApprentice: false,
     ...overrides,
   };
 }
@@ -24,19 +23,19 @@ describe("inventory adapter", () => {
   it("coerces decimal price strings to numbers rounded to 2dp", () => {
     const item = toInventoryItem(
       backendItem({
-        wholesalePrice: "150.005",
+        costPrice: "150.005",
         sellingPrice: "185.555",
       }),
     );
 
-    expect(item.wholesalePrice).toBe(150.01);
+    expect(item.costPrice).toBe(150.01);
     expect(item.sellingPrice).toBe(185.56);
   });
 
-  it("rounds bundlePrice decimals to 2dp", () => {
-    const item = toInventoryItem(backendItem({ bundlePrice: "12000.005" }));
+  it("rounds cartonPrice decimals to 2dp", () => {
+    const item = toInventoryItem(backendItem({ cartonPrice: "12000.005" }));
 
-    expect(item.bundlePrice).toBe(12000.01);
+    expect(item.cartonPrice).toBe(12000.01);
   });
 
   it("maps a null image to an empty string", () => {
@@ -63,20 +62,18 @@ describe("inventory adapter", () => {
     expect(item.category).toEqual(["Phones"]);
   });
 
-  it("passes quantity, sold, status, and confirmedByApprentice through", () => {
+  it("passes quantity, sold and status through", () => {
     const item = toInventoryItem(
       backendItem({
         quantity: 3,
         sold: 9,
         status: "low-stock",
-        confirmedByApprentice: true,
       }),
     );
 
     expect(item.quantity).toBe(3);
     expect(item.sold).toBe(9);
     expect(item.status).toBe("low-stock");
-    expect(item.confirmedByApprentice).toBe(true);
   });
 
   it("maps createdBy and createdByName onto the item", () => {
@@ -86,28 +83,6 @@ describe("inventory adapter", () => {
 
     expect(item.createdBy).toBe("u1");
     expect(item.createdByName).toBe("Ada Lovelace");
-  });
-
-  it("maps confirmedBy, confirmedAt and confirmedByName onto the item", () => {
-    const item = toInventoryItem(
-      backendItem({
-        confirmedBy: "u2",
-        confirmedAt: "2026-08-02T10:00:00.000Z",
-        confirmedByName: "Grace Hopper",
-      }),
-    );
-
-    expect(item.confirmedBy).toBe("u2");
-    expect(item.confirmedAt).toBe("2026-08-02T10:00:00.000Z");
-    expect(item.confirmedByName).toBe("Grace Hopper");
-  });
-
-  it("leaves confirm fields undefined when absent", () => {
-    const item = toInventoryItem(backendItem());
-
-    expect(item.confirmedBy).toBeUndefined();
-    expect(item.confirmedAt).toBeUndefined();
-    expect(item.confirmedByName).toBeUndefined();
   });
 
   it("leaves creator fields undefined when absent", () => {

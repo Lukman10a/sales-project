@@ -126,7 +126,7 @@ export class ReportsService {
         sku: item.sku ?? null,
         quantity: item.quantity,
         sellingPrice: Number(item.sellingPrice),
-        wholesalePrice: Number(item.wholesalePrice),
+        costPrice: Number(item.costPrice),
         status: item.status,
       })),
     };

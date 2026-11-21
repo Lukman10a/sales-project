@@ -19,6 +19,8 @@ import { TwoFactorBackupCode } from '../entities/two-factor-backup-code.entity';
 import { AuditEvent } from '../entities/audit-event.entity';
 import { IdempotencyKey } from '../entities/idempotency-key.entity';
 import { ReceiptCounter } from '../entities/receipt-counter.entity';
+import { Category } from '../entities/category.entity';
+import { StockMovement } from '../entities/stock-movement.entity';
 
 export const ENTITIES = [
   User,
@@ -37,6 +39,8 @@ export const ENTITIES = [
   AuditEvent,
   IdempotencyKey,
   ReceiptCounter,
+  Category,
+  StockMovement,
 ];
 
 /** Compiled (.js) or ts-node (.ts) migrations, wherever this file runs from. */

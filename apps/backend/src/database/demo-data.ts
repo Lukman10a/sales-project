@@ -10,7 +10,7 @@ export interface DemoProduct {
   name: string;
   category: string;
   sku: string;
-  wholesalePrice: number;
+  costPrice: number;
   sellingPrice: number;
   quantity: number;
   reorderPoint: number;
@@ -66,11 +66,11 @@ export function buildDemoData(now: Date, days = 30, seed = 2026) {
     min + Math.floor(rand() * (max - min + 1));
 
   const products: DemoProduct[] = CATALOGUE.map(
-    ([name, category, wholesalePrice, sellingPrice], i) => ({
+    ([name, category, costPrice, sellingPrice], i) => ({
       name,
       category,
       sku: `DEMO-${String(i + 1).padStart(3, '0')}`,
-      wholesalePrice,
+      costPrice,
       sellingPrice,
       quantity: int(40, 120),
       reorderPoint: 10,

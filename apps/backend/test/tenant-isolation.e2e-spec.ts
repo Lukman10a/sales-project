@@ -164,7 +164,7 @@ suite('Tenant isolation (e2e, real Postgres)', () => {
         .send({
           name: 'Rice 50kg',
           sellingPrice: 100,
-          wholesalePrice: 60,
+          costPrice: 60,
           quantity: 10,
           reorderPoint: 20,
         })
@@ -241,9 +241,9 @@ suite('Tenant isolation (e2e, real Postgres)', () => {
 
   /** Smallest valid body for each write route that takes an id. */
   const BODIES: Record<string, object | undefined> = {
-    'PATCH /inventory/:id': { quantity: 1 },
-    'POST /inventory/:id/confirm': undefined,
-    'POST /inventory/:id/decrement': { quantity: 1 },
+    'PATCH /inventory/:id': { reorderPoint: 1 },
+    'POST /inventory/:id/restock': { quantity: 1 },
+    'POST /inventory/:id/adjust': { delta: -1, reason: 'test' },
     'PATCH /sales/:id/refund': { refundReason: 'test' },
     'PATCH /team/:id': { department: 'Front' },
     'PATCH /team/:id/permissions': { permissions: ['sales.record'] },
@@ -279,7 +279,7 @@ suite('Tenant isolation (e2e, real Postgres)', () => {
     expect(leaks).toEqual([]);
 
     // Nothing of A's changed.
-    const item = bodyOf<{ quantity: number; confirmedBy: string | null }>(
+    const item = bodyOf<{ quantity: number }>(
       await call('GET', `/inventory/${product.id}`, a.jar).expect(200),
     );
     expect(item.quantity).toBe(9);

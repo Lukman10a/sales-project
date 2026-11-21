@@ -50,7 +50,7 @@ describe('InsightRepository', () => {
           name: 'Widget',
           quantity: 10,
           reorderPoint: 5,
-          wholesalePrice: '10.00',
+          costPrice: '10.00',
           sellingPrice: '20.00',
           category: ['Cat'],
         },
@@ -60,13 +60,14 @@ describe('InsightRepository', () => {
 
       expect(managerMock.find).toHaveBeenCalledWith(InventoryItem, {
         where: { businessId: 'b1' },
+        relations: ['categories'],
       });
       expect(facts[0]).toEqual({
         productId: 'p1',
         name: 'Widget',
         quantity: 10,
         reorderPoint: 5,
-        wholesalePrice: 10,
+        costPrice: 10,
         sellingPrice: 20,
         category: ['Cat'],
       });

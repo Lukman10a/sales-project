@@ -103,7 +103,7 @@ export class ReportsRepository {
       .addSelect('COUNT(DISTINCT s.id)', 'orders')
       .addSelect(
         nairaSql(
-          'COALESCE(SUM((si.price - COALESCE(ii.wholesalePrice, 0)) * si.quantity), 0)',
+          'COALESCE(SUM((si.price - COALESCE(ii.costPrice, 0)) * si.quantity), 0)',
         ),
         'netProfit',
       )

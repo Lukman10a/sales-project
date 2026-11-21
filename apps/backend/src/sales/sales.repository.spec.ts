@@ -204,18 +204,6 @@ describe('SalesRepository', () => {
     });
   });
 
-  describe('saveProduct', () => {
-    it('saves the product through the manager', async () => {
-      const product = { id: 'p1', businessId: 'b1' } as InventoryItem;
-      managerMock.save.mockResolvedValue(product);
-
-      await expect(
-        repository.saveProduct('b1', manager, product),
-      ).resolves.toBe(product);
-      expect(managerMock.save).toHaveBeenCalledWith(product);
-    });
-  });
-
   describe('saveSale', () => {
     it('saves the sale through the manager', async () => {
       const sale = { id: 's1', businessId: 'b1' } as Sale;

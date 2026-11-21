@@ -26,12 +26,7 @@ export function assertMayDiscount(user: Holder, percent: number): void {
 }
 
 /** Product fields a restock-only member may change. */
-export const RESTOCK_FIELDS = new Set([
-  'quantity',
-  'reorderPoint',
-  'lastRestocked',
-  'supplier',
-]);
+export const RESTOCK_FIELDS = new Set(['reorderPoint', 'supplier']);
 
 /** Any other product field (name, prices, ...) needs products.edit_price. */
 export function assertMayEditProduct(user: Holder, fields: string[]): void {

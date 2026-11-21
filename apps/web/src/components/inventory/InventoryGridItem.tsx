@@ -2,11 +2,11 @@ import { motion } from "framer-motion";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Edit, Trash2, CheckCircle } from "lucide-react";
+import { Edit, Trash2, AlertTriangle, PackagePlus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { InventoryItem } from "@/types/inventoryTypes";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { canConfirmItem } from "@/lib/inventoryConfirm";
+import { expiryState } from "@/lib/expiry";
 import { statusConfig } from "./inventoryConfig";
 import ImageDisplay from "./ImageDisplay";
 
@@ -14,10 +14,10 @@ interface InventoryGridItemProps {
   item: InventoryItem;
   index: number;
   userRole: string;
-  currentUserId?: string;
   onEdit: (item: InventoryItem) => void;
   onDelete: (item: InventoryItem) => void;
-  onConfirmReceipt: (itemId: string, itemName: string) => void;
+  /** Opens the restock / adjust dialog; hidden when not given. */
+  onChangeStock?: (item: InventoryItem) => void;
   canEdit?: boolean;
 }
 
@@ -25,14 +25,13 @@ export default function InventoryGridItem({
   item,
   index,
   userRole,
-  currentUserId,
   onEdit,
   onDelete,
-  onConfirmReceipt,
+  onChangeStock,
   canEdit = false,
 }: InventoryGridItemProps) {
   const { t, formatCurrency } = useLanguage();
-  const canConfirm = canConfirmItem(item, userRole, currentUserId);
+  const expiry = expiryState(item.expiryDate);
 
   return (
     <motion.div
@@ -58,20 +57,18 @@ export default function InventoryGridItem({
           >
             {t(statusConfig[item.status].label)}
           </Badge>
-          {!item.confirmedByApprentice && canConfirm && (
-            <div className="absolute inset-0 bg-warning/20 backdrop-blur-sm flex items-center justify-center">
-              <Button
-                size="sm"
-                className="bg-warning text-warning-foreground"
-                onClick={(e) => {
-                  e.preventDefault();
-                  onConfirmReceipt(item.id, item.name);
-                }}
-              >
-                <CheckCircle className="w-4 h-4 mr-2" />
-                {t("Confirm Receipt")}
-              </Button>
-            </div>
+          {expiry && (
+            <Badge
+              variant="outline"
+              className={
+                expiry === "expired"
+                  ? "absolute top-3 left-3 bg-destructive/10 text-destructive border-destructive/30"
+                  : "absolute top-3 left-3 bg-warning/10 text-warning border-warning/30"
+              }
+            >
+              <AlertTriangle className="w-3 h-3 mr-1" />
+              {expiry === "expired" ? t("Expired") : t("Expires soon")}
+            </Badge>
           )}
         </div>
       </Link>
@@ -109,7 +106,7 @@ export default function InventoryGridItem({
             <div className="flex justify-between">
               <span className="text-muted-foreground">{t("Cost Price")}</span>
               <span className="font-medium text-foreground">
-                {formatCurrency(item.wholesalePrice)}
+                {formatCurrency(item.costPrice)}
               </span>
             </div>
           )}
@@ -119,12 +116,12 @@ export default function InventoryGridItem({
               {formatCurrency(item.sellingPrice)}
             </span>
           </div>
-          {userRole === "owner" && item.wholesalePrice > 0 && (
+          {userRole === "owner" && item.costPrice > 0 && (
             <div className="flex justify-between">
               <span className="text-muted-foreground">{t("Margin")}</span>
               <span className="font-medium text-success">
                 {(
-                  ((item.sellingPrice - item.wholesalePrice) /
+                  ((item.sellingPrice - item.costPrice) /
                     item.sellingPrice) *
                   100
                 ).toFixed(0)}
@@ -133,8 +130,31 @@ export default function InventoryGridItem({
             </div>
           )}
         </div>
+        {onChangeStock && !canEdit && (
+          <div className="flex gap-2 mt-4 pt-4 border-t">
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex-1"
+              onClick={() => onChangeStock(item)}
+            >
+              <PackagePlus className="w-3 h-3 mr-1" />
+              {t("Change stock")}
+            </Button>
+          </div>
+        )}
         {canEdit && (
           <div className="flex gap-2 mt-4 pt-4 border-t">
+            {onChangeStock && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => onChangeStock(item)}
+                aria-label={t("Change stock")}
+              >
+                <PackagePlus className="w-3 h-3" />
+              </Button>
+            )}
             <Button
               variant="outline"
               size="sm"

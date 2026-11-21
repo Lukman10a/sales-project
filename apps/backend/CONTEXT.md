@@ -9,7 +9,7 @@ A completed transaction recording items sold to a customer. Always priced by the
 _Avoid_: Purchase, transaction
 
 **Sale line**:
-One product on a sale, sold by the `unit` or the `carton` (the product's bundle size and bundle price). Records how many were sold and how many have since been refunded.
+One product on a sale, sold by the `unit` or the `carton` (the product's carton size and carton price). Records how many were sold and how many have since been refunded.
 _Avoid_: Order line
 
 **Idempotency key**:
@@ -24,8 +24,18 @@ A reversal of a completed sale that returns funds to the customer and puts the s
 _Avoid_: Return, void
 
 **Inventory item**:
-A stockable product the business sells or tracks.
+A stockable product the business sells or tracks: cost price, selling price, optional carton size and carton price, expiry date, reorder point, a barcode unique within the business, and any number of **Categories**. Its `quantity` is never edited directly. (The confirmation workflow, `confirmedByApprentice`, was removed in T36; the audit log records who added or changed a product.)
 _Avoid_: Product, stock entry
+
+**Category**:
+A named group of inventory items, one row per business and name; an item may be in several.
+
+**Stock movement**:
+One append-only line of an inventory item's stock history: a signed `delta`, a reason (`sale`, `refund`, `restock`, `adjustment`, `import`, `void`), what caused it (`refId`, such as the sale id), who, and a note. Every quantity change writes one in the same transaction, so an item's quantity always equals the sum of its movements; a nightly check reports any drift. An **Adjustment** (a count correction, damage, theft) always carries its reason.
+_Avoid_: Stock log, inventory transaction
+
+**Import**:
+Adding or updating inventory items from a CSV or Excel file (at most 5,000 rows and 5 MB). First a preview reports each row's verdict and writes nothing; the confirm applies the valid rows in one transaction. A row updates the item with the same SKU, else barcode, else name; its quantity is the stock now on hand, recorded as an `import` movement for the difference.
 
 **Staff role**:
 The role a team member holds: `manager` or `cashier`. With `owner`, these are the only login roles; a member's login role is kept equal to their team role. A role sets a member's starting permissions (its preset); the owner can then change them switch by switch.

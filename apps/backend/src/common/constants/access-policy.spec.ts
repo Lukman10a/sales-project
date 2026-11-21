@@ -42,14 +42,14 @@ describe('access policy', () => {
     expect(() => assertMayDiscount(cashier, 0)).not.toThrow();
   });
 
-  it('lets restock-only members change stock fields only', () => {
+  it('lets restock-only members change the reorder point and supplier only', () => {
     expect(() =>
-      assertMayEditProduct(manager, ['quantity', 'lastRestocked']),
+      assertMayEditProduct(manager, ['reorderPoint', 'supplier']),
     ).not.toThrow();
     expect(() =>
-      assertMayEditProduct(manager, ['quantity', 'sellingPrice']),
+      assertMayEditProduct(manager, ['reorderPoint', 'sellingPrice']),
     ).toThrow('sellingPrice');
-    expect(() => assertMayEditProduct(cashier, ['quantity'])).toThrow(
+    expect(() => assertMayEditProduct(cashier, ['reorderPoint'])).toThrow(
       ForbiddenException,
     );
     expect(() => assertMayEditProduct(owner, ['sellingPrice'])).not.toThrow();

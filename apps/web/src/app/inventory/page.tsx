@@ -28,6 +28,7 @@ import { toast } from "@/components/ui/sonner";
 import StockAlerts from "@/components/inventory/StockAlerts";
 import { categories } from "@/data/inventory";
 import { loadDailyEmailConfig } from "@/lib/emailService";
+import { expiryState } from "@/lib/expiry";
 const InventoryFilters = dynamic(
   () => import("@/components/inventory/InventoryFilters"),
   { ssr: false, loading: () => null },
@@ -46,6 +47,10 @@ const InventoryExportDialog = dynamic(
 );
 const DailyEmailSettingsDialog = dynamic(
   () => import("@/components/inventory/DailyEmailSettingsDialog"),
+  { ssr: false, loading: () => null },
+);
+const StockDialog = dynamic(
+  () => import("@/components/inventory/StockDialog"),
   { ssr: false, loading: () => null },
 );
 const InventoryGridItem = dynamic(
@@ -86,7 +91,6 @@ export default function Inventory() {
     addInventoryItem,
     updateInventoryItem,
     deleteInventoryItem,
-    confirmInventoryReceipt,
   } = useInventoryData();
   const userRole = user?.role || "owner";
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
@@ -94,9 +98,7 @@ export default function Inventory() {
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [filterCategory, setFilterCategory] = useState<string>("All");
   const [sortBy, setSortBy] = useState<string>("name");
-  const [confirmationFilter, setConfirmationFilter] = useState<
-    "all" | "unconfirmed" | "confirmed"
-  >(userRole === "apprentice" ? "unconfirmed" : "all");
+  const [stockItem, setStockItem] = useState<InventoryItem | null>(null);
   const [showFilters, setShowFilters] = useState(false);
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -124,8 +126,8 @@ export default function Inventory() {
     if (isDuplicate) return t("An item with this name already exists");
     return "";
   };
-  const getPriceError = (wholesalePrice: number, sellingPrice: number) => {
-    if (sellingPrice <= wholesalePrice)
+  const getPriceError = (costPrice: number, sellingPrice: number) => {
+    if (sellingPrice <= costPrice)
       return t("Selling price must be greater than cost price");
     return "";
   };
@@ -152,14 +154,9 @@ export default function Inventory() {
       item.name.toLowerCase().includes(searchQuery.toLowerCase()),
     );
 
-    // Filter by confirmation status for staff
-    if (confirmationFilter === "unconfirmed") {
-      items = items.filter((item) => !item.confirmedByApprentice);
-    } else if (confirmationFilter === "confirmed") {
-      items = items.filter((item) => item.confirmedByApprentice);
-    }
-
-    if (filterStatus !== "all")
+    if (filterStatus === "expiring")
+      items = items.filter((item) => expiryState(item.expiryDate) !== null);
+    else if (filterStatus !== "all")
       items = items.filter((item) => item.status === filterStatus);
     if (filterCategory !== "All")
       items = items.filter((item) => item.category.includes(filterCategory));
@@ -190,7 +187,6 @@ export default function Inventory() {
     filterStatus,
     filterCategory,
     sortBy,
-    confirmationFilter,
   ]);
 
   const categoryOptions = useMemo(() => {
@@ -225,7 +221,7 @@ export default function Inventory() {
       return;
     }
     const priceError = getPriceError(
-      newItem.wholesalePrice,
+      newItem.costPrice,
       newItem.sellingPrice,
     );
     if (priceError) {
@@ -266,16 +262,16 @@ export default function Inventory() {
       name: item.name,
       category: item.category,
       image: item.image,
-      wholesalePrice: item.wholesalePrice,
+      costPrice: item.costPrice,
       sellingPrice: item.sellingPrice,
       quantity: item.quantity,
       sold: item.sold,
       status: item.status,
-      confirmedByApprentice: item.confirmedByApprentice,
+      expiryDate: item.expiryDate,
       reorderPoint: item.reorderPoint ?? 0,
       barcode: item.barcode || "",
-      bundleQuantity: item.bundleQuantity,
-      bundlePrice: item.bundlePrice,
+      cartonSize: item.cartonSize,
+      cartonPrice: item.cartonPrice,
     });
   };
 
@@ -287,7 +283,7 @@ export default function Inventory() {
       return;
     }
     const priceError = getPriceError(
-      editingItem.wholesalePrice,
+      editingItem.costPrice,
       editingItem.sellingPrice,
     );
     if (priceError) {
@@ -318,10 +314,7 @@ export default function Inventory() {
     setDeleteTarget(null);
   };
 
-  const handleConfirmReceipt = async (itemId: string, itemName: string) => {
-    await confirmInventoryReceipt(itemId);
-    toast(t("Receipt confirmed for {item}", { values: { item: itemName } }));
-  };
+  const canChangeStock = isOwner() || hasPermission("edit-inventory");
 
   const statsData = {
     totalItems: inventory.length,
@@ -387,51 +380,6 @@ export default function Inventory() {
 
         {/* Filters */}
         <div className="flex flex-col gap-3">
-          {/* Confirmation Filter for Staff */}
-          {userRole === "apprentice" && (
-            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
-              <div className="flex flex-col sm:flex-row gap-2 sm:items-center sm:justify-between">
-                <label className="text-sm font-medium text-foreground">
-                  {t("Show Items")}:
-                </label>
-                <div className="flex gap-2">
-                  <Button
-                    variant={
-                      confirmationFilter === "unconfirmed"
-                        ? "default"
-                        : "outline"
-                    }
-                    size="sm"
-                    onClick={() => setConfirmationFilter("unconfirmed")}
-                  >
-                    {t("Unconfirmed")}{" "}
-                    <Badge variant="secondary" className="ml-2">
-                      {inventory.filter((i) => !i.confirmedByApprentice).length}
-                    </Badge>
-                  </Button>
-                  <Button
-                    variant={
-                      confirmationFilter === "all" ? "default" : "outline"
-                    }
-                    size="sm"
-                    onClick={() => setConfirmationFilter("all")}
-                  >
-                    {t("All Items")}
-                  </Button>
-                  <Button
-                    variant={
-                      confirmationFilter === "confirmed" ? "default" : "outline"
-                    }
-                    size="sm"
-                    onClick={() => setConfirmationFilter("confirmed")}
-                  >
-                    {t("Confirmed")}
-                  </Button>
-                </div>
-              </div>
-            </div>
-          )}
-
           {/* Search and View Controls */}
           <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 items-stretch sm:items-center justify-between">
             <div className="relative flex-1 max-w-full sm:max-w-md">
@@ -526,10 +474,9 @@ export default function Inventory() {
                   item={item}
                   index={index}
                   userRole={userRole}
-                  currentUserId={user?.id}
                   onEdit={handleEditItem}
                   onDelete={setDeleteTarget}
-                  onConfirmReceipt={handleConfirmReceipt}
+                  onChangeStock={canChangeStock ? setStockItem : undefined}
                 />
               ))}
             </motion.div>
@@ -579,10 +526,11 @@ export default function Inventory() {
                         key={item.id}
                         item={item}
                         userRole={userRole}
-                        currentUserId={user?.id}
                         onEdit={handleEditItem}
                         onDelete={setDeleteTarget}
-                        onConfirmReceipt={handleConfirmReceipt}
+                        onChangeStock={
+                          canChangeStock ? setStockItem : undefined
+                        }
                       />
                     ))}
                   </tbody>
@@ -608,14 +556,14 @@ export default function Inventory() {
         saveDisabled={
           !newItem.name.trim() ||
           !!getNameError(newItem.name) ||
-          !!getPriceError(newItem.wholesalePrice, newItem.sellingPrice) ||
+          !!getPriceError(newItem.costPrice, newItem.sellingPrice) ||
           !!getReorderError(newItem.reorderPoint) ||
           !!getBarcodeError(newItem.barcode)
         }
         validation={{
           nameError: getNameError(newItem.name),
           priceError: getPriceError(
-            newItem.wholesalePrice,
+            newItem.costPrice,
             newItem.sellingPrice,
           ),
           reorderError: getReorderError(newItem.reorderPoint),
@@ -634,6 +582,7 @@ export default function Inventory() {
             }
           }}
           title={t("Edit Item")}
+          stockLocked
           item={editingItem}
           onItemChange={(item) => setEditingItem(item)}
           onSave={handleSaveEdit}
@@ -645,7 +594,7 @@ export default function Inventory() {
             !editingItem?.name?.trim() ||
             !!getNameError(editingItem.name, editingId ?? undefined) ||
             !!getPriceError(
-              editingItem.wholesalePrice,
+              editingItem.costPrice,
               editingItem.sellingPrice,
             ) ||
             !!getReorderError(editingItem.reorderPoint) ||
@@ -654,7 +603,7 @@ export default function Inventory() {
           validation={{
             nameError: getNameError(editingItem.name, editingId ?? undefined),
             priceError: getPriceError(
-              editingItem.wholesalePrice,
+              editingItem.costPrice,
               editingItem.sellingPrice,
             ),
             reorderError: getReorderError(editingItem.reorderPoint),
@@ -665,6 +614,13 @@ export default function Inventory() {
           }}
         />
       )}
+
+      <StockDialog
+        item={stockItem}
+        onOpenChange={(open) => {
+          if (!open) setStockItem(null);
+        }}
+      />
 
       {/* Delete Confirmation */}
       <AlertDialog

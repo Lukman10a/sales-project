@@ -55,6 +55,9 @@ export default function InventoryFilters({
               <SelectItem value="in-stock">{t("In Stock")}</SelectItem>
               <SelectItem value="low-stock">{t("Low Stock")}</SelectItem>
               <SelectItem value="out-of-stock">{t("Out of Stock")}</SelectItem>
+              <SelectItem value="expiring">
+                {t("Expiring in 30 days")}
+              </SelectItem>
             </SelectContent>
           </Select>
         </div>

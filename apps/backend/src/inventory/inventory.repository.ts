@@ -6,6 +6,7 @@ import {
   runInTransaction,
 } from '../common/transactions/transactions';
 import { InventoryItem } from '../entities/inventory-item.entity';
+import { Category } from '../entities/category.entity';
 import { User } from '../entities/user.entity';
 import { PaginatedResult } from '../common/interfaces/paginated-result.interface';
 import { assertTenant } from '../common/tenancy/assert-tenant';
@@ -17,6 +18,8 @@ export interface InventoryListQuery {
   category?: string;
   status?: string;
   sort?: string;
+  /** Only products whose expiry date is within this many days (or past). */
+  expiring?: number;
 }
 
 /** Tenant-owned: every method takes `businessId` first. */
@@ -67,19 +70,73 @@ export class InventoryRepository extends TransactionalRepository<InventoryItem> 
     businessId: string,
     id: string,
   ): Promise<InventoryItem | null> {
-    return this.findOne({ where: { id, businessId } });
+    return this.findOne({
+      where: { id, businessId },
+      relations: ['categories'],
+    });
+  }
+
+  findByBarcode(
+    businessId: string,
+    barcode: string,
+  ): Promise<InventoryItem | null> {
+    return this.findOne({ where: { businessId, barcode } });
+  }
+
+  /** The business's products, locked for the rest of the transaction. */
+  lockById(businessId: string, id: string): Promise<InventoryItem | null> {
+    return this.createQueryBuilder('item')
+      .setLock('pessimistic_write')
+      .where('item.id = :id AND item.businessId = :businessId', {
+        id,
+        businessId,
+      })
+      .getOne();
+  }
+
+  /** The named categories, created where missing (names are trimmed). */
+  async ensureCategories(
+    businessId: string,
+    names: string[],
+  ): Promise<Category[]> {
+    const unique = [
+      ...new Set(names.map((n) => n.trim().slice(0, 100)).filter(Boolean)),
+    ];
+    if (unique.length === 0) return [];
+    await this.manager
+      .createQueryBuilder()
+      .insert()
+      .into(Category)
+      .values(unique.map((name) => ({ businessId, name })))
+      .orIgnore()
+      .execute();
+    return this.manager.find(Category, {
+      where: { businessId, name: In(unique) },
+    });
+  }
+
+  /** The business's categories, by name. */
+  listCategories(businessId: string): Promise<Category[]> {
+    return this.manager.find(Category, {
+      where: { businessId },
+      order: { name: 'ASC' },
+    });
+  }
+
+  /** Every product of the business, for matching import rows. */
+  findAllForImport(businessId: string): Promise<InventoryItem[]> {
+    return this.find({ where: { businessId } });
   }
 
   async list(
     businessId: string,
     query: InventoryListQuery,
   ): Promise<PaginatedResult<InventoryItem>> {
-    const { page, limit, search, category, status, sort } = query;
+    const { page, limit, search, category, status, sort, expiring } = query;
 
-    const qb = this.createQueryBuilder('item').where(
-      'item.businessId = :businessId',
-      { businessId },
-    );
+    const qb = this.createQueryBuilder('item')
+      .leftJoinAndSelect('item.categories', 'cat')
+      .where('item.businessId = :businessId', { businessId });
 
     if (search) {
       qb.andWhere(
@@ -89,7 +146,19 @@ export class InventoryRepository extends TransactionalRepository<InventoryItem> 
     }
 
     if (category) {
-      qb.andWhere(':category = ANY(item.category)', { category });
+      qb.andWhere(
+        `EXISTS (SELECT 1 FROM "product_categories" pc
+           JOIN "categories" c ON c."id" = pc."categoryId"
+           WHERE pc."productId" = item.id AND c."name" = :category)`,
+        { category },
+      );
+    }
+
+    if (expiring !== undefined) {
+      qb.andWhere(
+        `item.expiryDate IS NOT NULL AND item.expiryDate <= CURRENT_DATE + :expiring::int`,
+        { expiring },
+      );
     }
 
     if (status) {
@@ -108,6 +177,9 @@ export class InventoryRepository extends TransactionalRepository<InventoryItem> 
         break;
       case 'sold':
         qb.orderBy('item.sold', 'DESC');
+        break;
+      case 'expiry':
+        qb.orderBy('item.expiryDate', 'ASC', 'NULLS LAST');
         break;
       case 'name':
       default:
@@ -129,79 +201,5 @@ export class InventoryRepository extends TransactionalRepository<InventoryItem> 
         pages: Math.ceil(total / limit),
       },
     };
-  }
-
-  async decrementStock(
-    businessId: string,
-    id: string,
-    qty: number,
-  ): Promise<{ item: InventoryItem | null; decremented: boolean }> {
-    const result = await this.createQueryBuilder()
-      .update(InventoryItem)
-      .set({
-        quantity: () => 'quantity - :qty',
-        sold: () => 'sold + :qty',
-        status: () =>
-          `(CASE WHEN quantity - :qty <= 0 THEN 'out-of-stock' ` +
-          `WHEN "reorderPoint" IS NOT NULL AND quantity - :qty <= "reorderPoint" THEN 'low-stock' ` +
-          `ELSE 'in-stock' END)::"inventory_items_status_enum"`,
-      })
-      .where('id = :id AND businessId = :businessId AND quantity >= :qty', {
-        id,
-        businessId,
-        qty,
-      })
-      .execute();
-
-    const item = await this.findOne({ where: { id, businessId } });
-    return { item, decremented: (result.affected ?? 0) > 0 };
-  }
-
-  async bulkUpsert(
-    businessId: string,
-    items: Array<{
-      name: string;
-      category: string[];
-      sku?: string;
-      barcode?: string;
-      description?: string;
-      wholesalePrice: number;
-      sellingPrice: number;
-      quantity: number;
-      reorderPoint?: number;
-      supplier?: string;
-      status: InventoryItem['status'];
-    }>,
-    createdBy: string,
-  ): Promise<number> {
-    const prepared = items.map((item) => ({
-      ...item,
-      businessId,
-      createdBy,
-    }));
-
-    await this.createQueryBuilder()
-      .insert()
-      .into(InventoryItem)
-      .values(prepared)
-      .orUpdate(
-        [
-          'name',
-          'category',
-          'sku',
-          'barcode',
-          'description',
-          'wholesalePrice',
-          'sellingPrice',
-          'quantity',
-          'reorderPoint',
-          'supplier',
-          'status',
-        ],
-        ['sku'],
-      )
-      .execute();
-
-    return prepared.length;
   }
 }

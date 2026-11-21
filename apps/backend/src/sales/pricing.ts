@@ -37,7 +37,7 @@ export interface SaleTotals {
 
 type Priceable = Pick<
   InventoryItem,
-  'id' | 'name' | 'sellingPrice' | 'bundleQuantity' | 'bundlePrice'
+  'id' | 'name' | 'sellingPrice' | 'cartonSize' | 'cartonPrice'
 >;
 
 /** Prices one line from the catalogue: the selling price, or the carton price. */
@@ -45,17 +45,17 @@ export function priceLine(product: Priceable, line: LineRequest): PricedLine {
   let priceKobo = toKobo(Number(product.sellingPrice));
   let unitsPerItem = 1;
   if (line.unit === 'carton') {
-    const size = product.bundleQuantity ?? 0;
+    const size = product.cartonSize ?? 0;
     if (
       size < 1 ||
-      product.bundlePrice === null ||
-      product.bundlePrice === undefined
+      product.cartonPrice === null ||
+      product.cartonPrice === undefined
     ) {
       throw new BadRequestException(
         `${product.name} is not sold by the carton`,
       );
     }
-    priceKobo = toKobo(Number(product.bundlePrice));
+    priceKobo = toKobo(Number(product.cartonPrice));
     unitsPerItem = size;
   }
   return {

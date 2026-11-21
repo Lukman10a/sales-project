@@ -7,6 +7,8 @@ import { InventoryItem } from '../entities/inventory-item.entity';
 import { Sale } from '../entities/sale.entity';
 import { ReceiptCounter } from '../entities/receipt-counter.entity';
 import { SaleItem } from '../entities/sale-item.entity';
+import { Category } from '../entities/category.entity';
+import { StockMovement } from '../entities/stock-movement.entity';
 import { buildDemoData, DEMO_OWNER_EMAIL, stockStatus } from './demo-data';
 
 /**
@@ -95,14 +97,21 @@ async function seed() {
 
       const { products, sales } = buildDemoData(new Date());
       const productIds = new Map<string, { id: string; name: string }>();
+      const categories = new Map<string, Category>();
+      for (const name of new Set(products.map((p) => p.category))) {
+        categories.set(
+          name,
+          await em.save(em.create(Category, { businessId: owner.id, name })),
+        );
+      }
       for (const p of products) {
         const item = await em.save(
           em.create(InventoryItem, {
             businessId: owner.id,
             name: p.name,
-            category: [p.category],
+            categories: [categories.get(p.category)!],
             sku: p.sku,
-            wholesalePrice: p.wholesalePrice,
+            costPrice: p.costPrice,
             sellingPrice: p.sellingPrice,
             quantity: p.quantity,
             reorderPoint: p.reorderPoint,
@@ -111,6 +120,16 @@ async function seed() {
             createdBy: owner.id,
           }),
         );
+        // The ledger opens at today's stock, so quantity = sum of movements.
+        if (p.quantity !== 0) {
+          await em.insert(StockMovement, {
+            businessId: owner.id,
+            productId: item.id,
+            delta: p.quantity,
+            reason: 'adjustment',
+            note: 'Opening balance',
+          });
+        }
         productIds.set(p.sku, { id: item.id, name: item.name });
       }
 

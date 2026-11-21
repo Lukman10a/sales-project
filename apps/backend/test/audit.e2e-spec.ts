@@ -122,7 +122,7 @@ suite('Audit trail (e2e, real Postgres)', () => {
         .send({
           name: 'Rice',
           sellingPrice: 100,
-          wholesalePrice: 60,
+          costPrice: 60,
           quantity: 10,
         })
         .expect(201)
@@ -243,7 +243,7 @@ suite('Audit trail (e2e, real Postgres)', () => {
         .send({
           name: 'Beans',
           sellingPrice: 50,
-          wholesalePrice: 30,
+          costPrice: 30,
           quantity: 5,
         })
         .expect(201)

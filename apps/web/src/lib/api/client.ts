@@ -53,6 +53,11 @@ function baseUrl(): string {
   return process.env.NEXT_PUBLIC_API_URL ?? "/api";
 }
 
+/** Absolute URL of an API path, for links such as file downloads. */
+export function apiUrl(path: string): string {
+  return `${baseUrl()}${path}`;
+}
+
 export function readCookie(name: string): string | null {
   if (typeof document === "undefined") return null;
   for (const part of document.cookie.split(";")) {

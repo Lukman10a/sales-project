@@ -166,11 +166,13 @@ export class AnalyticsService {
         todayOrders: todaySummary.orders,
         lowStockCount: inventory.byStatus['low-stock'],
         outOfStockCount: inventory.byStatus['out-of-stock'],
+        expiringSoonCount: inventory.expiringSoonCount,
       },
       inventory: {
         totalProducts: inventory.totalProducts,
         byStatus: inventory.byStatus,
         lowStockItems: inventory.lowStockItems,
+        expiringSoonItems: inventory.expiringSoonItems,
       },
       topProducts,
       recentSales,

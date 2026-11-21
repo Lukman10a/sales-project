@@ -51,6 +51,7 @@
     "bcrypt": "^6.0.0",
     "cron": "^4.4.0",
     "csv-parse": "^7.0.2",
+    "exceljs": "^4.4.0",
     "helmet": "^8.1.0",
     "openai": "^7.5.0",
     "passport": "^0.7.0",

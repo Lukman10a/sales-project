@@ -14,12 +14,14 @@ import type { AuditService } from '../audit/audit.service';
 import { InventoryItem } from '../entities/inventory-item.entity';
 import { HeldTransaction } from '../entities/held-transaction.entity';
 import { requestHash } from './idempotency';
+import type { StockLedgerRepository } from '../inventory/stock-ledger.repository';
 import type { CreateSaleDto } from './dto/create-sale.dto';
 
 describe('SalesService', () => {
   let audit: { record: jest.Mock };
   let service: SalesService;
   let repository: Record<string, jest.Mock>;
+  let ledger: { move: jest.Mock };
   let eventEmitter: { emit: jest.Mock };
   const manager = { tx: true };
 
@@ -44,8 +46,8 @@ describe('SalesService', () => {
       businessId: 'b1',
       name: 'Widget',
       sellingPrice: 100,
-      bundleQuantity: 12,
-      bundlePrice: 1000,
+      cartonSize: 12,
+      cartonPrice: 1000,
       quantity: 30,
       sold: 0,
       reorderPoint: 3,
@@ -75,9 +77,6 @@ describe('SalesService', () => {
       completeIdempotencyKey: jest.fn().mockResolvedValue(undefined),
       lockProducts: jest.fn(),
       findProducts: jest.fn(),
-      saveProduct: jest.fn((_b: string, _m: unknown, p: unknown) =>
-        Promise.resolve(p),
-      ),
       vatEnabled: jest.fn().mockResolvedValue(false),
       setVatEnabled: jest.fn().mockResolvedValue(undefined),
       nextReceiptNumber: jest.fn().mockResolvedValue(1218),
@@ -99,11 +98,31 @@ describe('SalesService', () => {
     };
     eventEmitter = { emit: jest.fn() };
     audit = { record: jest.fn().mockResolvedValue(undefined) };
+    ledger = {
+      move: jest.fn(
+        (
+          _b: string,
+          p: InventoryItem,
+          c: { delta: number; soldDelta?: number },
+        ) => {
+          p.quantity += c.delta;
+          p.sold = Math.max(0, p.sold + (c.soldDelta ?? 0));
+          p.status =
+            p.quantity <= 0
+              ? 'out-of-stock'
+              : p.reorderPoint != null && p.quantity <= p.reorderPoint
+                ? 'low-stock'
+                : 'in-stock';
+          return Promise.resolve(p);
+        },
+      ),
+    };
 
     service = new SalesService(
       repository as unknown as SalesRepository,
       eventEmitter as unknown as EventEmitter2,
       audit as unknown as AuditService,
+      ledger as unknown as StockLedgerRepository,
     );
   });
 
@@ -179,7 +198,7 @@ describe('SalesService', () => {
 
     it('refuses cartons for a product without a carton size', async () => {
       repository.lockProducts.mockResolvedValue([
-        productRow({ bundleQuantity: undefined, bundlePrice: undefined }),
+        productRow({ cartonSize: undefined, cartonPrice: undefined }),
       ]);
       await expect(
         service.create(

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { render, screen, cleanup } from "@testing-library/react";
+import { render, screen, cleanup, fireEvent } from "@testing-library/react";
 import InventoryGridItem from "./InventoryGridItem";
 import type { InventoryItem } from "@/types/inventoryTypes";
 
@@ -15,29 +15,32 @@ const baseItem: InventoryItem = {
   name: "Widget",
   category: [],
   image: "",
-  wholesalePrice: 5,
+  costPrice: 5,
   sellingPrice: 10,
   quantity: 2,
   sold: 0,
   status: "in-stock",
-  confirmedByApprentice: false,
   createdBy: "u1",
+};
+
+const isoDay = (offset: number) => {
+  const d = new Date();
+  d.setDate(d.getDate() + offset);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 };
 
 function renderItem(
   overrides: Partial<InventoryItem> = {},
-  userRole = "owner",
-  currentUserId?: string,
+  onChangeStock?: (item: InventoryItem) => void,
 ) {
   return render(
     <InventoryGridItem
       item={{ ...baseItem, ...overrides }}
       index={0}
-      userRole={userRole}
-      currentUserId={currentUserId}
+      userRole="owner"
       onEdit={() => {}}
       onDelete={() => {}}
-      onConfirmReceipt={() => {}}
+      onChangeStock={onChangeStock}
     />,
   );
 }
@@ -45,39 +48,31 @@ function renderItem(
 describe("InventoryGridItem", () => {
   afterEach(() => cleanup());
 
-  it("renders a confirm button for an owner on an unconfirmed item", () => {
+  it("opens the stock dialog for someone who may change stock", () => {
+    const onChangeStock = vi.fn();
+    renderItem({}, onChangeStock);
+
+    fireEvent.click(screen.getByRole("button", { name: /Change stock/ }));
+    expect(onChangeStock).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "i1" }),
+    );
+  });
+
+  it("offers no stock button otherwise", () => {
     renderItem();
-
-    expect(screen.getByText("Confirm Receipt")).toBeInTheDocument();
+    expect(screen.queryByText("Change stock")).not.toBeInTheDocument();
   });
 
-  it("renders a confirm button for a manager on another user unconfirmed item", () => {
-    renderItem({}, "manager", "m1");
+  it("flags products expiring soon and expired ones", () => {
+    renderItem({ expiryDate: isoDay(10) });
+    expect(screen.getByText("Expires soon")).toBeInTheDocument();
+    cleanup();
 
-    expect(screen.getByText("Confirm Receipt")).toBeInTheDocument();
-  });
+    renderItem({ expiryDate: isoDay(-1) });
+    expect(screen.getByText("Expired")).toBeInTheDocument();
+    cleanup();
 
-  it("does not render a confirm button for a manager on their own item", () => {
-    renderItem({}, "manager", "u1");
-
-    expect(screen.queryByText("Confirm Receipt")).not.toBeInTheDocument();
-  });
-
-  it("renders a confirm button for an apprentice on their own unconfirmed item", () => {
-    renderItem({}, "apprentice", "u1");
-
-    expect(screen.getByText("Confirm Receipt")).toBeInTheDocument();
-  });
-
-  it("does not render a confirm button for an apprentice on someone else item", () => {
-    renderItem({}, "apprentice", "other");
-
-    expect(screen.queryByText("Confirm Receipt")).not.toBeInTheDocument();
-  });
-
-  it("renders no confirm button once the item is confirmed", () => {
-    renderItem({ confirmedByApprentice: true }, "owner");
-
-    expect(screen.queryByText("Confirm Receipt")).not.toBeInTheDocument();
+    renderItem({ expiryDate: isoDay(90) });
+    expect(screen.queryByText("Expires soon")).not.toBeInTheDocument();
   });
 });

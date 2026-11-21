@@ -6,24 +6,21 @@ export interface BackendInventoryItem {
   name: string;
   category: string[] | string;
   image?: string | null;
-  wholesalePrice: number | string;
+  costPrice: number | string;
   sellingPrice: number | string;
   quantity: number;
   sold: number;
   status: "in-stock" | "low-stock" | "out-of-stock";
-  confirmedByApprentice: boolean;
   sku?: string | null;
   barcode?: string | null;
   supplier?: string | null;
   reorderPoint?: number | null;
   lastRestocked?: string | Date | null;
-  bundleQuantity?: number | null;
-  bundlePrice?: number | string | null;
+  cartonSize?: number | null;
+  cartonPrice?: number | string | null;
   createdBy?: string;
   createdByName?: string | null;
-  confirmedBy?: string | null;
-  confirmedAt?: string | Date | null;
-  confirmedByName?: string | null;
+  expiryDate?: string | null;
 }
 
 export function toInventoryItem(item: BackendInventoryItem): InventoryItem {
@@ -36,12 +33,11 @@ export function toInventoryItem(item: BackendInventoryItem): InventoryItem {
         ? [item.category]
         : [],
     image: item.image ?? "",
-    wholesalePrice: roundCurrency(item.wholesalePrice),
+    costPrice: roundCurrency(item.costPrice),
     sellingPrice: roundCurrency(item.sellingPrice),
     quantity: item.quantity,
     sold: item.sold,
     status: item.status,
-    confirmedByApprentice: item.confirmedByApprentice,
     sku: item.sku ?? undefined,
     barcode: item.barcode ?? undefined,
     supplier: item.supplier ?? undefined,
@@ -49,17 +45,13 @@ export function toInventoryItem(item: BackendInventoryItem): InventoryItem {
     lastRestocked: item.lastRestocked
       ? new Date(item.lastRestocked).toISOString()
       : undefined,
-    bundleQuantity: item.bundleQuantity ?? undefined,
-    bundlePrice:
-      item.bundlePrice !== undefined && item.bundlePrice !== null
-        ? roundCurrency(item.bundlePrice)
+    cartonSize: item.cartonSize ?? undefined,
+    cartonPrice:
+      item.cartonPrice !== undefined && item.cartonPrice !== null
+        ? roundCurrency(item.cartonPrice)
         : undefined,
     createdBy: item.createdBy ?? undefined,
     createdByName: item.createdByName ?? undefined,
-    confirmedBy: item.confirmedBy ?? undefined,
-    confirmedAt: item.confirmedAt
-      ? new Date(item.confirmedAt).toISOString()
-      : undefined,
-    confirmedByName: item.confirmedByName ?? undefined,
+    expiryDate: item.expiryDate ?? undefined,
   };
 }

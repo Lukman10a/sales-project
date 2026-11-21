@@ -31,7 +31,7 @@ describe('buildDemoData', () => {
     for (const p of products) {
       expect(p.sold).toBe(soldBySku.get(p.sku) ?? 0);
       expect(p.quantity).toBeGreaterThanOrEqual(0);
-      expect(p.sellingPrice).toBeGreaterThan(p.wholesalePrice);
+      expect(p.sellingPrice).toBeGreaterThan(p.costPrice);
     }
   });
 });
