@@ -48,6 +48,13 @@ export class SaleItem {
   @Column(moneyColumn())
   total!: number;
 
+  /**
+   * Cost of one stock unit at sale time (the product's cost price then).
+   * Cost of goods sold = (quantity - refundedQuantity) * unitsPerItem * unitCost.
+   */
+  @Column({ ...moneyColumn(), default: 0 })
+  unitCost!: number;
+
   @CreateDateColumn()
   createdAt!: Date;
 

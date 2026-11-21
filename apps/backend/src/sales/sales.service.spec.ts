@@ -489,6 +489,10 @@ describe('SalesService', () => {
           after: expect.objectContaining({ refunded: 450 }) as object,
         }),
       );
+      expect(eventEmitter.emit).toHaveBeenCalledWith('sale.refunded', {
+        businessId: 'b1',
+        sale: result,
+      });
     });
 
     it('refunds part of a line, in proportion to what was paid', async () => {

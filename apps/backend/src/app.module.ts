@@ -9,6 +9,7 @@ import { AuthModule } from './auth/auth.module';
 import { ProfileModule } from './profile/profile.module';
 import { InventoryModule } from './inventory/inventory.module';
 import { ExpensesModule } from './expenses/expenses.module';
+import { ReportingModule } from './reporting/reporting.module';
 import { SalesModule } from './sales/sales.module';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { NotificationsModule } from './notifications/notifications.module';
@@ -40,6 +41,8 @@ import { AuditModule } from './audit/audit.module';
     InventoryModule,
     ExpensesModule,
     SalesModule,
+    // Before Analytics and Reports: its static paths must win over /reports/:id.
+    ReportingModule,
     AnalyticsModule,
     NotificationsModule,
     TeamModule,

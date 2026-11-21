@@ -76,7 +76,7 @@ suite('Database migrations & money (e2e, real Postgres)', () => {
         discountAmount: 0,
         vatAmount: 0,
         total,
-        saleDate: new Date(),
+        saleDate: '2026-11-20',
         soldBy: businessId,
         splitPayments: [{ method: 'cash', amount: total }],
       });

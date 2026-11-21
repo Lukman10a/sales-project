@@ -2,12 +2,14 @@ import { NotFoundException } from '@nestjs/common';
 import type { Expense } from '../entities/expense.entity';
 import type { AuditService } from '../audit/audit.service';
 import type { ExpensesRepository } from './expenses.repository';
+import type { EventEmitter2 } from '@nestjs/event-emitter';
 import { ExpensesService } from './expenses.service';
 
 describe('ExpensesService', () => {
   const user = { id: 'u1', businessId: 'b1', name: 'Ada' };
   let repo: Record<string, jest.Mock>;
   let audit: { record: jest.Mock };
+  let events: { emit: jest.Mock };
   let service: ExpensesService;
 
   const expense = (over: Partial<Expense> = {}): Expense =>
@@ -38,9 +40,11 @@ describe('ExpensesService', () => {
       totals: jest.fn(),
     };
     audit = { record: jest.fn().mockResolvedValue(undefined) };
+    events = { emit: jest.fn() };
     service = new ExpensesService(
       repo as unknown as ExpensesRepository,
       audit as unknown as AuditService,
+      events as unknown as EventEmitter2,
     );
   });
 
@@ -60,6 +64,9 @@ describe('ExpensesService', () => {
       recordedBy: 'u1',
     });
     expect(saved.id).toBe('e1');
+    expect(events.emit).toHaveBeenCalledWith('expense.changed', {
+      businessId: 'b1',
+    });
     expect(audit.record).toHaveBeenCalledWith(
       expect.objectContaining({
         businessId: 'b1',
@@ -132,6 +139,7 @@ describe('ExpensesService', () => {
     await expect(service.remove(user, 'e9')).rejects.toThrow(NotFoundException);
     expect(repo.findById).toHaveBeenCalledWith('b1', 'e9');
     expect(repo.saveExpense).not.toHaveBeenCalled();
+    expect(events.emit).not.toHaveBeenCalled();
     expect(audit.record).not.toHaveBeenCalled();
   });
 

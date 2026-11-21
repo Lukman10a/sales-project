@@ -10,6 +10,7 @@ import { SaleItem } from '../entities/sale-item.entity';
 import { Category } from '../entities/category.entity';
 import { StockMovement } from '../entities/stock-movement.entity';
 import { Expense } from '../entities/expense.entity';
+import { businessDay } from '../common/time/business-day';
 import {
   buildDemoData,
   buildDemoExpenses,
@@ -153,7 +154,8 @@ async function seed() {
             total: s.total,
             paymentMethod: s.paymentMethod,
             status: 'completed',
-            saleDate: s.saleDate,
+            saleDate: businessDay(s.saleDate),
+            createdAt: s.saleDate,
             soldBy: ids[s.soldBy],
             discountPercent: 0,
             items: s.items.map((i) => {
@@ -163,6 +165,7 @@ async function seed() {
                 productName: product.name,
                 quantity: i.quantity,
                 price: i.price,
+                unitCost: i.unitCost,
                 total: i.total,
               });
             }),

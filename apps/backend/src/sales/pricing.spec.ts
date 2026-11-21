@@ -13,6 +13,7 @@ const product = {
   sellingPrice: 1250.5,
   cartonSize: 10,
   cartonPrice: 12000,
+  costPrice: 900.25,
 };
 
 describe('pricing', () => {
@@ -27,6 +28,7 @@ describe('pricing', () => {
       unitsPerItem: 1,
       priceKobo: 125050,
       totalKobo: 375150,
+      unitCostKobo: 90025,
     });
   });
 

@@ -110,6 +110,26 @@ Each task follows a strict RED â†’ GREEN â†’ VERIFY loop:
 
 ---
 
+## Reports API v2 (T38) and the old analytics endpoints
+
+New endpoints (all figures in naira, days in Africa/Lagos):
+
+| Endpoint | Who | Returns |
+| --- | --- | --- |
+| `GET /dashboard/summary?period=today\|7d\|month` | any member | sales, profit, items sold, sale count, restock count, staff on shift; each `{ value, previous, change }` |
+| `GET /reports/revenue-series?from&to&compare=previous` | any member | one point per day `{ date, sales, profit }`, plus the previous range of the same length |
+| `GET /reports/top-products?period&by=units\|revenue&limit` | any member | `{ productId, name, units, revenue, profit }` |
+| `GET /reports/payment-methods?period` | any member | takings per method (split payments counted per part) with each method's share |
+| `GET /reports/pnl?from&to` | `reports.view_profit` | sales, COGS, gross profit, expenses by category, net profit |
+
+- `profit`, `cogs`, `grossProfit`, `netProfit` and `expenses` are removed from every response for anyone without `reports.view_profit`.
+- `today` compares with the same weekday last week up to the same time; `7d` with the 7 days before; `month` (month to date) with the same days of last month.
+- Results are cached for 60 s per business (in memory until T39 moves the cache to Redis) and cleared by a sale, a refund or an expense change.
+
+**Retiring the old endpoints.** `GET /analytics/summary`, `/analytics/sales-chart`, `/analytics/category-breakdown`, `/analytics/top-products` and `GET /dashboard` stay until the web dashboard and reports screens move to the endpoints above (T43-T50). They count by UTC day and use today's cost price, so their figures can differ from v2. Do not build anything new on them; remove them, with their specs, in the ticket that switches the last screen.
+
+---
+
 ## Deferred (not blocking â€” Phase 6 in old numbering)
 
 Backend modules: **Investors** (auth, ROI), **Withdrawals** (approval workflow), **Reports** (PDF/CSV), **Data management** (backup/import/export), **AI insights**, **Activity logs**, **Dashboard customisation** persistence, notification producers for `alert`/`ai`/`system`, real **invite-acceptance** flow (invited staff cannot log in â€” guard the UI with a "pending activation" state), server-side **pagination** for inventory/sales contexts, `sms` preference persistence (frontend strips it), `lastActive`/`invitedBy` columns on `team_members`.

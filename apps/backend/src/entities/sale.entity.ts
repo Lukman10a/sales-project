@@ -12,6 +12,7 @@ import { User } from './user.entity';
 import { SaleItem } from './sale-item.entity';
 
 @Entity('sales')
+@Index('IDX_sales_business_sale_date', ['businessId', 'saleDate'])
 @Index('UQ_sales_business_receipt', ['businessId', 'receiptNumber'], {
   unique: true,
 })
@@ -55,7 +56,8 @@ export class Sale {
   status!: 'completed' | 'pending' | 'refunded' | 'partial-refund';
 
   @Column({ type: 'date' })
-  saleDate!: Date;
+  /** The Lagos business day of the sale, YYYY-MM-DD (pg returns date columns as strings). */
+  saleDate!: string;
 
   @Column({ type: 'uuid' })
   soldBy!: string;
@@ -88,7 +90,7 @@ export class Sale {
   @Column({ nullable: true })
   refundReason?: string;
 
-  @CreateDateColumn()
+  @CreateDateColumn({ type: 'timestamptz' })
   createdAt!: Date;
 
   itemCount?: number;

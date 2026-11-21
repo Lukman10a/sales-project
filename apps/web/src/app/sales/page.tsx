@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState } from "react";
+import { businessDay } from "@/lib/businessDay";
 import dynamic from "next/dynamic";
 import {
   CartItem,
@@ -107,9 +108,7 @@ export default function Sales() {
   } | null>(null);
   const [loyaltyPointsUsed, setLoyaltyPointsUsed] = useState(0);
   const [accountCreditUsed, setAccountCreditUsed] = useState(0);
-  const [saleDate, setSaleDate] = useState(
-    new Date().toISOString().split("T")[0],
-  );
+  const [saleDate, setSaleDate] = useState(() => businessDay());
   const [saleDateOpen, setSaleDateOpen] = useState(false);
   const [refundModalOpen, setRefundModalOpen] = useState(false);
   const [printPreviewOpen, setPrintPreviewOpen] = useState(false);

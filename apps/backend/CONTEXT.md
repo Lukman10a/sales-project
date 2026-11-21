@@ -37,6 +37,19 @@ _Avoid_: Stock log, inventory transaction
 **Import**:
 Adding or updating inventory items from a CSV or Excel file (at most 5,000 rows and 5 MB). First a preview reports each row's verdict and writes nothing; the confirm applies the valid rows in one transaction. A row updates the item with the same SKU, else barcode, else name; its quantity is the stock now on hand, recorded as an `import` movement for the difference.
 
+**Business day**:
+The calendar day in Africa/Lagos (UTC+1). A sale belongs to the business day it was made (`saleDate`); every report period and range is a run of business days, so a sale at 00:30 Lagos time counts on the new day.
+
+**Sales** (in reports):
+What was sold, excluding VAT, after discounts and refunds: for each sale, (total − VAT) × (total − refunded) ÷ total. Pending sales are left out; a fully refunded sale adds nothing.
+_Avoid_: Revenue (the old analytics figure, before refunds), takings (that includes VAT; used only for payment methods)
+
+**Cost of goods sold (COGS)**:
+For each sale line, the stock units the customer kept times the cost of one unit recorded on the line at sale time (`unitCost`). Editing a cost price later does not change past COGS.
+
+**Gross profit / net profit**:
+Gross profit = sales − COGS. Net profit = gross profit − the expenses dated in the same days. Only people with `reports.view_profit` see either; other members get the same reports with every cost and profit field removed.
+
 **Expense**:
 Money the business spent that is not stock: rent, salaries, fuel, utilities, transport, supplies, or other. Each has an amount, the business-local day it was spent, a note, and who recorded it. Recording, editing and deleting one is audited and needs `expenses.manage`. Net profit for a period is gross profit minus the expenses dated in it.
 _Avoid_: Cost (that is the cost price of stock sold), outgoing

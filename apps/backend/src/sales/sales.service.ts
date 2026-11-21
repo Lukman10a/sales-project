@@ -14,6 +14,7 @@ import { SalesRepository, type SalesTx } from './sales.repository';
 import { AuditService } from '../audit/audit.service';
 import { assertMayDiscount } from '../common/constants/access-policy';
 import { fromKobo, toKobo } from '../common/money/money';
+import { businessDay } from '../common/time/business-day';
 import type { CurrentUserPayload } from '../common';
 import {
   assertPayments,
@@ -134,7 +135,7 @@ export class SalesService {
             total: fromKobo(totals.totalKobo),
             paymentMethod: dto.paymentMethod,
             status: 'completed',
-            saleDate: dto.saleDate ? new Date(dto.saleDate) : new Date(),
+            saleDate: dto.saleDate ?? businessDay(),
             soldBy: user.id,
             customerId: dto.customerId,
             customerName: dto.customerName,
@@ -150,6 +151,7 @@ export class SalesService {
               unitsPerItem: l.unitsPerItem,
               price: fromKobo(l.priceKobo),
               total: fromKobo(l.totalKobo),
+              unitCost: fromKobo(l.unitCostKobo),
             })),
           },
         );
@@ -317,7 +319,7 @@ export class SalesService {
    */
   async refund(user: Actor, id: string, dto: RefundSaleDto): Promise<Sale> {
     const businessId = user.businessId;
-    return this.salesRepository.transaction(async (manager) => {
+    const refunded = await this.salesRepository.transaction(async (manager) => {
       const sale = await this.salesRepository.lockSale(businessId, manager, id);
       if (!sale) throw new NotFoundException('Sale not found');
       if (sale.status === 'refunded') {
@@ -437,6 +439,8 @@ export class SalesService {
       });
       return saved;
     });
+    this.eventEmitter.emit('sale.refunded', { businessId, sale: refunded });
+    return refunded;
   }
 
   async createHeld(

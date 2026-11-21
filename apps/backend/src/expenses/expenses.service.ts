@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import type { Expense } from '../entities/expense.entity';
 import { AuditService } from '../audit/audit.service';
 import type { CurrentUserPayload } from '../common';
@@ -28,7 +29,14 @@ export class ExpensesService {
   constructor(
     private readonly expenses: ExpensesRepository,
     private readonly audit: AuditService,
+    private readonly events: EventEmitter2,
   ) {}
+
+  /** Lets cached reports (T38) know this business's figures moved. */
+  private changed<T>(businessId: string, result: T): T {
+    this.events.emit('expense.changed', { businessId });
+    return result;
+  }
 
   list(user: { businessId: string }, query: QueryExpensesDto) {
     return this.expenses.list(user.businessId, query);
@@ -38,9 +46,9 @@ export class ExpensesService {
     return this.mustFind(user.businessId, id);
   }
 
-  create(user: Actor, dto: CreateExpenseDto): Promise<Expense> {
+  async create(user: Actor, dto: CreateExpenseDto): Promise<Expense> {
     const businessId = user.businessId;
-    return this.expenses.transaction(async () => {
+    const result = await this.expenses.transaction(async () => {
       const saved = await this.expenses.saveExpense(
         businessId,
         this.expenses.createExpense(businessId, {
@@ -61,11 +69,16 @@ export class ExpensesService {
       });
       return saved;
     });
+    return this.changed(businessId, result);
   }
 
-  update(user: Actor, id: string, dto: UpdateExpenseDto): Promise<Expense> {
+  async update(
+    user: Actor,
+    id: string,
+    dto: UpdateExpenseDto,
+  ): Promise<Expense> {
     const businessId = user.businessId;
-    return this.expenses.transaction(async () => {
+    const result = await this.expenses.transaction(async () => {
       const expense = await this.mustFind(businessId, id);
       const before = snapshot(expense);
       if (dto.category !== undefined) expense.category = dto.category;
@@ -84,11 +97,12 @@ export class ExpensesService {
       });
       return saved;
     });
+    return this.changed(businessId, result);
   }
 
-  remove(user: Actor, id: string): Promise<{ message: string }> {
+  async remove(user: Actor, id: string): Promise<{ message: string }> {
     const businessId = user.businessId;
-    return this.expenses.transaction(async () => {
+    const result = await this.expenses.transaction(async () => {
       const expense = await this.mustFind(businessId, id);
       const before = snapshot(expense);
       await this.expenses.removeExpense(businessId, expense);
@@ -102,6 +116,7 @@ export class ExpensesService {
       });
       return { message: 'Expense deleted' };
     });
+    return this.changed(businessId, result);
   }
 
   /**

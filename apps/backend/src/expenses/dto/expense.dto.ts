@@ -1,14 +1,9 @@
 import { z } from 'zod';
 import { EXPENSE_CATEGORIES } from '../../entities/expense.entity';
 
-/** A real calendar day written YYYY-MM-DD. */
-export const isoDay = z
-  .string()
-  .regex(/^\d{4}-\d{2}-\d{2}$/, 'Use a date like 2027-03-31')
-  .refine(
-    (s) => new Date(`${s}T00:00:00Z`).toISOString().startsWith(s),
-    'Not a real date',
-  );
+import { isoDay } from '../../common/dto/iso-day';
+
+export { isoDay };
 
 const amount = z.coerce
   .number()

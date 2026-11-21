@@ -26,6 +26,8 @@ export interface PricedLine {
   unitsPerItem: number;
   priceKobo: number;
   totalKobo: number;
+  /** Cost of one stock unit now, kept on the sale line for COGS. */
+  unitCostKobo: number;
 }
 
 export interface SaleTotals {
@@ -37,7 +39,7 @@ export interface SaleTotals {
 
 type Priceable = Pick<
   InventoryItem,
-  'id' | 'name' | 'sellingPrice' | 'cartonSize' | 'cartonPrice'
+  'id' | 'name' | 'sellingPrice' | 'cartonSize' | 'cartonPrice' | 'costPrice'
 >;
 
 /** Prices one line from the catalogue: the selling price, or the carton price. */
@@ -66,6 +68,7 @@ export function priceLine(product: Priceable, line: LineRequest): PricedLine {
     unitsPerItem,
     priceKobo,
     totalKobo: priceKobo * line.quantity,
+    unitCostKobo: toKobo(Number(product.costPrice ?? 0)),
   };
 }
 

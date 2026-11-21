@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { isoDay } from '../../common/dto/iso-day';
 import { SALE_UNITS } from '../../entities/sale-item.entity';
 
 /**
@@ -28,7 +29,8 @@ export const CreateSaleDtoSchema = z
     discountPercent: z.coerce.number().min(0).max(100).optional(),
     customerId: z.string().uuid().optional(),
     customerName: z.string().max(200).optional(),
-    saleDate: z.coerce.date().optional(),
+    /** A back-dated sale's Lagos business day; defaults to today. */
+    saleDate: isoDay.optional(),
     splitPayments: z
       .array(
         z

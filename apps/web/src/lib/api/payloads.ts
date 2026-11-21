@@ -1,4 +1,5 @@
 import type { InventoryItem } from "@/types/inventoryTypes";
+import { businessDay } from "@/lib/businessDay";
 import type {
   HeldTransaction,
   PaymentPart,
@@ -69,7 +70,9 @@ export function toSalePayload(sale: SaleRecord): SalePayload {
   if (sale.customerId && isUuid(sale.customerId))
     payload.customerId = sale.customerId;
   if (sale.customerName) payload.customerName = sale.customerName;
-  if (sale.saleDate) payload.saleDate = sale.saleDate;
+  // Today's sales take the server's Lagos day; only a back-dated sale says when.
+  if (sale.saleDate && sale.saleDate !== businessDay())
+    payload.saleDate = sale.saleDate;
   if (sale.splitPayments && sale.splitPayments.length > 0)
     payload.splitPayments = sale.splitPayments;
   if (sale.loyaltyPointsUsed !== undefined)

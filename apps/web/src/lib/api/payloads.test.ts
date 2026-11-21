@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import { businessDay } from "@/lib/businessDay";
 import {
   toHeldPayload,
   toInventoryPayload,
@@ -69,6 +70,12 @@ describe("toSalePayload", () => {
 
   it("maps discount to discountPercent", () => {
     expect(toSalePayload(sale).discountPercent).toBe(10);
+  });
+
+  it("leaves out today's date so the server sets the Lagos day", () => {
+    const payload = toSalePayload({ ...sale, saleDate: businessDay() });
+
+    expect(payload.saleDate).toBeUndefined();
   });
 
   it("passes customerId, customerName, saleDate and paymentMethod", () => {

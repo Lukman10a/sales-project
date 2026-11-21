@@ -23,7 +23,14 @@ export interface DemoSale {
   saleDate: Date;
   paymentMethod: 'cash' | 'card' | 'transfer';
   soldBy: 'owner' | 'manager' | 'cashier';
-  items: Array<{ sku: string; quantity: number; price: number; total: number }>;
+  items: Array<{
+    sku: string;
+    quantity: number;
+    price: number;
+    total: number;
+    /** Cost of one unit at sale time. */
+    unitCost: number;
+  }>;
   total: number;
 }
 
@@ -152,6 +159,7 @@ export function buildDemoData(now: Date, days = 30, seed = 2026) {
           quantity,
           price: product.sellingPrice,
           total: product.sellingPrice * quantity,
+          unitCost: product.costPrice,
         });
       }
       if (items.length === 0) continue;

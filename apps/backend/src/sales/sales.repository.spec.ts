@@ -241,7 +241,7 @@ describe('SalesRepository', () => {
         total: 2000,
         paymentMethod: 'cash',
         status: 'completed',
-        saleDate: new Date('2026-01-01'),
+        saleDate: '2026-11-20',
         soldBy: 'u1',
         discountPercent: 0,
         items: [line],

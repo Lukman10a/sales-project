@@ -179,7 +179,7 @@ export class SalesRepository extends TransactionalRepository<Sale> {
       total: number;
       paymentMethod: Sale['paymentMethod'];
       status: 'completed';
-      saleDate: Date;
+      saleDate: string;
       soldBy: string;
       customerId?: string;
       customerName?: string;
