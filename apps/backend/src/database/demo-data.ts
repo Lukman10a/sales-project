@@ -1,3 +1,5 @@
+import type { ExpenseCategory } from '../entities/expense.entity';
+import { businessDay } from '../common/time/business-day';
 /**
  * Deterministic demo business for local work and staging (`pnpm db:seed`).
  * Pure: no database access, so it can be unit-tested; seed.ts persists it.
@@ -10,7 +12,7 @@ export interface DemoProduct {
   name: string;
   category: string;
   sku: string;
-  wholesalePrice: number;
+  costPrice: number;
   sellingPrice: number;
   quantity: number;
   reorderPoint: number;
@@ -21,7 +23,14 @@ export interface DemoSale {
   saleDate: Date;
   paymentMethod: 'cash' | 'card' | 'transfer';
   soldBy: 'owner' | 'manager' | 'cashier';
-  items: Array<{ sku: string; quantity: number; price: number; total: number }>;
+  items: Array<{
+    sku: string;
+    quantity: number;
+    price: number;
+    total: number;
+    /** Cost of one unit at sale time. */
+    unitCost: number;
+  }>;
   total: number;
 }
 
@@ -60,17 +69,61 @@ export function prng(seed: number): () => number {
   };
 }
 
+export interface DemoExpense {
+  /** Business-local day, YYYY-MM-DD. */
+  date: string;
+  category: ExpenseCategory;
+  /** Naira. */
+  amount: number;
+  note: string;
+}
+
+/**
+ * Fixed running costs over the window, so P&L figures are easy to check by
+ * hand: rent on the 1st, salaries on the 28th, diesel every Monday.
+ */
+export function buildDemoExpenses(now: Date, days = 30): DemoExpense[] {
+  const out: DemoExpense[] = [];
+  for (let d = days - 1; d >= 0; d--) {
+    const at = new Date(now);
+    at.setUTCDate(at.getUTCDate() - d);
+    const date = businessDay(at);
+    const dayOfMonth = Number(date.slice(8, 10));
+    const weekday = new Date(`${date}T12:00:00Z`).getUTCDay();
+    if (dayOfMonth === 1) {
+      out.push({ date, category: 'rent', amount: 250000, note: 'Shop rent' });
+    }
+    if (dayOfMonth === 28) {
+      out.push({
+        date,
+        category: 'salaries',
+        amount: 180000,
+        note: 'Staff salaries',
+      });
+    }
+    if (weekday === 1) {
+      out.push({
+        date,
+        category: 'fuel',
+        amount: 15000,
+        note: 'Generator diesel',
+      });
+    }
+  }
+  return out;
+}
+
 export function buildDemoData(now: Date, days = 30, seed = 2026) {
   const rand = prng(seed);
   const int = (min: number, max: number) =>
     min + Math.floor(rand() * (max - min + 1));
 
   const products: DemoProduct[] = CATALOGUE.map(
-    ([name, category, wholesalePrice, sellingPrice], i) => ({
+    ([name, category, costPrice, sellingPrice], i) => ({
       name,
       category,
       sku: `DEMO-${String(i + 1).padStart(3, '0')}`,
-      wholesalePrice,
+      costPrice,
       sellingPrice,
       quantity: int(40, 120),
       reorderPoint: 10,
@@ -106,6 +159,7 @@ export function buildDemoData(now: Date, days = 30, seed = 2026) {
           quantity,
           price: product.sellingPrice,
           total: product.sellingPrice * quantity,
+          unitCost: product.costPrice,
         });
       }
       if (items.length === 0) continue;

@@ -1,19 +1,2 @@
-export const TEAM_ROLES = [
-  'manager',
-  'sales-assistant',
-  'checkout',
-  'inventory',
-  'investor',
-] as const;
-
-export const TEAM_PERMISSIONS = [
-  'view-products',
-  'edit-products',
-  'delete-products',
-  'view-sales-history',
-  'record-sales',
-  'view-inventory',
-  'edit-inventory',
-  'assign-roles',
-  'view-reports',
-] as const;
+export { PERMISSIONS as TEAM_PERMISSIONS } from '../common/constants/permissions';
+export { STAFF_ROLES as TEAM_ROLES } from '../common/constants/permissions';

@@ -12,6 +12,8 @@ import {
   UploadedFile,
   HttpCode,
   ParseUUIDPipe,
+  StreamableFile,
+  BadRequestException,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import {
@@ -26,11 +28,33 @@ import { InventoryService } from './inventory.service';
 import { CreateInventoryDtoSchema } from './dto/create-inventory.dto';
 import { UpdateInventoryDtoSchema } from './dto/update-inventory.dto';
 import { QueryInventoryDtoSchema } from './dto/query-inventory.dto';
-import { DecrementInventoryDtoSchema } from './dto/decrement-inventory.dto';
+import {
+  AdjustStockDtoSchema,
+  RestockDtoSchema,
+  StockHistoryQuerySchema,
+} from './dto/stock.dto';
+import type {
+  AdjustStockDto,
+  RestockDto,
+  StockHistoryQuery,
+} from './dto/stock.dto';
+import {
+  IMPORT_MAX_BYTES,
+  importTemplate,
+  type ImportFile,
+} from './product-import';
 import type { CreateInventoryDto } from './dto/create-inventory.dto';
 import type { UpdateInventoryDto } from './dto/update-inventory.dto';
 import type { QueryInventoryDto } from './dto/query-inventory.dto';
-import type { DecrementInventoryDto } from './dto/decrement-inventory.dto';
+
+const importUpload = FileInterceptor('file', {
+  limits: { fileSize: IMPORT_MAX_BYTES, files: 1 },
+});
+
+function requireFile(file: ImportFile | undefined): ImportFile {
+  if (!file) throw new BadRequestException('Choose a CSV or Excel file');
+  return file;
+}
 
 @Controller('inventory')
 export class InventoryController {
@@ -39,17 +63,73 @@ export class InventoryController {
   /**
    * List inventory with pagination, category/status/search filter, and sort
    * GET /inventory
-   * Requires: view-inventory OR view-products
+   * Requires: membership of the business
    */
   @Get()
-  @UseGuards(JwtAuthGuard, PermissionsGuard)
-  @RequirePermissions('view-inventory', 'view-products')
+  @UseGuards(JwtAuthGuard)
   list(
     @CurrentUser() user: CurrentUserPayload,
     @Query(new ZodValidationPipe(QueryInventoryDtoSchema))
     query: QueryInventoryDto,
   ) {
     return this.inventoryService.list(user, query);
+  }
+
+  /**
+   * The business's categories
+   * GET /inventory/categories
+   */
+  @Get('categories')
+  @UseGuards(JwtAuthGuard)
+  categories(@CurrentUser() user: CurrentUserPayload) {
+    return this.inventoryService.categories(user);
+  }
+
+  /**
+   * The import template (.xlsx)
+   * GET /inventory/import/template
+   */
+  @Get('import/template')
+  @UseGuards(JwtAuthGuard)
+  async importTemplate() {
+    return new StreamableFile(await importTemplate(), {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      disposition: 'attachment; filename="luxa-products-template.xlsx"',
+    });
+  }
+
+  /**
+   * Dry run of a CSV/XLSX import: per-row verdicts, nothing written
+   * POST /inventory/import/preview
+   * Requires: products.edit_price (imports set prices)
+   */
+  @Post('import/preview')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions('products.edit_price')
+  @UseInterceptors(importUpload)
+  @HttpCode(200)
+  previewImport(
+    @CurrentUser() user: CurrentUserPayload,
+    @UploadedFile() file?: ImportFile,
+  ) {
+    return this.inventoryService.previewImport(user, requireFile(file));
+  }
+
+  /**
+   * Applies the same file's valid rows in one transaction
+   * POST /inventory/import/confirm
+   * Requires: products.edit_price
+   */
+  @Post('import/confirm')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions('products.edit_price')
+  @UseInterceptors(importUpload)
+  @HttpCode(200)
+  confirmImport(
+    @CurrentUser() user: CurrentUserPayload,
+    @UploadedFile() file?: ImportFile,
+  ) {
+    return this.inventoryService.confirmImport(user, requireFile(file));
   }
 
   /**
@@ -69,11 +149,11 @@ export class InventoryController {
   /**
    * Create product (auto-calculates initial status)
    * POST /inventory
-   * Requires: edit-inventory OR edit-products
+   * Requires: products.edit_price (a new product sets its prices)
    */
   @Post()
   @UseGuards(JwtAuthGuard, PermissionsGuard)
-  @RequirePermissions('edit-inventory', 'edit-products')
+  @RequirePermissions('products.edit_price')
   @HttpCode(201)
   create(
     @CurrentUser() user: CurrentUserPayload,
@@ -86,11 +166,13 @@ export class InventoryController {
   /**
    * Update product & recalculate status
    * PATCH /inventory/:id
-   * Requires: edit-inventory OR edit-products
+   * Requires: products.edit_price or products.restock; anything beyond the
+   * reorder point and supplier needs products.edit_price (checked in the
+   * service). Stock changes go through restock/adjust.
    */
   @Patch(':id')
   @UseGuards(JwtAuthGuard, PermissionsGuard)
-  @RequirePermissions('edit-inventory', 'edit-products')
+  @RequirePermissions('products.edit_price', 'products.restock')
   update(
     @CurrentUser() user: CurrentUserPayload,
     @Param('id', ParseUUIDPipe) id: string,
@@ -101,75 +183,66 @@ export class InventoryController {
   }
 
   /**
-   * Confirm receipt of an inventory entry.
-   * POST /inventory/:id/confirm
-   * Requires: view-inventory OR view-products (role rules enforced in service:
-   * owner confirms any; manager confirms others' entries; apprentice confirms own)
+   * Stock received
+   * POST /inventory/:id/restock
+   * Requires: products.restock
    */
-  @Post(':id/confirm')
+  @Post(':id/restock')
   @UseGuards(JwtAuthGuard, PermissionsGuard)
-  @RequirePermissions('view-inventory', 'view-products')
+  @RequirePermissions('products.restock')
   @HttpCode(200)
-  confirm(
+  restock(
     @CurrentUser() user: CurrentUserPayload,
     @Param('id', ParseUUIDPipe) id: string,
+    @Body(new ZodValidationPipe(RestockDtoSchema)) dto: RestockDto,
   ) {
-    return this.inventoryService.confirm(user, id);
+    return this.inventoryService.restock(user, id, dto);
+  }
+
+  /**
+   * Stock correction (plus or minus) with a reason
+   * POST /inventory/:id/adjust
+   * Requires: products.restock
+   */
+  @Post(':id/adjust')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions('products.restock')
+  @HttpCode(200)
+  adjust(
+    @CurrentUser() user: CurrentUserPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(new ZodValidationPipe(AdjustStockDtoSchema)) dto: AdjustStockDto,
+  ) {
+    return this.inventoryService.adjust(user, id, dto);
+  }
+
+  /**
+   * The product's stock movements, newest first
+   * GET /inventory/:id/movements
+   */
+  @Get(':id/movements')
+  @UseGuards(JwtAuthGuard)
+  movements(
+    @CurrentUser() user: CurrentUserPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Query(new ZodValidationPipe(StockHistoryQuerySchema))
+    query: StockHistoryQuery,
+  ) {
+    return this.inventoryService.history(user, id, query.limit);
   }
 
   /**
    * Delete product
    * DELETE /inventory/:id
-   * Requires: delete-products
+   * Requires: products.delete
    */
   @Delete(':id')
   @UseGuards(JwtAuthGuard, PermissionsGuard)
-  @RequirePermissions('delete-products')
+  @RequirePermissions('products.delete')
   remove(
     @CurrentUser() user: CurrentUserPayload,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
     return this.inventoryService.remove(user, id);
-  }
-
-  /**
-   * Reduce stock; emits inventory.low-stock if low
-   * POST /inventory/:id/decrement
-   * Requires: record-sales
-   */
-  @Post(':id/decrement')
-  @UseGuards(JwtAuthGuard, PermissionsGuard)
-  @RequirePermissions('record-sales')
-  @HttpCode(200)
-  decrement(
-    @CurrentUser() user: CurrentUserPayload,
-    @Param('id', ParseUUIDPipe) id: string,
-    @Body(new ZodValidationPipe(DecrementInventoryDtoSchema))
-    decrementInventoryDto: DecrementInventoryDto,
-  ) {
-    return this.inventoryService.decrement(user, id, decrementInventoryDto);
-  }
-
-  /**
-   * Parse CSV/JSON file and batch create/update items
-   * POST /inventory/bulk-import
-   * Requires: edit-inventory OR owner
-   */
-  @Post('bulk-import')
-  @UseGuards(JwtAuthGuard, PermissionsGuard)
-  @RequirePermissions('edit-inventory')
-  @UseInterceptors(FileInterceptor('file'))
-  @HttpCode(200)
-  bulkImport(
-    @CurrentUser() user: CurrentUserPayload,
-    @UploadedFile() file: { buffer: Buffer; mimetype: string },
-  ) {
-    if (!file) {
-      return this.inventoryService.bulkImport(user, {
-        buffer: Buffer.alloc(0),
-        mimetype: '',
-      });
-    }
-    return this.inventoryService.bulkImport(user, file);
   }
 }

@@ -10,10 +10,18 @@ import {
 
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 
-// Login and signup are not cookie-authenticated, so the double-submit token
+// Login, signup and the emailed-link flows are not cookie-authenticated, so the double-submit token
 // does not apply. A stale cookie must never block someone from signing in.
 // The Origin check still stops cross-site login CSRF.
-const CREDENTIAL_PATHS = new Set(['/auth/login', '/auth/register']);
+const CREDENTIAL_PATHS = new Set([
+  '/auth/login',
+  '/auth/2fa/verify',
+  '/auth/register',
+  '/auth/forgot-password',
+  '/auth/reset-password',
+  '/auth/verify-email',
+  '/auth/verify-email/resend',
+]);
 
 function sameToken(a: string, b: string): boolean {
   const x = Buffer.from(a);

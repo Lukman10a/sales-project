@@ -17,14 +17,16 @@ describe("routeRefund", () => {
 
     const result = await routeRefund({
       saleId: "s1",
-      refundAmount: 50,
       reason: "Damaged item",
+      items: [{ saleItemId: "l1", quantity: 1 }],
       recentSales: [completedSale],
       refundSale,
     });
 
     expect(result).toBe(true);
-    expect(refundSale).toHaveBeenCalledWith("s1", 50, "Damaged item");
+    expect(refundSale).toHaveBeenCalledWith("s1", "Damaged item", [
+      { saleItemId: "l1", quantity: 1 },
+    ]);
   });
 
   it("returns false without calling anything when the sale is not found", async () => {
@@ -32,7 +34,6 @@ describe("routeRefund", () => {
 
     const result = await routeRefund({
       saleId: "missing",
-      refundAmount: 50,
       reason: "Damaged item",
       recentSales: [completedSale],
       refundSale,

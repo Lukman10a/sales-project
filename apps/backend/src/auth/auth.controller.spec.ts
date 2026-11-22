@@ -4,6 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import type { Request, Response } from 'express';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
+import { AccountService } from './account.service';
 import { JwtAuthGuard } from '../common';
 
 describe('AuthController', () => {
@@ -11,6 +12,7 @@ describe('AuthController', () => {
   let authService: Record<
     | 'register'
     | 'login'
+    | 'verifyTwoFactor'
     | 'refresh'
     | 'logout'
     | 'logoutAll'
@@ -20,13 +22,19 @@ describe('AuthController', () => {
     jest.Mock
   >;
 
+  let accountService: Record<
+    'verifyEmail' | 'resendVerification' | 'forgotPassword' | 'resetPassword',
+    jest.Mock
+  >;
+
   const currentUser = {
     id: 'u1',
     email: 'owner@luxa.com',
-    role: 'owner',
+    role: 'owner' as const,
+    permissions: [],
+    maxDiscountPercent: 100,
     businessName: 'LUXA',
     businessId: 'u1',
-    permissions: ['view-products'],
     sessionId: 'sid-1',
   };
 
@@ -56,6 +64,7 @@ describe('AuthController', () => {
     authService = {
       register: jest.fn(),
       login: jest.fn(),
+      verifyTwoFactor: jest.fn(),
       refresh: jest.fn(),
       logout: jest.fn(),
       logoutAll: jest.fn(),
@@ -63,11 +72,18 @@ describe('AuthController', () => {
       revokeSession: jest.fn(),
       me: jest.fn(),
     };
+    accountService = {
+      verifyEmail: jest.fn().mockResolvedValue({ message: 'confirmed' }),
+      resendVerification: jest.fn().mockResolvedValue({ message: 'sent' }),
+      forgotPassword: jest.fn().mockResolvedValue({ message: 'sent' }),
+      resetPassword: jest.fn().mockResolvedValue({ message: 'updated' }),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       controllers: [AuthController],
       providers: [
         { provide: AuthService, useValue: authService },
+        { provide: AccountService, useValue: accountService },
         {
           provide: ConfigService,
           useValue: {
@@ -81,6 +97,43 @@ describe('AuthController', () => {
       .compile();
 
     controller = module.get(AuthController);
+  });
+
+  it('answers a 2FA login with the challenge and sets no cookies', async () => {
+    authService.login.mockResolvedValue({
+      mfaRequired: true,
+      challenge: 'ch',
+    });
+    const r = res();
+    await expect(
+      controller.login(
+        { email: 'owner@luxa.com', password: 'x' },
+        req(),
+        r.asRes,
+      ),
+    ).resolves.toEqual({ mfaRequired: true, challenge: 'ch' });
+    expect(r.cookie).not.toHaveBeenCalled();
+  });
+
+  it('completes 2FA sign-in with session cookies and no tokens in the body', async () => {
+    authService.verifyTwoFactor.mockResolvedValue({
+      user: { id: 'u1' },
+      session,
+    });
+    const r = res();
+    await expect(
+      controller.verifyTwoFactor(
+        { challenge: 'c'.repeat(30), code: '123456' },
+        req(),
+        r.asRes,
+      ),
+    ).resolves.toEqual({ user: { id: 'u1' } });
+    expect(authService.verifyTwoFactor).toHaveBeenCalledWith(
+      'c'.repeat(30),
+      '123456',
+      { userAgent: 'UA', ip: '1.2.3.4' },
+    );
+    expect(cookieNames(r).length).toBeGreaterThan(0);
   });
 
   it('registers, sets session cookies and keeps tokens out of the body', async () => {
@@ -175,7 +228,7 @@ describe('AuthController', () => {
     const r = res();
 
     await controller.logoutAll(currentUser, r.asRes);
-    expect(authService.logoutAll).toHaveBeenCalledWith('u1');
+    expect(authService.logoutAll).toHaveBeenCalledWith(currentUser);
     expect(r.clearCookie).toHaveBeenCalled();
   });
 
@@ -187,7 +240,36 @@ describe('AuthController', () => {
     expect(authService.listSessions).toHaveBeenCalledWith('u1', 'sid-1');
 
     await controller.revokeSession(currentUser, 'sid-2');
-    expect(authService.revokeSession).toHaveBeenCalledWith('u1', 'sid-2');
+    expect(authService.revokeSession).toHaveBeenCalledWith(
+      currentUser,
+      'sid-2',
+    );
+  });
+
+  it('delegates the emailed-link flows to the account service', async () => {
+    await expect(controller.verifyEmail({ token: 't' })).resolves.toEqual({
+      message: 'confirmed',
+    });
+    await controller.resendVerification({ email: 'a@b.co' });
+    await controller.forgotPassword({ email: 'a@b.co' });
+    expect(accountService.verifyEmail).toHaveBeenCalledWith('t');
+    expect(accountService.resendVerification).toHaveBeenCalledWith('a@b.co');
+    expect(accountService.forgotPassword).toHaveBeenCalledWith('a@b.co');
+  });
+
+  it('resets the password and clears this browser’s cookies', async () => {
+    const r = res();
+    await expect(
+      controller.resetPassword(
+        { token: 't', password: 'Brand-new-pass-1' },
+        r.asRes,
+      ),
+    ).resolves.toEqual({ message: 'updated' });
+    expect(accountService.resetPassword).toHaveBeenCalledWith(
+      't',
+      'Brand-new-pass-1',
+    );
+    expect(r.clearCookie).toHaveBeenCalledTimes(3);
   });
 
   it('returns the full current user via the service', async () => {

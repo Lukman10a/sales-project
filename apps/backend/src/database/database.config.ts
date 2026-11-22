@@ -14,6 +14,14 @@ import { UserProfile } from '../entities/user-profile.entity';
 import { Report } from '../entities/report.entity';
 import { AiInsight } from '../entities/ai-insight.entity';
 import { Session } from '../entities/session.entity';
+import { AuthToken } from '../entities/auth-token.entity';
+import { TwoFactorBackupCode } from '../entities/two-factor-backup-code.entity';
+import { AuditEvent } from '../entities/audit-event.entity';
+import { IdempotencyKey } from '../entities/idempotency-key.entity';
+import { ReceiptCounter } from '../entities/receipt-counter.entity';
+import { Category } from '../entities/category.entity';
+import { StockMovement } from '../entities/stock-movement.entity';
+import { Expense } from '../entities/expense.entity';
 
 export const ENTITIES = [
   User,
@@ -27,6 +35,14 @@ export const ENTITIES = [
   Report,
   AiInsight,
   Session,
+  AuthToken,
+  TwoFactorBackupCode,
+  AuditEvent,
+  IdempotencyKey,
+  ReceiptCounter,
+  Category,
+  StockMovement,
+  Expense,
 ];
 
 /** Compiled (.js) or ts-node (.ts) migrations, wherever this file runs from. */

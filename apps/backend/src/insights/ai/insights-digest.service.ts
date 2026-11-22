@@ -1,19 +1,29 @@
-import { Injectable } from '@nestjs/common';
-import { Cron } from '@nestjs/schedule';
+import { Injectable, type OnModuleInit } from '@nestjs/common';
+import { JobRegistry } from '../../jobs/job-registry';
 import { InsightsService } from '../insights.service';
 import { selectTopAiInsight } from '../insight.types';
 import { NotificationsRepository } from '../../notifications/notifications.repository';
 import { NotificationsService } from '../../notifications/notifications.service';
 
+/** Daily AI digest notification: a `digest` job, scheduled at 07:00 Lagos. */
 @Injectable()
-export class InsightsDigestService {
+export class InsightsDigestService implements OnModuleInit {
   constructor(
     private readonly insightsService: InsightsService,
     private readonly notificationsRepository: NotificationsRepository,
     private readonly notificationsService: NotificationsService,
+    private readonly jobs: JobRegistry,
   ) {}
 
-  @Cron(process.env.AI_INSIGHTS_DIGEST_CRON ?? '0 7 * * *')
+  onModuleInit(): void {
+    this.jobs.handle('digest', 'ai-digest', () => this.handleDigest());
+    this.jobs.schedule(
+      'digest',
+      'ai-digest',
+      process.env.AI_INSIGHTS_DIGEST_CRON ?? '0 7 * * *',
+    );
+  }
+
   async handleDigest(): Promise<void> {
     const businessIds = await this.notificationsRepository.findAllBusinessIds();
     for (const businessId of businessIds) {

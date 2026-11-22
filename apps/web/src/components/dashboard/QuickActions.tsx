@@ -7,7 +7,8 @@ import { Badge } from "@/components/ui/badge";
 
 interface QuickActionsProps {
   userRole?: "owner" | "apprentice" | "investor";
-  pendingConfirmations?: number;
+  /** Products expiring within 30 days, shown on the expiring-stock action. */
+  expiringSoonCount?: number;
 }
 
 const variantStyles = {
@@ -19,7 +20,7 @@ const variantStyles = {
 
 const QuickActions = ({
   userRole = "owner",
-  pendingConfirmations = 0,
+  expiringSoonCount = 0,
 }: QuickActionsProps) => {
   const { t } = useLanguage();
   const actionsList = userRole === "apprentice" ? apprenticeActions : actions;
@@ -33,7 +34,7 @@ const QuickActions = ({
     >
       {actionsList.map((action, index) => {
         const hasBadge =
-          action.id === "confirm-stock" && pendingConfirmations > 0;
+          action.id === "expiring-stock" && expiringSoonCount > 0;
         return (
           <Link key={action.id} href={action.href}>
             <motion.div
@@ -49,7 +50,7 @@ const QuickActions = ({
             >
               {hasBadge && (
                 <Badge className="absolute -top-2 -right-2 bg-warning text-warning-foreground">
-                  {pendingConfirmations}
+                  {expiringSoonCount}
                 </Badge>
               )}
               <action.icon className="w-5 h-5 sm:w-6 sm:h-6 mb-2 sm:mb-3" />

@@ -5,6 +5,7 @@ import { Notification } from '../entities/notification.entity';
 import { User } from '../entities/user.entity';
 import { UserProfile } from '../entities/user-profile.entity';
 import { PaginatedResult } from '../common/interfaces/paginated-result.interface';
+import { assertTenant } from '../common/tenancy/assert-tenant';
 
 export interface CreateNotificationData {
   businessId: string;
@@ -16,7 +17,6 @@ export interface CreateNotificationData {
 }
 
 export interface NotificationsListQuery {
-  businessId: string;
   userId: string;
   page: number;
   limit: number;
@@ -28,6 +28,10 @@ export interface NotificationsListResult extends PaginatedResult<Notification> {
   unreadCount: number;
 }
 
+/**
+ * Tenant-owned: every method takes `businessId` first, except
+ * `findAllBusinessIds`, which the scheduled digest uses to visit each tenant.
+ */
 @Injectable()
 export class NotificationsRepository extends Repository<Notification> {
   constructor(@InjectDataSource() dataSource: DataSource) {
@@ -35,15 +39,19 @@ export class NotificationsRepository extends Repository<Notification> {
   }
 
   async createNotification(
-    data: CreateNotificationData,
+    businessId: string,
+    data: Omit<CreateNotificationData, 'businessId'>,
   ): Promise<Notification> {
-    const notification = this.manager.create(Notification, data);
+    const notification = this.manager.create(Notification, {
+      ...data,
+      businessId,
+    });
     return this.manager.save(notification);
   }
 
   async findByIdAndUser(
-    id: string,
     businessId: string,
+    id: string,
     userId: string,
   ): Promise<Notification | null> {
     return this.manager.findOne(Notification, {
@@ -51,12 +59,20 @@ export class NotificationsRepository extends Repository<Notification> {
     });
   }
 
-  async markAsRead(notification: Notification): Promise<Notification> {
+  async markAsRead(
+    businessId: string,
+    notification: Notification,
+  ): Promise<Notification> {
+    assertTenant(businessId, notification);
     notification.read = true;
     return this.manager.save(notification);
   }
 
-  async removeNotification(notification: Notification): Promise<void> {
+  async removeNotification(
+    businessId: string,
+    notification: Notification,
+  ): Promise<void> {
+    assertTenant(businessId, notification);
     await this.manager.remove(notification);
   }
 
@@ -69,8 +85,11 @@ export class NotificationsRepository extends Repository<Notification> {
     return result.affected ?? 0;
   }
 
-  async list(query: NotificationsListQuery): Promise<NotificationsListResult> {
-    const { businessId, userId, page, limit, type, read } = query;
+  async list(
+    businessId: string,
+    query: NotificationsListQuery,
+  ): Promise<NotificationsListResult> {
+    const { userId, page, limit, type, read } = query;
 
     const qb = this.createQueryBuilder('notification')
       .where('notification.businessId = :businessId', { businessId })

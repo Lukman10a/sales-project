@@ -34,7 +34,7 @@ export function generateInventoryExportData(
     category: Array.isArray(item.category) ? item.category.join(", ") : item.category,
     quantity: item.quantity,
     status: item.status,
-    wholesalePrice: item.wholesalePrice,
+    costPrice: item.costPrice,
     sellingPrice: item.sellingPrice,
     sold: item.sold,
     supplier: item.supplier || "N/A",
@@ -45,8 +45,8 @@ export function generateInventoryExportData(
   // Calculate summary metrics
   const summary = {
     totalValue: processedItems.reduce((sum, item) => sum + (item.sellingPrice * item.quantity), 0),
-    totalCost: processedItems.reduce((sum, item) => sum + (item.wholesalePrice * item.quantity), 0),
-    totalProfit: processedItems.reduce((sum, item) => sum + ((item.sellingPrice - item.wholesalePrice) * item.quantity), 0),
+    totalCost: processedItems.reduce((sum, item) => sum + (item.costPrice * item.quantity), 0),
+    totalProfit: processedItems.reduce((sum, item) => sum + ((item.sellingPrice - item.costPrice) * item.quantity), 0),
     averagePrice: processedItems.length > 0 ? processedItems.reduce((sum, item) => sum + item.sellingPrice, 0) / processedItems.length : 0,
     highestStockItem: processedItems.length > 0 ? processedItems.reduce((max, item) => item.quantity > max.quantity ? item : max).name : "N/A",
     lowestStockItem: processedItems.length > 0 ? processedItems.reduce((min, item) => item.quantity < min.quantity ? item : min).name : "N/A",
@@ -97,7 +97,7 @@ export function generateCSVContent(data: InventoryExportData): string {
   let csv = "SKU,Item Name,Category,Quantity,Status,Wholesale Price,Selling Price,Sold,Supplier,Reorder Point,Last Restocked\n";
 
   data.items.forEach(item => {
-    csv += `"${item.sku}","${item.name}","${item.category}",${item.quantity},"${item.status}",${item.wholesalePrice},${item.sellingPrice},${item.sold},"${item.supplier}",${item.reorderPoint},"${item.lastRestocked}"\n`;
+    csv += `"${item.sku}","${item.name}","${item.category}",${item.quantity},"${item.status}",${item.costPrice},${item.sellingPrice},${item.sold},"${item.supplier}",${item.reorderPoint},"${item.lastRestocked}"\n`;
   });
 
   // Add summary if present
@@ -245,7 +245,7 @@ export function generateHTMLTable(
                   <td>${item.category}</td>
                   <td>${item.quantity}</td>
                   <td><span class="status-${item.status.replace(/-/g, "-")}">${item.status}</span></td>
-                  <td>${formatCurrencyValue(item.wholesalePrice)}</td>
+                  <td>${formatCurrencyValue(item.costPrice)}</td>
                   <td>${formatCurrencyValue(item.sellingPrice)}</td>
                   <td>${item.sold}</td>
                   <td>${item.supplier}</td>

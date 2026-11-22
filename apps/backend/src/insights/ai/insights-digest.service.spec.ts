@@ -1,3 +1,4 @@
+import { JobRegistry } from '../../jobs/job-registry';
 import { InsightsDigestService } from './insights-digest.service';
 import { InsightsService } from '../insights.service';
 import { NotificationsRepository } from '../../notifications/notifications.repository';
@@ -24,7 +25,26 @@ describe('InsightsDigestService', () => {
       insightsService as unknown as InsightsService,
       notificationsRepository as unknown as NotificationsRepository,
       notificationsService as unknown as NotificationsService,
+      new JobRegistry(),
     );
+  });
+
+  it('registers as a daily digest job, scheduled once', async () => {
+    const jobs = new JobRegistry();
+    const s = new InsightsDigestService(
+      insightsService as unknown as InsightsService,
+      notificationsRepository as unknown as NotificationsRepository,
+      notificationsService as unknown as NotificationsService,
+      jobs,
+    );
+    s.onModuleInit();
+    const run = jest.spyOn(s, 'handleDigest').mockResolvedValue();
+
+    expect(jobs.schedules()).toEqual([
+      { queue: 'digest', name: 'ai-digest', pattern: '0 7 * * *' },
+    ]);
+    await jobs.run('digest', 'ai-digest', {});
+    expect(run).toHaveBeenCalled();
   });
 
   it('creates ai digest notification for opted-in owner/managers when high/medium insights exist', async () => {

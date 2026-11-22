@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { TeamController } from './team.controller';
 import { TeamService } from './team.service';
-import { JwtAuthGuard, PermissionsGuard, RolesGuard } from '../common';
+import { JwtAuthGuard, PermissionsGuard } from '../common';
 import type { InviteMemberDto } from './dto/invite-member.dto';
 import type { UpdateMemberDto } from './dto/update-member.dto';
 import type { UpdatePermissionsDto } from './dto/update-permissions.dto';
@@ -20,7 +20,9 @@ describe('TeamController', () => {
   const currentUser = {
     id: 'u1',
     email: 'owner@luxa.com',
-    role: 'owner',
+    role: 'owner' as const,
+    permissions: [],
+    maxDiscountPercent: 100,
     businessName: 'LUXA',
     businessId: 'b1',
   };
@@ -40,8 +42,6 @@ describe('TeamController', () => {
       providers: [{ provide: TeamService, useValue: teamService }],
     })
       .overrideGuard(JwtAuthGuard)
-      .useValue({ canActivate: () => true })
-      .overrideGuard(RolesGuard)
       .useValue({ canActivate: () => true })
       .overrideGuard(PermissionsGuard)
       .useValue({ canActivate: () => true })
@@ -99,7 +99,7 @@ describe('TeamController', () => {
   });
 
   it('delegates updatePermissions to the service', async () => {
-    const dto: UpdatePermissionsDto = { permissions: ['view-products'] };
+    const dto: UpdatePermissionsDto = { permissions: ['sales.record'] };
     teamService.updatePermissions.mockResolvedValue({ id: 'm1' });
 
     await expect(

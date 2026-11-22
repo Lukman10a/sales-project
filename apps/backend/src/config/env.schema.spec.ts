@@ -2,11 +2,13 @@ import { validateEnv } from './env.schema';
 
 const SECRET_A = 'a'.repeat(32);
 const SECRET_B = 'b'.repeat(32);
+const ENC_KEY = Buffer.alloc(32, 7).toString('base64');
 
 const valid = (overrides: Record<string, unknown> = {}) => ({
   NODE_ENV: 'production',
   JWT_SECRET: SECRET_A,
   JWT_REFRESH_SECRET: SECRET_B,
+  ENCRYPTION_KEY: ENC_KEY,
   DATABASE_URL: 'postgresql://luxa:pw@db.internal:5432/luxa',
   FRONTEND_URL: 'https://app.luxa.app',
   ...overrides,
@@ -21,6 +23,25 @@ describe('validateEnv', () => {
     expect(env.JWT_REFRESH_EXPIRATION).toBe('7d');
     expect(env.DATABASE_SSL).toBe('require');
     expect(env.CORS_ORIGINS).toEqual(['https://app.luxa.app']);
+  });
+
+  it('takes Redis and Resend settings, refusing a key without a sender', () => {
+    expect(
+      validateEnv(
+        valid({
+          REDIS_URL: 'rediss://default:pw@redis.internal:6379',
+          RESEND_API_KEY: 're_123',
+          EMAIL_FROM: 'LUXA <hello@luxa.app>',
+        }),
+      ),
+    ).toMatchObject({ REDIS_URL: 'rediss://default:pw@redis.internal:6379' });
+    expect(() => validateEnv(valid({ REDIS_URL: 'localhost:6379' }))).toThrow(
+      /REDIS_URL/,
+    );
+    expect(() => validateEnv(valid({ RESEND_API_KEY: 're_123' }))).toThrow(
+      /EMAIL_FROM is required/,
+    );
+    expect(validateEnv(valid({ REDIS_URL: '' })).REDIS_URL).toBeUndefined();
   });
 
   it('defaults NODE_ENV to production when unset', () => {
@@ -39,6 +60,20 @@ describe('validateEnv', () => {
     expect(() => validateEnv(valid({ JWT_SECRET: 'short' }))).toThrow(
       /JWT_SECRET.*32/,
     );
+  });
+
+  it('rejects a missing or malformed ENCRYPTION_KEY', () => {
+    expect(() => validateEnv(valid({ ENCRYPTION_KEY: undefined }))).toThrow(
+      /ENCRYPTION_KEY is required/,
+    );
+    expect(() =>
+      validateEnv(
+        valid({ ENCRYPTION_KEY: Buffer.alloc(16).toString('base64') }),
+      ),
+    ).toThrow(/ENCRYPTION_KEY must be 32 bytes/);
+    expect(() =>
+      validateEnv(valid({ ENCRYPTION_KEY: 'k'.repeat(44) })),
+    ).toThrow(/ENCRYPTION_KEY must be 32 bytes/);
   });
 
   it('rejects identical access and refresh secrets', () => {

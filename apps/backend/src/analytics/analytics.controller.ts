@@ -1,8 +1,8 @@
 import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import {
   JwtAuthGuard,
-  RolesGuard,
-  Roles,
+  PermissionsGuard,
+  RequirePermissions,
   CurrentUser,
   ZodValidationPipe,
 } from '../common';
@@ -18,11 +18,11 @@ export class AnalyticsController {
   /**
    * Summary metrics with period filtering and period-over-period trends
    * GET /analytics/summary?period=today|week|month
-   * Requires: owner | manager
+   * Requires: reports.view_profit
    */
   @Get('summary')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('owner', 'manager')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions('reports.view_profit')
   summary(
     @CurrentUser() user: CurrentUserPayload,
     @Query(new ZodValidationPipe(AnalyticsQueryDtoSchema))
@@ -34,11 +34,11 @@ export class AnalyticsController {
   /**
    * Time-bucketed sales series for chart visualizations
    * GET /analytics/sales-chart?period=today|week|month
-   * Requires: owner | manager
+   * Requires: reports.view_profit
    */
   @Get('sales-chart')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('owner', 'manager')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions('reports.view_profit')
   salesChart(
     @CurrentUser() user: CurrentUserPayload,
     @Query(new ZodValidationPipe(AnalyticsQueryDtoSchema))
@@ -50,11 +50,11 @@ export class AnalyticsController {
   /**
    * Revenue & units grouped by product category
    * GET /analytics/category-breakdown?period=today|week|month
-   * Requires: owner | manager
+   * Requires: reports.view_profit
    */
   @Get('category-breakdown')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('owner', 'manager')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions('reports.view_profit')
   categoryBreakdown(
     @CurrentUser() user: CurrentUserPayload,
     @Query(new ZodValidationPipe(AnalyticsQueryDtoSchema))
@@ -66,11 +66,11 @@ export class AnalyticsController {
   /**
    * Top selling products ranked by revenue & units
    * GET /analytics/top-products?period=today|week|month
-   * Requires: owner | manager
+   * Requires: reports.view_profit
    */
   @Get('top-products')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('owner', 'manager')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions('reports.view_profit')
   topProducts(
     @CurrentUser() user: CurrentUserPayload,
     @Query(new ZodValidationPipe(AnalyticsQueryDtoSchema))
@@ -87,11 +87,11 @@ export class DashboardController {
   /**
    * Complete dashboard overview: metrics, inventory breakdown, top products, recent sales
    * GET /dashboard
-   * Requires: owner | manager
+   * Requires: reports.view_profit
    */
   @Get()
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('owner', 'manager')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions('reports.view_profit')
   dashboard(@CurrentUser() user: CurrentUserPayload) {
     return this.analyticsService.dashboard(user);
   }

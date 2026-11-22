@@ -30,6 +30,20 @@ import {
   type SessionCookies,
 } from './auth-cookies';
 import type { ClientContext } from './sessions.service';
+import { AccountService } from './account.service';
+import {
+  EmailDtoSchema,
+  ResetPasswordDtoSchema,
+  TokenDtoSchema,
+} from './dto/account.dto';
+import type { EmailDto, ResetPasswordDto, TokenDto } from './dto/account.dto';
+import {
+  AUTH_RULE,
+  MFA_RULE,
+  RateLimit,
+} from '../common/rate-limit/rate-limit.decorator';
+import { VerifyTwoFactorDtoSchema } from './dto/two-factor.dto';
+import type { VerifyTwoFactorDto } from './dto/two-factor.dto';
 
 const clientContext = (req: Request): ClientContext => ({
   userAgent: req.headers['user-agent'],
@@ -46,6 +60,7 @@ export class AuthController {
 
   constructor(
     private authService: AuthService,
+    private accountService: AccountService,
     config: ConfigService,
   ) {
     this.cookies = {
@@ -59,6 +74,7 @@ export class AuthController {
 
   /** POST /auth/register → 201 { message, user } + session cookies */
   @Post('register')
+  @RateLimit(AUTH_RULE)
   @HttpCode(201)
   async register(
     @Body(new ZodValidationPipe(RegisterDtoSchema)) registerDto: RegisterDto,
@@ -73,20 +89,46 @@ export class AuthController {
     return body;
   }
 
-  /** POST /auth/login → 200 { user } + session cookies */
+  /**
+   * POST /auth/login → 200 { user } + session cookies, or, when 2FA is on,
+   * 200 { mfaRequired: true, challenge } and no cookies.
+   */
   @Post('login')
+  @RateLimit(AUTH_RULE)
   @HttpCode(200)
   async login(
     @Body(new ZodValidationPipe(LoginDtoSchema)) loginDto: LoginDto,
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ) {
-    const { session, ...body } = await this.authService.login(
-      loginDto,
+    const result = await this.authService.login(loginDto, clientContext(req));
+    // 2FA on: no cookies until POST /auth/2fa/verify succeeds.
+    if (result.mfaRequired) return result;
+    const { session, ...body } = result;
+    this.setSession(res, session);
+    return body;
+  }
+
+  /**
+   * POST /auth/2fa/verify { challenge, code } → 200 { user } + session
+   * cookies. `code` is a 6-digit authenticator code or a backup code.
+   */
+  @Post('2fa/verify')
+  @RateLimit(MFA_RULE)
+  @HttpCode(200)
+  async verifyTwoFactor(
+    @Body(new ZodValidationPipe(VerifyTwoFactorDtoSchema))
+    body: VerifyTwoFactorDto,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const { session, ...rest } = await this.authService.verifyTwoFactor(
+      body.challenge,
+      body.code,
       clientContext(req),
     );
     this.setSession(res, session);
-    return body;
+    return rest;
   }
 
   /**
@@ -135,7 +177,7 @@ export class AuthController {
     @CurrentUser() user: CurrentUserPayload,
     @Res({ passthrough: true }) res: Response,
   ) {
-    const result = await this.authService.logoutAll(user.id);
+    const result = await this.authService.logoutAll(user);
     clearSessionCookies(res, this.cookies);
     return result;
   }
@@ -155,7 +197,50 @@ export class AuthController {
     @CurrentUser() user: CurrentUserPayload,
     @Param('id', new ParseUUIDPipe()) id: string,
   ) {
-    return this.authService.revokeSession(user.id, id);
+    return this.authService.revokeSession(user, id);
+  }
+
+  /** POST /auth/verify-email { token }: confirms the address. */
+  @Post('verify-email')
+  @RateLimit(AUTH_RULE)
+  @HttpCode(200)
+  verifyEmail(@Body(new ZodValidationPipe(TokenDtoSchema)) body: TokenDto) {
+    return this.accountService.verifyEmail(body.token);
+  }
+
+  /** POST /auth/verify-email/resend { email } → 202, whether or not it exists. */
+  @Post('verify-email/resend')
+  @RateLimit(AUTH_RULE)
+  @HttpCode(202)
+  resendVerification(
+    @Body(new ZodValidationPipe(EmailDtoSchema)) body: EmailDto,
+  ) {
+    return this.accountService.resendVerification(body.email);
+  }
+
+  /** POST /auth/forgot-password { email } → 202, whether or not it exists. */
+  @Post('forgot-password')
+  @RateLimit(AUTH_RULE)
+  @HttpCode(202)
+  forgotPassword(@Body(new ZodValidationPipe(EmailDtoSchema)) body: EmailDto) {
+    return this.accountService.forgotPassword(body.email);
+  }
+
+  /** POST /auth/reset-password { token, password }: ends every session. */
+  @Post('reset-password')
+  @RateLimit(AUTH_RULE)
+  @HttpCode(200)
+  async resetPassword(
+    @Body(new ZodValidationPipe(ResetPasswordDtoSchema))
+    body: ResetPasswordDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const result = await this.accountService.resetPassword(
+      body.token,
+      body.password,
+    );
+    clearSessionCookies(res, this.cookies);
+    return result;
   }
 
   /** GET /auth/me */

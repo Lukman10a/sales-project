@@ -8,8 +8,10 @@ export const QueryInventoryDtoSchema = z
     category: z.string().max(200).optional(),
     status: z.enum(['in-stock', 'low-stock', 'out-of-stock']).optional(),
     sort: z
-      .enum(['name', 'price-asc', 'price-desc', 'quantity', 'sold'])
+      .enum(['name', 'price-asc', 'price-desc', 'quantity', 'sold', 'expiry'])
       .optional(),
+    /** Products expiring within this many days, or already expired. */
+    expiring: z.coerce.number().int().min(0).max(3650).optional(),
   })
   .strict();
 

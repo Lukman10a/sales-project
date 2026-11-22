@@ -6,7 +6,9 @@ export const InviteMemberDtoSchema = z
     email: z.string().email(),
     name: z.string().min(1).max(200),
     role: z.enum(TEAM_ROLES),
+    /** Defaults to the role's preset. */
     permissions: z.array(z.enum(TEAM_PERMISSIONS)).optional(),
+    maxDiscountPercent: z.number().int().min(0).max(100).optional(),
     department: z.string().max(100).optional(),
   })
   .strict();

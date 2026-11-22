@@ -1,11 +1,17 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   NotFoundException,
 } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InventoryService, calculateStatus } from './inventory.service';
 import { InventoryRepository } from './inventory.repository';
+import {
+  NegativeStockError,
+  StockLedgerRepository,
+} from './stock-ledger.repository';
+import type { AuditService } from '../audit/audit.service';
 import { InventoryItem } from '../entities/inventory-item.entity';
 
 describe('calculateStatus', () => {
@@ -22,510 +28,493 @@ describe('calculateStatus', () => {
   it('returns in-stock otherwise', () => {
     expect(calculateStatus(10, 5)).toBe('in-stock');
     expect(calculateStatus(10)).toBe('in-stock');
+    expect(calculateStatus(10, null)).toBe('in-stock');
   });
 });
 
+const csv = (text: string) => ({
+  buffer: Buffer.from(text),
+  mimetype: 'text/csv',
+  originalname: 'stock.csv',
+});
+
 describe('InventoryService', () => {
+  let audit: { record: jest.Mock };
   let service: InventoryService;
-  let repository: {
-    list: jest.Mock;
-    findByIdAndBusiness: jest.Mock;
-    create: jest.Mock;
-    save: jest.Mock;
-    remove: jest.Mock;
-    decrementStock: jest.Mock;
-    bulkUpsert: jest.Mock;
-    resolveCreatorNames: jest.Mock;
-  };
+  let repository: Record<
+    | 'list'
+    | 'findById'
+    | 'lockById'
+    | 'findByBarcode'
+    | 'ensureCategories'
+    | 'listCategories'
+    | 'findAllForImport'
+    | 'createItem'
+    | 'saveItem'
+    | 'removeItem'
+    | 'resolveCreatorNames'
+    | 'transaction',
+    jest.Mock
+  >;
+  let ledger: { move: jest.Mock; history: jest.Mock };
   let eventEmitter: { emit: jest.Mock };
 
-  const user = { id: 'u1', businessId: 'b1', role: 'apprentice' };
-  const item = {
-    id: 'i1',
+  const owner = {
+    id: 'u1',
     businessId: 'b1',
-    createdBy: 'u1',
-    name: 'Widget',
-    category: ['tools'],
-    wholesalePrice: 5,
-    sellingPrice: 10,
-    quantity: 10,
-    reorderPoint: 3,
-    status: 'in-stock',
-  } as unknown as InventoryItem;
+    role: 'owner' as const,
+    permissions: [],
+    maxDiscountPercent: 100,
+  };
+  const stocker = {
+    id: 'u2',
+    businessId: 'b1',
+    role: 'cashier' as const,
+    permissions: ['products.restock' as const],
+    maxDiscountPercent: 0,
+  };
+  const product = (over: Partial<InventoryItem> = {}) =>
+    ({
+      id: 'i1',
+      businessId: 'b1',
+      createdBy: 'u1',
+      name: 'Widget',
+      categories: [{ id: 'c1', name: 'tools' }],
+      category: ['tools'],
+      costPrice: 5,
+      sellingPrice: 10,
+      quantity: 10,
+      sold: 0,
+      reorderPoint: 3,
+      status: 'in-stock',
+      ...over,
+    }) as unknown as InventoryItem;
 
   beforeEach(() => {
     repository = {
       list: jest.fn(),
-      findByIdAndBusiness: jest.fn(),
-      create: jest.fn(),
-      save: jest.fn(),
-      remove: jest.fn(),
-      decrementStock: jest.fn(),
-      bulkUpsert: jest.fn(),
-      resolveCreatorNames: jest.fn(),
+      findById: jest.fn(),
+      lockById: jest.fn(),
+      findByBarcode: jest.fn().mockResolvedValue(null),
+      ensureCategories: jest.fn((_b: string, names: string[]) =>
+        Promise.resolve(names.map((name, i) => ({ id: `c${i}`, name }))),
+      ),
+      listCategories: jest.fn(),
+      findAllForImport: jest.fn().mockResolvedValue([]),
+      createItem: jest.fn((businessId: string, data: object) => ({
+        ...data,
+        businessId,
+      })),
+      saveItem: jest.fn((_b: string, item: InventoryItem) =>
+        Promise.resolve({ ...item, id: item.id ?? 'new-id' }),
+      ),
+      removeItem: jest.fn(),
+      resolveCreatorNames: jest.fn().mockResolvedValue(new Map()),
+      transaction: jest.fn(<T>(fn: () => Promise<T>) => fn()),
+    };
+    ledger = {
+      move: jest.fn(
+        (_b: string, p: InventoryItem, change: { delta: number }) => {
+          p.quantity += change.delta;
+          p.status = calculateStatus(p.quantity, p.reorderPoint);
+          return Promise.resolve(p);
+        },
+      ),
+      history: jest.fn(),
     };
     eventEmitter = { emit: jest.fn() };
+    audit = { record: jest.fn().mockResolvedValue(undefined) };
 
     service = new InventoryService(
       repository as unknown as InventoryRepository,
+      ledger as unknown as StockLedgerRepository,
       eventEmitter as unknown as EventEmitter2,
+      audit as unknown as AuditService,
     );
   });
 
-  afterEach(() => {
-    jest.clearAllMocks();
-  });
-
   describe('list', () => {
-    it('delegates to the repository with businessId and query', async () => {
-      const query = {
-        page: 1,
-        limit: 20,
-        search: 'wid',
-        category: 'tools',
-        status: 'in-stock' as const,
-        sort: 'name' as const,
-      };
+    it('passes the filters, including expiry, and names the creator', async () => {
       repository.list.mockResolvedValue({
-        data: [item],
+        data: [product()],
         pagination: { total: 1 },
       });
       repository.resolveCreatorNames.mockResolvedValue(
-        new Map([['u1', 'Ada Lovelace']]),
+        new Map([['u1', 'Ada Obi']]),
       );
 
-      const result = await service.list(user, query);
-
-      expect(repository.list).toHaveBeenCalledWith({
-        businessId: 'b1',
+      const result = await service.list(owner, {
         page: 1,
         limit: 20,
-        search: 'wid',
-        category: 'tools',
-        status: 'in-stock',
-        sort: 'name',
-      });
-      expect(repository.resolveCreatorNames).toHaveBeenCalledWith(['u1']);
-      expect(result.data).toEqual([{ ...item, createdByName: 'Ada Lovelace' }]);
-    });
-
-    it('leaves items untouched when the creator cannot be resolved', async () => {
-      repository.list.mockResolvedValue({
-        data: [item],
-        pagination: { total: 1 },
-      });
-      repository.resolveCreatorNames.mockResolvedValue(new Map());
-
-      const result = await service.list(user, {
-        page: 1,
-        limit: 20,
-        sort: 'name',
+        expiring: 30,
+        sort: 'expiry',
       });
 
-      expect(result.data[0]).toEqual({ ...item, createdByName: undefined });
+      expect(repository.list).toHaveBeenCalledWith(
+        'b1',
+        expect.objectContaining({ expiring: 30, sort: 'expiry' }),
+      );
+      expect(result.data[0]).toMatchObject({ createdByName: 'Ada Obi' });
     });
   });
 
   describe('findOne', () => {
-    it('throws NotFoundException when item is missing', async () => {
-      repository.findByIdAndBusiness.mockResolvedValue(null);
-
-      await expect(service.findOne(user, 'missing')).rejects.toBeInstanceOf(
+    it('throws NotFoundException when the product is missing', async () => {
+      repository.findById.mockResolvedValue(null);
+      await expect(service.findOne(owner, 'x')).rejects.toThrow(
         NotFoundException,
       );
-    });
-
-    it('returns the item enriched with the creator name', async () => {
-      repository.findByIdAndBusiness.mockResolvedValue({ ...item });
-      repository.resolveCreatorNames.mockResolvedValue(
-        new Map([['u1', 'Ada Lovelace']]),
-      );
-
-      await expect(service.findOne(user, 'i1')).resolves.toEqual({
-        ...item,
-        createdByName: 'Ada Lovelace',
-      });
-      expect(repository.findByIdAndBusiness).toHaveBeenCalledWith('i1', 'b1');
     });
   });
 
   describe('create', () => {
-    it('creates an item with auto-calculated status', async () => {
-      const dto = {
+    it('opens stock through the ledger, never by writing quantity', async () => {
+      repository.findById.mockResolvedValue(product({ id: 'new-id' }));
+
+      await service.create(owner, {
         name: 'Widget',
         sellingPrice: 10,
-        wholesalePrice: 5,
-        quantity: 2,
-        reorderPoint: 5,
-      };
-      repository.create.mockReturnValue({});
-      repository.save.mockImplementation((e: InventoryItem) =>
-        Promise.resolve({ ...e, id: 'i1' }),
-      );
-
-      const result = await service.create(user, dto);
-
-      expect(repository.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          businessId: 'b1',
-          createdBy: 'u1',
-          name: 'Widget',
-          status: 'low-stock',
-        }),
-      );
-      expect(repository.save).toHaveBeenCalled();
-      expect(result.id).toBe('i1');
-    });
-
-    it('persists image, lastRestocked, and confirmedByApprentice', async () => {
-      const dto = {
-        name: 'Widget',
-        sellingPrice: 10,
-        wholesalePrice: 5,
-        quantity: 2,
-        reorderPoint: 5,
-        image: 'https://example.com/img.png',
-        lastRestocked: new Date('2026-08-01'),
-        confirmedByApprentice: true,
-      };
-      repository.create.mockReturnValue({});
-      repository.save.mockImplementation((e: InventoryItem) =>
-        Promise.resolve({ ...e, id: 'i1' }),
-      );
-
-      await service.create(user, dto);
-
-      expect(repository.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          image: 'https://example.com/img.png',
-          lastRestocked: dto.lastRestocked,
-          confirmedByApprentice: true,
-        }),
-      );
-      expect(repository.save).toHaveBeenCalled();
-    });
-
-    it('auto-confirms an item created by the owner', async () => {
-      const dto = {
-        name: 'Widget',
-        sellingPrice: 10,
-        wholesalePrice: 5,
-        quantity: 2,
-      };
-      repository.create.mockReturnValue({});
-      repository.save.mockImplementation((e: InventoryItem) =>
-        Promise.resolve({ ...e, id: 'i1' }),
-      );
-
-      await service.create(
-        { id: 'owner1', businessId: 'b1', role: 'owner' },
-        dto,
-      );
-
-      expect(repository.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          confirmedBy: 'owner1',
-          confirmedAt: expect.any(Date) as Date,
-          confirmedByApprentice: true,
-        }),
-      );
-    });
-  });
-
-  describe('confirm', () => {
-    it('throws NotFoundException when item is missing', async () => {
-      repository.findByIdAndBusiness.mockResolvedValue(null);
-
-      await expect(
-        service.confirm(
-          { id: 'u1', businessId: 'b1', role: 'owner' },
-          'missing',
-        ),
-      ).rejects.toBeInstanceOf(NotFoundException);
-    });
-
-    it('throws BadRequestException when the item is already confirmed', async () => {
-      repository.findByIdAndBusiness.mockResolvedValue({
-        ...item,
-        confirmedBy: 'u2',
-        confirmedAt: new Date(),
+        costPrice: 5,
+        quantity: 12,
+        category: ['tools', 'hardware'],
       });
 
-      await expect(
-        service.confirm({ id: 'u1', businessId: 'b1', role: 'owner' }, 'i1'),
-      ).rejects.toBeInstanceOf(BadRequestException);
-      expect(repository.save).not.toHaveBeenCalled();
-    });
-
-    it('confirms any item for an owner', async () => {
-      repository.findByIdAndBusiness.mockResolvedValue({ ...item });
-      repository.save.mockImplementation((e: InventoryItem) =>
-        Promise.resolve(e),
-      );
-
-      const result = await service.confirm(
-        { id: 'owner1', businessId: 'b1', role: 'owner' },
-        'i1',
-      );
-
-      expect(repository.save).toHaveBeenCalledWith(
+      expect(repository.ensureCategories).toHaveBeenCalledWith('b1', [
+        'tools',
+        'hardware',
+      ]);
+      const [, saved] = repository.saveItem.mock.calls[0] as [
+        string,
+        InventoryItem,
+      ];
+      expect(saved.quantity).toBe(0);
+      expect(ledger.move).toHaveBeenCalledWith(
+        'b1',
+        expect.objectContaining({ id: 'new-id' }),
         expect.objectContaining({
-          confirmedBy: 'owner1',
-          confirmedByApprentice: true,
+          delta: 12,
+          reason: 'restock',
+          actorUserId: 'u1',
+          note: 'Opening stock',
         }),
       );
-      expect(result.confirmedAt).toBeInstanceOf(Date);
+      expect(audit.record).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'product.created',
+          after: expect.objectContaining({ quantity: 12 }) as unknown,
+        }),
+      );
     });
 
-    it('lets a manager confirm an item created by someone else', async () => {
-      repository.findByIdAndBusiness.mockResolvedValue({ ...item });
-      repository.save.mockImplementation((e: InventoryItem) =>
-        Promise.resolve(e),
-      );
-
-      const result = await service.confirm(
-        { id: 'm1', businessId: 'b1', role: 'manager' },
-        'i1',
-      );
-
-      expect(repository.save).toHaveBeenCalledWith(
-        expect.objectContaining({ confirmedBy: 'm1' }),
-      );
-      expect(result.confirmedByApprentice).toBe(true);
+    it('records no movement for a product created with no stock', async () => {
+      repository.findById.mockResolvedValue(product());
+      await service.create(owner, {
+        name: 'Widget',
+        sellingPrice: 10,
+        costPrice: 0,
+        quantity: 0,
+      });
+      expect(ledger.move).not.toHaveBeenCalled();
     });
 
-    it('blocks a manager from confirming their own entry', async () => {
-      repository.findByIdAndBusiness.mockResolvedValue({ ...item });
-
+    it('refuses a barcode another product already has', async () => {
+      repository.findByBarcode.mockResolvedValue(
+        product({ id: 'other', name: 'Gadget' }),
+      );
       await expect(
-        service.confirm({ id: 'u1', businessId: 'b1', role: 'manager' }, 'i1'),
-      ).rejects.toBeInstanceOf(ForbiddenException);
-      expect(repository.save).not.toHaveBeenCalled();
-    });
-
-    it('lets an apprentice confirm an item they created', async () => {
-      repository.findByIdAndBusiness.mockResolvedValue({ ...item });
-      repository.save.mockImplementation((e: InventoryItem) =>
-        Promise.resolve(e),
-      );
-
-      const result = await service.confirm(
-        { id: 'u1', businessId: 'b1', role: 'apprentice' },
-        'i1',
-      );
-
-      expect(repository.save).toHaveBeenCalledWith(
-        expect.objectContaining({ confirmedBy: 'u1' }),
-      );
-      expect(result.confirmedByApprentice).toBe(true);
-    });
-
-    it('blocks an apprentice from confirming someone else item', async () => {
-      repository.findByIdAndBusiness.mockResolvedValue({ ...item });
-
-      await expect(
-        service.confirm(
-          { id: 'other', businessId: 'b1', role: 'apprentice' },
-          'i1',
-        ),
-      ).rejects.toBeInstanceOf(ForbiddenException);
-      expect(repository.save).not.toHaveBeenCalled();
+        service.create(owner, {
+          name: 'Widget',
+          sellingPrice: 10,
+          costPrice: 0,
+          quantity: 0,
+          barcode: '123',
+        }),
+      ).rejects.toThrow(ConflictException);
+      expect(repository.saveItem).not.toHaveBeenCalled();
     });
   });
 
   describe('update', () => {
-    it('throws NotFoundException when item is missing', async () => {
-      repository.findByIdAndBusiness.mockResolvedValue(null);
+    it('audits a price edit with the before and after values', async () => {
+      repository.findById.mockResolvedValue(product());
 
-      await expect(service.update(user, 'missing', {})).rejects.toBeInstanceOf(
+      await service.update(owner, 'i1', { sellingPrice: 12, costPrice: 6 });
+
+      expect(audit.record).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'product.price_changed',
+          entityId: 'i1',
+          before: { costPrice: 5, sellingPrice: 10 },
+          after: { costPrice: 6, sellingPrice: 12 },
+        }),
+      );
+    });
+
+    it('needs products.edit_price to change a price', async () => {
+      await expect(
+        service.update(stocker, 'i1', { sellingPrice: 1 }),
+      ).rejects.toThrow(ForbiddenException);
+      expect(repository.saveItem).not.toHaveBeenCalled();
+    });
+
+    it('lets a restock-only member change the reorder point', async () => {
+      repository.findById.mockResolvedValue(product());
+      await service.update(stocker, 'i1', { reorderPoint: 5 });
+      expect(audit.record).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'product.updated',
+          before: { reorderPoint: 3 },
+          after: { reorderPoint: 5 },
+        }),
+      );
+    });
+
+    it('replaces the categories and records nothing when nothing changed', async () => {
+      repository.findById.mockResolvedValue(product());
+      await service.update(owner, 'i1', { category: ['tools'] });
+      expect(repository.ensureCategories).toHaveBeenCalledWith('b1', ['tools']);
+      expect(audit.record).not.toHaveBeenCalled();
+    });
+
+    it('throws NotFoundException when the product is missing', async () => {
+      repository.findById.mockResolvedValue(null);
+      await expect(service.update(owner, 'x', { name: 'A' })).rejects.toThrow(
         NotFoundException,
       );
     });
+  });
 
-    it('updates fields and recalculates status', async () => {
-      repository.findByIdAndBusiness.mockResolvedValue({ ...item });
-      repository.save.mockImplementation((e: InventoryItem) =>
-        Promise.resolve(e),
+  describe('restock and adjust', () => {
+    it('restocks through the ledger on the locked row and audits it', async () => {
+      repository.lockById.mockResolvedValue(product());
+      repository.findById.mockResolvedValue(product({ quantity: 15 }));
+
+      await service.restock(stocker, 'i1', { quantity: 5, note: 'Delivery' });
+
+      expect(ledger.move).toHaveBeenCalledWith(
+        'b1',
+        expect.objectContaining({ id: 'i1' }),
+        {
+          delta: 5,
+          reason: 'restock',
+          note: 'Delivery',
+          actorUserId: 'u2',
+        },
       );
-
-      const result = await service.update(user, 'i1', {
-        quantity: 1,
-        reorderPoint: 5,
-        name: 'Updated',
-      });
-
-      expect(result.name).toBe('Updated');
-      expect(result.quantity).toBe(1);
-      expect(result.status).toBe('low-stock');
-      expect(repository.save).toHaveBeenCalled();
+      expect(audit.record).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'product.stock_adjusted',
+          before: { quantity: 10 },
+          after: { quantity: 15, reason: 'restock', note: 'Delivery' },
+        }),
+      );
     });
 
-    it('persists image, lastRestocked, confirmedByApprentice and recalculates status', async () => {
-      repository.findByIdAndBusiness.mockResolvedValue({ ...item });
-      repository.save.mockImplementation((e: InventoryItem) =>
-        Promise.resolve(e),
+    it('records an adjustment with its reason and warns when stock runs low', async () => {
+      repository.lockById.mockResolvedValue(product());
+      repository.findById.mockResolvedValue(product({ quantity: 2 }));
+
+      await service.adjust(stocker, 'i1', { delta: -8, reason: 'Damaged' });
+
+      expect(ledger.move).toHaveBeenCalledWith(
+        'b1',
+        expect.anything(),
+        expect.objectContaining({
+          delta: -8,
+          reason: 'adjustment',
+          note: 'Damaged',
+        }),
+      );
+      expect(eventEmitter.emit).toHaveBeenCalledWith(
+        'inventory.low-stock',
+        expect.objectContaining({ businessId: 'b1' }),
+      );
+    });
+
+    it('refuses to take stock below zero', async () => {
+      repository.lockById.mockResolvedValue(product());
+      await expect(
+        service.adjust(stocker, 'i1', { delta: -11, reason: 'Count' }),
+      ).rejects.toThrow(BadRequestException);
+      expect(ledger.move).not.toHaveBeenCalled();
+      expect(audit.record).not.toHaveBeenCalled();
+    });
+
+    it('turns a ledger refusal into a 400', async () => {
+      repository.lockById.mockResolvedValue(product());
+      ledger.move.mockRejectedValue(new NegativeStockError('Widget'));
+      await expect(
+        service.adjust(stocker, 'i1', { delta: -1, reason: 'Count' }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('throws NotFoundException for a product of another business', async () => {
+      repository.lockById.mockResolvedValue(null);
+      await expect(
+        service.restock(stocker, 'x', { quantity: 1 }),
+      ).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('history', () => {
+    it('lists movements with who made them', async () => {
+      repository.findById.mockResolvedValue(product());
+      ledger.history.mockResolvedValue([
+        { id: 'm1', delta: 5, reason: 'restock', actorUserId: 'u2' },
+        { id: 'm2', delta: -1, reason: 'sale', actorUserId: null },
+      ]);
+      repository.resolveCreatorNames.mockResolvedValue(
+        new Map([['u2', 'Kemi Bello']]),
       );
 
-      const result = await service.update(user, 'i1', {
-        image: 'https://example.com/new.png',
-        lastRestocked: new Date('2026-08-10'),
-        confirmedByApprentice: true,
-        quantity: 2,
-      });
+      const rows = await service.history(owner, 'i1', 20);
 
-      expect(result.image).toBe('https://example.com/new.png');
-      expect(result.lastRestocked).toEqual(new Date('2026-08-10'));
-      expect(result.confirmedByApprentice).toBe(true);
-      expect(result.status).toBe('low-stock');
+      expect(ledger.history).toHaveBeenCalledWith('b1', 'i1', 20);
+      expect(rows.map((r) => r.actorName)).toEqual(['Kemi Bello', undefined]);
+    });
+
+    it('throws NotFoundException when the product is missing', async () => {
+      repository.findById.mockResolvedValue(null);
+      await expect(service.history(owner, 'x')).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 
   describe('remove', () => {
-    it('throws NotFoundException when item is missing', async () => {
-      repository.findByIdAndBusiness.mockResolvedValue(null);
-
-      await expect(service.remove(user, 'missing')).rejects.toBeInstanceOf(
-        NotFoundException,
-      );
-    });
-
-    it('removes the item and returns a confirmation', async () => {
-      repository.findByIdAndBusiness.mockResolvedValue({ ...item });
-
-      const result = await service.remove(user, 'i1');
-
-      expect(repository.remove).toHaveBeenCalledWith(item);
-      expect(result).toEqual({ message: 'Product deleted successfully' });
-    });
-  });
-
-  describe('decrement', () => {
-    it('throws NotFoundException when item is missing', async () => {
-      repository.decrementStock.mockResolvedValue(null);
-
-      await expect(
-        service.decrement(user, 'missing', { quantity: 1 }),
-      ).rejects.toBeInstanceOf(NotFoundException);
-    });
-
-    it('throws BadRequestException when stock is insufficient', async () => {
-      repository.decrementStock.mockResolvedValue({
-        ...item,
-        quantity: 1,
-        status: 'in-stock',
+    it('deletes and audits the product as it was', async () => {
+      repository.findById.mockResolvedValue(product());
+      await expect(service.remove(owner, 'i1')).resolves.toEqual({
+        message: 'Product deleted successfully',
       });
-
-      await expect(
-        service.decrement(user, 'i1', { quantity: 5 }),
-      ).rejects.toBeInstanceOf(BadRequestException);
-    });
-
-    it('emits low-stock when the item drops to low-stock', async () => {
-      const lowItem = { ...item, quantity: 8, status: 'low-stock' };
-      repository.decrementStock.mockResolvedValue(lowItem);
-
-      const result = await service.decrement(user, 'i1', { quantity: 8 });
-
-      expect(eventEmitter.emit).toHaveBeenCalledWith('inventory.low-stock', {
-        businessId: 'b1',
-        item: lowItem,
-      });
-      expect(result).toBe(lowItem);
-    });
-
-    it('does not emit when stock remains healthy', async () => {
-      repository.decrementStock.mockResolvedValue({
-        ...item,
-        quantity: 8,
-        status: 'in-stock',
-      });
-
-      await service.decrement(user, 'i1', { quantity: 2 });
-
-      expect(eventEmitter.emit).not.toHaveBeenCalled();
-    });
-  });
-
-  describe('bulkImport', () => {
-    it('imports valid JSON rows', async () => {
-      repository.bulkUpsert.mockResolvedValue(2);
-
-      const result = await service.bulkImport(user, {
-        buffer: Buffer.from(
-          JSON.stringify([
-            { name: 'A', sellingPrice: '10', quantity: '2' },
-            { name: 'B', sellingPrice: '20', quantity: '5' },
-          ]),
-        ),
-        mimetype: 'application/json',
-      });
-
-      expect(result.imported).toBe(2);
-      expect(result.skipped).toBe(0);
-      expect(repository.bulkUpsert).toHaveBeenCalledWith(
-        expect.arrayContaining([
-          expect.objectContaining({ name: 'A', status: 'in-stock' }),
-          expect.objectContaining({ name: 'B', status: 'in-stock' }),
-        ]),
-        'b1',
-        'u1',
-      );
-    });
-
-    it('parses CSV rows', async () => {
-      repository.bulkUpsert.mockResolvedValue(1);
-
-      const csv = 'name,sku,sellingPrice,quantity,reorderPoint\nC,SKU1,15,4,5';
-      const result = await service.bulkImport(user, {
-        buffer: Buffer.from(csv),
-        mimetype: 'text/csv',
-      });
-
-      expect(result.imported).toBe(1);
-      expect(repository.bulkUpsert).toHaveBeenCalledWith(
-        [
-          expect.objectContaining({
-            name: 'C',
-            sku: 'SKU1',
-            status: 'low-stock',
-          }),
-        ],
-        'b1',
-        'u1',
-      );
-    });
-
-    it('skips invalid rows and reports errors', async () => {
-      repository.bulkUpsert.mockResolvedValue(1);
-
-      const result = await service.bulkImport(user, {
-        buffer: Buffer.from(
-          JSON.stringify([
-            { name: 'A', sellingPrice: '10' },
-            { sellingPrice: '20' },
-          ]),
-        ),
-        mimetype: 'application/json',
-      });
-
-      expect(result.imported).toBe(1);
-      expect(result.skipped).toBe(1);
-      expect(result.errors.length).toBe(1);
-    });
-
-    it('throws when there are no valid rows', async () => {
-      await expect(
-        service.bulkImport(user, {
-          buffer: Buffer.from(JSON.stringify([{ sellingPrice: '20' }])),
-          mimetype: 'application/json',
+      expect(audit.record).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'product.deleted',
+          before: expect.objectContaining({
+            name: 'Widget',
+            quantity: 10,
+          }) as unknown,
         }),
-      ).rejects.toBeInstanceOf(BadRequestException);
+      );
+    });
+  });
+
+  describe('import', () => {
+    const file = csv(
+      [
+        'name,sellingPrice,costPrice,quantity,sku,category',
+        'Widget,12,6,25,W-1,tools',
+        'Rice 5kg,9000,7000,10,R-5,"Food, Grains"',
+        ',100,,,,',
+        'Beans,abc,,,,',
+        'Gari,500,,4,R-5,',
+      ].join('\n'),
+    );
+
+    beforeEach(() => {
+      repository.findAllForImport.mockResolvedValue([
+        product({ sku: 'W-1', quantity: 10 }),
+      ]);
     });
 
-    it('throws on empty file', async () => {
+    it('previews row by row and writes nothing', async () => {
+      const preview = await service.previewImport(owner, file);
+
+      expect(preview.summary).toEqual({
+        rows: 5,
+        valid: 2,
+        invalid: 3,
+        creates: 1,
+        updates: 1,
+      });
+      expect(preview.rows[0]).toMatchObject({
+        row: 2,
+        action: 'update',
+        productId: 'i1',
+        quantity: 25,
+        stockChange: 15,
+        errors: [],
+      });
+      expect(preview.rows[2].errors).toContain('name is required');
+      expect(preview.rows[3].errors[0]).toMatch(/sellingPrice/);
+      expect(preview.rows[4].errors).toContain('sku R-5 also appears on row 3');
+      expect(repository.saveItem).not.toHaveBeenCalled();
+      expect(ledger.move).not.toHaveBeenCalled();
+      expect(audit.record).not.toHaveBeenCalled();
+    });
+
+    it('applies the valid rows with import movements, skipping the rest', async () => {
+      const result = await service.confirmImport(owner, file);
+
+      expect(result.summary.valid).toBe(2);
+      expect(repository.saveItem).toHaveBeenCalledTimes(2);
+      expect(ledger.move).toHaveBeenCalledWith(
+        'b1',
+        expect.objectContaining({ id: 'i1' }),
+        expect.objectContaining({
+          delta: 15,
+          reason: 'import',
+          note: 'Import from stock.csv',
+        }),
+      );
+      expect(ledger.move).toHaveBeenCalledWith(
+        'b1',
+        expect.objectContaining({ name: 'Rice 5kg' }),
+        expect.objectContaining({ delta: 10, reason: 'import' }),
+      );
+      expect(repository.ensureCategories).toHaveBeenCalledWith('b1', [
+        'Food',
+        'Grains',
+      ]);
+      expect(audit.record).toHaveBeenCalledWith(
+        expect.objectContaining({ action: 'product.imported' }),
+      );
+    });
+
+    it('leaves stock alone when a row has no quantity', async () => {
+      await service.confirmImport(
+        owner,
+        csv('name,sellingPrice,sku\nWidget,15,W-1'),
+      );
+      expect(ledger.move).not.toHaveBeenCalled();
+      expect(repository.saveItem).toHaveBeenCalledWith(
+        'b1',
+        expect.objectContaining({ id: 'i1', sellingPrice: 15, quantity: 10 }),
+      );
+    });
+
+    it('refuses a file where no row can be imported', async () => {
       await expect(
-        service.bulkImport(user, { buffer: Buffer.from(''), mimetype: '' }),
-      ).rejects.toBeInstanceOf(BadRequestException);
+        service.confirmImport(owner, csv('name,sellingPrice\n,1')),
+      ).rejects.toThrow(BadRequestException);
+      expect(repository.saveItem).not.toHaveBeenCalled();
+    });
+
+    it('flags a barcode that belongs to another product', async () => {
+      repository.findAllForImport.mockResolvedValue([
+        product({ id: 'i9', name: 'Gadget', barcode: '555' }),
+      ]);
+      const preview = await service.previewImport(
+        owner,
+        csv('name,sellingPrice,sku,barcode\nNew thing,10,N-1,555'),
+      );
+      // Matched by barcode, so it is an update of Gadget, not a clash.
+      expect(preview.rows[0]).toMatchObject({
+        action: 'update',
+        productId: 'i9',
+      });
+
+      repository.findAllForImport.mockResolvedValue([
+        product({ id: 'i1', sku: 'W-1' }),
+        product({ id: 'i9', name: 'Gadget', barcode: '555' }),
+      ]);
+      const clash = await service.previewImport(
+        owner,
+        csv('name,sellingPrice,sku,barcode\nWidget,10,W-1,555'),
+      );
+      expect(clash.rows[0].errors).toEqual([
+        'barcode 555 is already used by Gadget',
+      ]);
     });
   });
 });

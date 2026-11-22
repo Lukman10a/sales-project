@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import { TeamActivityRepository } from './team-activity.repository';
+import { AuditService } from '../audit/audit.service';
+import type { AuditAction, AuditEvent } from '../entities/audit-event.entity';
 import type { QueryActivityDto } from './dto/query-activity.dto';
 
 export interface ActivityEntry {
@@ -23,109 +24,111 @@ export interface PaginatedActivity {
   };
 }
 
+/** How each audit action reads in the team activity feed. */
+const LABELS: Record<AuditAction, [action: string, entity: string]> = {
+  'sale.recorded': ['Recorded Sale', 'sale'],
+  'sale.refunded': ['Refunded Sale', 'refund'],
+  'product.created': ['Added Inventory', 'inventory'],
+  'product.updated': ['Updated Product', 'inventory'],
+  'product.price_changed': ['Changed Price', 'inventory'],
+  'product.stock_adjusted': ['Adjusted Stock', 'inventory'],
+  'product.confirmed': ['Confirmed Inventory', 'inventory'],
+  'product.deleted': ['Deleted Product', 'inventory'],
+  'product.imported': ['Imported Products', 'inventory'],
+  'expense.recorded': ['Recorded Expense', 'expense'],
+  'expense.updated': ['Updated Expense', 'expense'],
+  'expense.deleted': ['Deleted Expense', 'expense'],
+  'staff.invited': ['Invited User', 'team'],
+  'staff.updated': ['Updated Member', 'team'],
+  'staff.role_changed': ['Changed Role', 'team'],
+  'staff.status_changed': ['Changed Status', 'team'],
+  'staff.permissions_changed': ['Changed Permissions', 'team'],
+  'staff.removed': ['Removed Member', 'team'],
+  'auth.signed_in': ['Signed In', 'security'],
+  'auth.sign_in_failed': ['Failed Sign-in', 'security'],
+  'two_factor.enabled': ['Turned On 2-Step', 'security'],
+  'two_factor.disabled': ['Turned Off 2-Step', 'security'],
+  'two_factor.backup_codes_regenerated': ['New Backup Codes', 'security'],
+  'two_factor.requirement_changed': ['Changed 2-Step Rule', 'security'],
+  'session.revoked': ['Signed Out Device', 'security'],
+  'session.revoked_all': ['Signed Out Everywhere', 'security'],
+};
+
+const naira = (n: unknown) => `₦${Number(n ?? 0).toLocaleString()}`;
+
+/** One line of human-readable detail, from the event's before/after. */
+function detailsOf(e: AuditEvent): string | undefined {
+  const a = e.after ?? {};
+  const b = e.before ?? {};
+  const str = (v: unknown) =>
+    typeof v === 'string' || typeof v === 'number' ? String(v) : '';
+  switch (e.action) {
+    case 'sale.recorded': {
+      const items = Array.isArray(a.items) ? a.items : [];
+      return `Sold ${items.length} item(s) for ${naira(a.total)}`;
+    }
+    case 'sale.refunded': {
+      const reason = str(a.refundReason);
+      return `Refunded ${naira(a.refundAmount)}${reason ? ` — ${reason}` : ''}`;
+    }
+    case 'product.created':
+      return `Added ${str(a.quantity)} units of ${str(a.name)}`;
+    case 'product.deleted':
+      return `Deleted ${str(b.name)}`;
+    case 'product.imported':
+      return `Imported ${str(a.imported)} product(s)`;
+    case 'expense.recorded':
+      return `${str(a.category)}: ${naira(a.amount)} on ${str(a.date)}`;
+    case 'expense.deleted':
+      return `${str(b.category)}: ${naira(b.amount)} on ${str(b.date)}`;
+    case 'staff.invited':
+      return `Invited ${str(a.name)} as ${str(a.role)}`;
+    case 'staff.removed':
+      return `Removed ${str(b.name)}`;
+    case 'staff.role_changed':
+      return `${str(b.role)} → ${str(a.role)}`;
+    case 'staff.status_changed':
+      return `${str(b.status)} → ${str(a.status)}`;
+    default: {
+      const changed = Object.keys(a).filter((k) => k in b);
+      return changed.length
+        ? changed.map((k) => `${k}: ${str(b[k])} → ${str(a[k])}`).join(', ')
+        : undefined;
+    }
+  }
+}
+
+/** The team activity feed: the audit trail, phrased for people. */
 @Injectable()
 export class TeamActivityService {
-  constructor(private readonly repo: TeamActivityRepository) {}
+  constructor(private readonly audit: AuditService) {}
 
   async getActivity(
     user: { businessId: string },
     query: QueryActivityDto,
   ): Promise<PaginatedActivity> {
-    const limit = query.limit;
-    const page = query.page;
-    // fetch more than limit per source to ensure ordering after union
-    const fetchLimit = limit * 3;
-
-    const [sales, inventory, invites] = await Promise.all([
-      this.repo.findRecentSales(user.businessId, fetchLimit),
-      this.repo.findRecentInventory(user.businessId, fetchLimit),
-      this.repo.findRecentInvites(user.businessId, fetchLimit),
-    ]);
-
-    const userIds = [
-      ...sales.map((s) => s.soldBy),
-      ...inventory.map((i) => i.createdBy),
-      ...inventory
-        .filter((i) => i.confirmedBy)
-        .map((i) => i.confirmedBy as string),
-      ...invites.map((m) => m.userId),
-    ].filter(Boolean);
-
-    const names = await this.repo.resolveUserNames([...new Set(userIds)]);
-
-    const entries: ActivityEntry[] = [];
-
-    for (const s of sales) {
-      const isRefund = s.status === 'refunded';
-      const name = names.get(s.soldBy) ?? 'Unknown';
-      entries.push({
-        id: `sale-${s.id}${isRefund ? '-refund' : ''}`,
-        userId: s.soldBy,
-        userName: name,
-        action: isRefund ? 'Refunded Sale' : 'Recorded Sale',
-        entity: isRefund ? 'refund' : 'sale',
-        entityId: s.id,
-        timestamp: s.createdAt.toISOString(),
-        details: isRefund
-          ? `Refunded sale ${s.id}${s.refundReason ? ` — ${s.refundReason}` : ''}`
-          : `Sold ${s.itemCount ?? 0} item(s) for ₦${Number(s.total).toLocaleString()}`,
-      });
-    }
-
-    for (const inv of inventory) {
-      const creatorName = names.get(inv.createdBy) ?? 'Unknown';
-      entries.push({
-        id: `inventory-${inv.id}`,
-        userId: inv.createdBy,
-        userName: creatorName,
-        action: 'Added Inventory',
-        entity: 'inventory',
-        entityId: inv.id,
-        timestamp: inv.createdAt.toISOString(),
-        details: `Added ${inv.quantity} units of ${inv.name}`,
-      });
-      if (inv.confirmedBy && inv.confirmedAt) {
-        const confirmer = names.get(inv.confirmedBy) ?? 'Unknown';
-        entries.push({
-          id: `inventory-${inv.id}-confirmed`,
-          userId: inv.confirmedBy,
-          userName: confirmer,
-          action: 'Confirmed Inventory',
-          entity: 'inventory',
-          entityId: inv.id,
-          timestamp: inv.confirmedAt.toISOString(),
-          details: `Confirmed ${inv.name}`,
-        });
-      }
-    }
-
-    for (const m of invites) {
-      const name = names.get(m.userId) ?? m.name;
-      entries.push({
-        id: `team-${m.id}`,
-        userId: m.userId,
-        userName: name,
-        action: 'Invited User',
-        entity: 'team',
-        entityId: m.id,
-        timestamp: m.createdAt.toISOString(),
-        details: `Invited ${m.name} as ${m.role}`,
-      });
-    }
-
-    entries.sort(
-      (a, b) =>
-        new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
-    );
-
-    const total = entries.length;
-    const pages = Math.max(1, Math.ceil(total / limit));
-    const start = (page - 1) * limit;
-    const paged = entries.slice(start, start + limit);
-
+    const { page, limit } = query;
+    const [events, total] = await this.audit.page(user.businessId, page, limit);
     return {
-      data: paged,
-      pagination: { page, limit, total, pages },
+      data: events.map((e) => {
+        const [action, entity] = LABELS[e.action];
+        return {
+          id: e.id,
+          userId: e.actorUserId ?? '',
+          userName: e.actorName,
+          action,
+          entity,
+          entityId: e.entityId ?? undefined,
+          timestamp: e.createdAt.toISOString(),
+          details: detailsOf(e),
+        };
+      }),
+      pagination: {
+        page,
+        limit,
+        total,
+        pages: Math.max(1, Math.ceil(total / limit)),
+      },
     };
   }
 }

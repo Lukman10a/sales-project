@@ -1,14 +1,19 @@
-import { BadRequestException, UnauthorizedException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { AuthService } from './auth.service';
 import { UsersRepository } from './users.repository';
 import { User } from '../entities/user.entity';
-import { TeamMember } from '../entities/team-member.entity';
-import { ALL_PERMISSIONS } from '../common/constants/permissions';
+import { PERMISSIONS } from '../common/constants/permissions';
+import type { Principal } from './principal.service';
 
 jest.mock('bcrypt', () => ({
   hash: jest.fn(),
   compare: jest.fn(),
+  getRounds: jest.fn(() => 12),
 }));
 
 describe('AuthService', () => {
@@ -19,15 +24,25 @@ describe('AuthService', () => {
     create: jest.Mock<User, [Partial<User>]>;
     save: jest.Mock<Promise<User>, [User]>;
   };
-  let teamMemberRepository: {
-    findByBusinessAndUser: jest.Mock<
-      Promise<TeamMember | null>,
-      [string, string]
-    >;
+  let audit: { record: jest.Mock };
+  let principals: {
+    resolve: jest.Mock<Promise<Principal | null>, [string, string]>;
+    invalidate: jest.Mock;
   };
   let jwtService: {
     signAsync: jest.Mock<Promise<string>, [object, object]>;
     verify: jest.Mock;
+    verifyAsync: jest.Mock;
+  };
+  let twoFactorService: {
+    isEnabled: jest.Mock<boolean, [User]>;
+    check: jest.Mock;
+    describe: jest.Mock;
+  };
+  const twoFactorOff = {
+    twoFactorEnabled: false,
+    twoFactorRequired: false,
+    twoFactorSetupRequired: false,
   };
   let sessionsService: {
     start: jest.Mock;
@@ -58,25 +73,57 @@ describe('AuthService', () => {
     businessId: 'u1',
     role: 'owner',
     status: 'active',
+    createdAt: new Date(),
+    emailVerifiedAt: new Date(),
+    failedLoginAttempts: 0,
+    lockedUntil: null,
   } as unknown as User;
+  /** A fresh copy: login mutates the user it loads. */
+  const freshUser = (overrides: Partial<User> = {}) => ({
+    ...baseUser,
+    ...overrides,
+  });
+  let accountService: {
+    sendVerificationInBackground: jest.Mock;
+    accountLocked: jest.Mock;
+  };
 
   beforeEach(() => {
     usersRepository = {
       findByEmail: jest.fn((_email: string) => Promise.resolve(null)),
       findById: jest.fn((_id: string) => Promise.resolve(null)),
-      create: jest.fn((data: Partial<User>) => ({ id: 'u1', ...data }) as User),
+      create: jest.fn(
+        (data: Partial<User>) =>
+          ({ id: 'u1', createdAt: new Date(), ...data }) as User,
+      ),
       save: jest.fn((user: User) => Promise.resolve(user)),
     };
-    teamMemberRepository = {
-      findByBusinessAndUser: jest.fn((_businessId: string, _userId: string) =>
-        Promise.resolve(null),
+    principals = {
+      resolve: jest.fn((id: string, businessId: string) =>
+        Promise.resolve<Principal | null>({
+          id,
+          name: 'Ada Owner',
+          email: 'owner@luxa.com',
+          role: 'owner',
+          businessId,
+          businessName: 'LUXA',
+          permissions: [...PERMISSIONS],
+          maxDiscountPercent: 100,
+        }),
       ),
+      invalidate: jest.fn(),
     };
     jwtService = {
       signAsync: jest.fn((_payload: object, _options: object) =>
         Promise.resolve('signed-token'),
       ),
       verify: jest.fn(),
+      verifyAsync: jest.fn(),
+    };
+    twoFactorService = {
+      isEnabled: jest.fn((_user: User) => false),
+      check: jest.fn(),
+      describe: jest.fn().mockResolvedValue(twoFactorOff),
     };
     configService = {
       get: jest.fn((_key: string): string | undefined => undefined),
@@ -97,14 +144,30 @@ describe('AuthService', () => {
       revokeOne: jest.fn().mockResolvedValue(undefined),
     };
 
+    accountService = {
+      sendVerificationInBackground: jest.fn(),
+      accountLocked: jest.fn(),
+    };
+    audit = { record: jest.fn().mockResolvedValue(undefined) };
     service = new AuthService(
+      audit as never,
+      { run: <T>(fn: () => Promise<T>) => fn() } as never,
       usersRepository as unknown as UsersRepository,
       jwtService as never,
       configService as never,
-      teamMemberRepository as never,
       sessionsService as never,
+      accountService as never,
+      twoFactorService as never,
+      principals as never,
     );
   });
+
+  /** Signs in with no 2FA step and narrows the result to the session form. */
+  async function signedIn(...args: Parameters<AuthService['login']>) {
+    const result = await service.login(...args);
+    if (result.mfaRequired) throw new Error('unexpected 2FA challenge');
+    return result;
+  }
 
   afterEach(() => {
     jest.clearAllMocks();
@@ -141,9 +204,15 @@ describe('AuthService', () => {
           firstName: 'Ada',
           role: 'owner',
           status: 'active',
+          requireTwoFactor: true,
         }),
       );
-      expect(bcrypt.hash).toHaveBeenCalledWith(dto.password, 10);
+      expect(bcrypt.hash).toHaveBeenCalledWith(dto.password, 12);
+      expect(accountService.sendVerificationInBackground).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 'u1', emailVerifiedAt: null }),
+      );
+      expect(result.user.emailVerified).toBe(false);
+      expect(result.user.verifyBy).toEqual(expect.any(String));
       expect(result.message).toBe('User registered successfully');
       expect(result.user.businessId).toBe('u1');
       expect(result.session).toEqual({
@@ -173,23 +242,129 @@ describe('AuthService', () => {
       );
     });
 
-    it('throws UnauthorizedException for an incorrect password', async () => {
-      usersRepository.findByEmail.mockResolvedValue(baseUser);
+    it('spends bcrypt time even for an unknown email', async () => {
+      usersRepository.findByEmail.mockResolvedValue(null);
+      await expect(service.login(dto)).rejects.toThrow('Invalid credentials');
+      expect(bcrypt.compare).toHaveBeenCalled();
+      // No account means no business to file it under.
+      expect(audit.record).not.toHaveBeenCalled();
+    });
+
+    it('counts a wrong password', async () => {
+      const user = freshUser({ failedLoginAttempts: 2 });
+      usersRepository.findByEmail.mockResolvedValue(user);
 
       await expect(service.login(dto)).rejects.toBeInstanceOf(
         UnauthorizedException,
       );
+      expect(user.failedLoginAttempts).toBe(3);
+      expect(usersRepository.save).toHaveBeenCalledWith(user);
+      expect(accountService.accountLocked).not.toHaveBeenCalled();
+      expect(audit.record).toHaveBeenCalledTimes(1);
+      expect((audit.record.mock.lastCall as unknown[])[0]).toMatchObject({
+        businessId: 'u1',
+        action: 'auth.sign_in_failed',
+        entityId: 'u1',
+        after: { reason: 'wrong_password', locked: false },
+      });
     });
 
-    it('returns tokens and user for valid credentials', async () => {
-      usersRepository.findByEmail.mockResolvedValue(baseUser);
+    it('locks the account on the 5th wrong password and reports it', async () => {
+      const user = freshUser({ failedLoginAttempts: 4 });
+      usersRepository.findByEmail.mockResolvedValue(user);
+      const ctx = { ip: '9.9.9.9' };
+
+      await expect(service.login(dto, ctx)).rejects.toThrow(
+        'Invalid credentials',
+      );
+      expect(user.lockedUntil).toBeInstanceOf(Date);
+      expect(accountService.accountLocked).toHaveBeenCalledWith(user, ctx);
+      expect((audit.record.mock.lastCall as unknown[])[0]).toMatchObject({
+        action: 'auth.sign_in_failed',
+        after: { locked: true },
+        context: ctx,
+      });
+    });
+
+    it('refuses a locked account even with the right password', async () => {
+      const user = freshUser({
+        lockedUntil: new Date(Date.now() + 60_000),
+        password: 'real-hash',
+      });
+      usersRepository.findByEmail.mockResolvedValue(user);
+      (bcrypt.compare as jest.Mock).mockResolvedValue(true);
+
+      await expect(service.login(dto)).rejects.toThrow('Invalid credentials');
+      expect(bcrypt.compare).not.toHaveBeenCalledWith(
+        dto.password,
+        'real-hash',
+      );
+      expect(sessionsService.start).not.toHaveBeenCalled();
+      expect(audit.record).toHaveBeenCalledTimes(1);
+      expect((audit.record.mock.lastCall as unknown[])[0]).toMatchObject({
+        action: 'auth.sign_in_failed',
+        after: { reason: 'locked' },
+      });
+    });
+
+    it('rejects a deactivated account after the password check', async () => {
+      usersRepository.findByEmail.mockResolvedValue(
+        freshUser({ status: 'inactive' }),
+      );
+      (bcrypt.compare as jest.Mock).mockResolvedValue(true);
+
+      await expect(service.login(dto)).rejects.toThrow(
+        'This account has been deactivated',
+      );
+    });
+
+    it('rejects an owner who has not verified within 7 days', async () => {
+      usersRepository.findByEmail.mockResolvedValue(
+        freshUser({
+          emailVerifiedAt: null,
+          createdAt: new Date(Date.now() - 8 * 24 * 60 * 60_000),
+        }),
+      );
+      (bcrypt.compare as jest.Mock).mockResolvedValue(true);
+
+      await expect(service.login(dto)).rejects.toBeInstanceOf(
+        ForbiddenException,
+      );
+    });
+
+    it('lets an unverified owner in during the grace period', async () => {
+      usersRepository.findByEmail.mockResolvedValue(
+        freshUser({ emailVerifiedAt: null }),
+      );
+      (bcrypt.compare as jest.Mock).mockResolvedValue(true);
+
+      const result = await signedIn(dto);
+      expect(result.user.emailVerified).toBe(false);
+    });
+
+    it('re-hashes a password stored at an outdated cost', async () => {
+      const user = freshUser();
+      usersRepository.findByEmail.mockResolvedValue(user);
+      (bcrypt.compare as jest.Mock).mockResolvedValue(true);
+      (bcrypt.getRounds as jest.Mock).mockReturnValueOnce(10);
+      (bcrypt.hash as jest.Mock).mockResolvedValue('upgraded-hash');
+
+      await service.login(dto);
+
+      expect(bcrypt.hash).toHaveBeenCalledWith(dto.password, 12);
+      expect(user.password).toBe('upgraded-hash');
+    });
+
+    it('returns tokens and user for valid credentials and clears failures', async () => {
+      const user = freshUser({ failedLoginAttempts: 3 });
+      usersRepository.findByEmail.mockResolvedValue(user);
       (bcrypt.compare as jest.Mock).mockResolvedValue(true);
       usersRepository.save.mockImplementation((user: User) =>
         Promise.resolve(user),
       );
 
       const ctx = { userAgent: 'UA', ip: '1.2.3.4' };
-      const result = await service.login({ ...dto, remember: true }, ctx);
+      const result = await signedIn({ ...dto, remember: true }, ctx);
 
       expect(result.session.accessToken).toBe('signed-token');
       expect(result.session.refreshToken).toBe('opaque-rt');
@@ -202,6 +377,15 @@ describe('AuthService', () => {
       expect(usersRepository.save).toHaveBeenCalled();
       const savedArg = usersRepository.save.mock.calls[0][0];
       expect(savedArg.lastLogin).toBeInstanceOf(Date);
+      expect(savedArg.failedLoginAttempts).toBe(0);
+      expect(audit.record).toHaveBeenCalledTimes(1);
+      expect((audit.record.mock.lastCall as unknown[])[0]).toMatchObject({
+        businessId: 'u1',
+        action: 'auth.signed_in',
+        entityId: 'u1',
+        after: { method: 'password', persistent: true },
+        context: ctx,
+      });
     });
   });
 
@@ -236,6 +420,19 @@ describe('AuthService', () => {
       expect(sessionsService.revoke).toHaveBeenCalledWith('sid-1');
     });
 
+    it('revokes the session of an owner whose verification is overdue', async () => {
+      usersRepository.findById.mockResolvedValue(
+        freshUser({
+          emailVerifiedAt: null,
+          createdAt: new Date(Date.now() - 8 * 24 * 60 * 60_000),
+        }),
+      );
+      await expect(service.refresh('token')).rejects.toBeInstanceOf(
+        UnauthorizedException,
+      );
+      expect(sessionsService.revoke).toHaveBeenCalledWith('sid-1');
+    });
+
     it('returns the rotated session with a fresh access token', async () => {
       usersRepository.findById.mockResolvedValue(baseUser);
 
@@ -261,39 +458,47 @@ describe('AuthService', () => {
     });
 
     it('revokes every session on logout-all', async () => {
-      await expect(service.logoutAll('u1')).resolves.toEqual({
+      await expect(
+        service.logoutAll({ id: 'u1', businessId: 'b1' }),
+      ).resolves.toEqual({
         message: 'Logged out everywhere',
         revoked: 2,
       });
       expect(sessionsService.revokeAll).toHaveBeenCalledWith('u1');
+      expect(audit.record).toHaveBeenCalledTimes(1);
+      expect((audit.record.mock.lastCall as unknown[])[0]).toMatchObject({
+        businessId: 'b1',
+        action: 'session.revoked_all',
+        after: { revoked: 2 },
+      });
     });
 
     it('lists and revokes devices through the sessions service', async () => {
       await service.listSessions('u1', 'sid-1');
       expect(sessionsService.list).toHaveBeenCalledWith('u1', 'sid-1');
 
-      await service.revokeSession('u1', 'sid-2');
+      await service.revokeSession({ id: 'u1', businessId: 'b1' }, 'sid-2');
       expect(sessionsService.revokeOne).toHaveBeenCalledWith('u1', 'sid-2');
+      expect(audit.record).toHaveBeenCalledTimes(1);
+      expect((audit.record.mock.lastCall as unknown[])[0]).toMatchObject({
+        action: 'session.revoked',
+        entityId: 'sid-2',
+      });
     });
   });
 
   describe('signAccessToken', () => {
-    it('signs an access token bound to the session', async () => {
-      const token = await (
+    const sign = (u: User) =>
+      (
         service as unknown as {
           signAccessToken: (u: User, sid: string) => Promise<string>;
         }
-      ).signAccessToken(baseUser, 'sid-1');
+      ).signAccessToken(u, 'sid-1');
 
-      expect(token).toBe('signed-token');
-      expect(jwtService.signAsync).toHaveBeenCalledTimes(1);
+    it('signs identity only: user, session and business', async () => {
+      await expect(sign(baseUser)).resolves.toBe('signed-token');
       expect(jwtService.signAsync).toHaveBeenCalledWith(
-        expect.objectContaining({
-          sub: 'u1',
-          sid: 'sid-1',
-          role: 'owner',
-          permissions: [...ALL_PERMISSIONS],
-        }),
+        { sub: 'u1', sid: 'sid-1', bid: 'u1' },
         { expiresIn: '15m' },
       );
     });
@@ -302,139 +507,81 @@ describe('AuthService', () => {
       configService.get = jest.fn((key: string) =>
         key === 'JWT_EXPIRES_IN' ? '1m' : undefined,
       );
-
-      await (
-        service as unknown as {
-          signAccessToken: (u: User, sid: string) => Promise<string>;
-        }
-      ).signAccessToken(baseUser, 'sid-1');
-
-      expect(jwtService.signAsync).toHaveBeenNthCalledWith(
-        1,
+      await sign(baseUser);
+      expect(jwtService.signAsync).toHaveBeenCalledWith(
         expect.objectContaining({ sub: 'u1' }),
         expect.objectContaining({ expiresIn: '1m' }),
       );
     });
 
-    it('includes staffRole in the access token payload for staff users', async () => {
-      const staffUser = {
-        ...baseUser,
-        role: 'apprentice',
-        staffRole: 'manager',
-      } as unknown as User;
-
-      await (
-        service as unknown as {
-          signAccessToken: (u: User, sid: string) => Promise<string>;
-        }
-      ).signAccessToken(staffUser, 'sid-1');
-
-      expect(jwtService.signAsync).toHaveBeenNthCalledWith(
-        1,
-        expect.objectContaining({ staffRole: 'manager' }),
+    it("binds a staff member's token to their employer", async () => {
+      await sign({ ...baseUser, id: 's1', businessId: 'b1' });
+      expect(jwtService.signAsync).toHaveBeenCalledWith(
+        { sub: 's1', sid: 'sid-1', bid: 'b1' },
         expect.anything(),
       );
     });
   });
 
-  describe('effective permissions', () => {
-    const managerUser = {
-      ...baseUser,
-      role: 'manager',
+  describe('principal checks', () => {
+    const cashier: Principal = {
+      id: 's1',
+      name: 'Kelechi',
+      email: 'kelechi@shop.ng',
+      role: 'cashier',
       businessId: 'b1',
-      staffRole: 'manager',
+      businessName: 'LUXA',
+      permissions: ['sales.record'],
+      maxDiscountPercent: 0,
+    };
+    const staffUser = {
+      ...baseUser,
+      id: 's1',
+      email: 'kelechi@shop.ng',
+      role: 'cashier',
+      businessId: 'b1',
     } as unknown as User;
 
-    const signAccessToken = () =>
-      (
-        service as unknown as {
-          signAccessToken: (u: User, sid: string) => Promise<string>;
-        }
-      ).signAccessToken(managerUser, 'sid-1');
+    it("reports the member's current permissions and discount cap", async () => {
+      principals.resolve.mockResolvedValue(cashier);
+      usersRepository.findById.mockResolvedValue(staffUser);
 
-    it('loads real permissions from the TeamMember row into the token for a non-owner', async () => {
-      teamMemberRepository.findByBusinessAndUser.mockResolvedValue({
-        role: 'manager',
-        permissions: ['record-sales', 'view-inventory'],
-      } as unknown as TeamMember);
-
-      await signAccessToken();
-
-      expect(teamMemberRepository.findByBusinessAndUser).toHaveBeenCalledWith(
-        'b1',
-        'u1',
-      );
-      expect(jwtService.signAsync).toHaveBeenNthCalledWith(
-        1,
-        expect.objectContaining({
-          permissions: ['record-sales', 'view-inventory'],
-        }),
-        expect.anything(),
-      );
+      await expect(service.me('s1')).resolves.toMatchObject({
+        role: 'cashier',
+        permissions: ['sales.record'],
+        maxDiscountPercent: 0,
+      });
+      expect(principals.resolve).toHaveBeenCalledWith('s1', 'b1');
     });
 
-    it('falls back to role default permissions when the TeamMember permissions are empty', async () => {
-      teamMemberRepository.findByBusinessAndUser.mockResolvedValue({
-        role: 'manager',
-        permissions: [],
-      } as unknown as TeamMember);
+    it('refuses to sign in a member who has lost access', async () => {
+      principals.resolve.mockResolvedValue(null);
+      usersRepository.findByEmail.mockResolvedValue(staffUser);
+      (bcrypt.compare as jest.Mock).mockResolvedValue(true);
 
-      await signAccessToken();
-
-      expect(jwtService.signAsync).toHaveBeenNthCalledWith(
-        1,
-        expect.objectContaining({
-          permissions: [
-            'view-products',
-            'edit-products',
-            'view-sales-history',
-            'record-sales',
-            'view-inventory',
-            'edit-inventory',
-            'assign-roles',
-            'view-reports',
-          ],
-        }),
-        expect.anything(),
-      );
+      await expect(
+        service.login({ email: 'kelechi@shop.ng', password: 'Password1' }),
+      ).rejects.toMatchObject({
+        response: { code: 'ACCOUNT_INACTIVE' },
+      });
+      expect(sessionsService.start).not.toHaveBeenCalled();
     });
 
-    it('keeps empty permissions for staff with no TeamMember row', async () => {
-      teamMemberRepository.findByBusinessAndUser.mockResolvedValue(null);
+    it('ends the session family on refresh once access is gone', async () => {
+      usersRepository.findById.mockResolvedValue(staffUser);
+      principals.resolve.mockResolvedValue(null);
 
-      await signAccessToken();
-
-      expect(jwtService.signAsync).toHaveBeenNthCalledWith(
-        1,
-        expect.objectContaining({ permissions: [] }),
-        expect.anything(),
+      await expect(service.refresh('rt')).rejects.toBeInstanceOf(
+        UnauthorizedException,
       );
+      expect(sessionsService.revoke).toHaveBeenCalledWith(issued.familyId);
     });
 
-    it('never queries the TeamMember row for an owner', async () => {
-      await (
-        service as unknown as {
-          signAccessToken: (u: User, sid: string) => Promise<unknown>;
-        }
-      ).signAccessToken(baseUser, 'sid-1');
-
-      expect(teamMemberRepository.findByBusinessAndUser).not.toHaveBeenCalled();
-    });
-
-    it('includes the real permissions in the /auth/me response', async () => {
-      teamMemberRepository.findByBusinessAndUser.mockResolvedValue({
-        role: 'manager',
-        permissions: ['view-sales-history'],
-      } as unknown as TeamMember);
-      usersRepository.findById.mockResolvedValue(managerUser);
-
-      const result = await service.me('u1');
-
-      expect(result).toEqual(
-        expect.objectContaining({
-          permissions: ['view-sales-history'],
-        }),
-      );
+    it('re-reads permissions at sign-in instead of trusting the cache', async () => {
+      usersRepository.findByEmail.mockResolvedValue(baseUser);
+      (bcrypt.compare as jest.Mock).mockResolvedValue(true);
+      await signedIn({ email: 'owner@luxa.com', password: 'Password1' });
+      expect(principals.invalidate).toHaveBeenCalledWith('u1');
     });
   });
 
@@ -447,29 +594,147 @@ describe('AuthService', () => {
       );
     });
 
-    it('returns the full user shape including avatar, staffRole and permissions', async () => {
-      const staffUser = {
+    it('returns the full user shape including avatar and permissions', async () => {
+      usersRepository.findById.mockResolvedValue({
         ...baseUser,
-        role: 'apprentice',
-        staffRole: 'manager',
         avatar: 'data:image/png;base64,abc',
-      } as unknown as User;
-      usersRepository.findById.mockResolvedValue(staffUser);
+      });
 
-      const result = await service.me('u1');
-
-      expect(result).toEqual({
+      await expect(service.me('u1')).resolves.toEqual({
         id: 'u1',
         email: 'owner@luxa.com',
         firstName: 'Ada',
         lastName: 'Lovelace',
         businessName: 'LUXA',
         businessId: 'u1',
-        role: 'apprentice',
+        role: 'owner',
         avatar: 'data:image/png;base64,abc',
-        staffRole: 'manager',
-        permissions: [],
+        permissions: [...PERMISSIONS],
+        maxDiscountPercent: 100,
+        emailVerified: true,
+        verifyBy: null,
+        ...twoFactorOff,
       });
+    });
+  });
+
+  describe('two-step sign-in', () => {
+    const dto = { email: 'owner@luxa.com', password: 'Password1' };
+    const ctx = { userAgent: 'UA', ip: '1.2.3.4' };
+
+    beforeEach(() => {
+      twoFactorService.isEnabled.mockReturnValue(true);
+    });
+
+    it('returns a challenge instead of a session when 2FA is on', async () => {
+      const user = freshUser({ failedLoginAttempts: 2 });
+      usersRepository.findByEmail.mockResolvedValue(user);
+      (bcrypt.compare as jest.Mock).mockResolvedValue(true);
+      jwtService.signAsync.mockResolvedValue('challenge-token');
+
+      const result = await service.login({ ...dto, remember: true }, ctx);
+
+      expect(result).toEqual({
+        mfaRequired: true,
+        challenge: 'challenge-token',
+      });
+      expect(sessionsService.start).not.toHaveBeenCalled();
+      expect(jwtService.signAsync).toHaveBeenCalledWith(
+        { sub: 'u1', typ: 'mfa', rem: true },
+        { expiresIn: '5m', audience: 'luxa:mfa-challenge' },
+      );
+      // Failures are only cleared once the code is right.
+      expect(user.failedLoginAttempts).toBe(2);
+    });
+
+    it('still refuses a wrong password before any 2FA step', async () => {
+      usersRepository.findByEmail.mockResolvedValue(freshUser());
+      await expect(service.login(dto)).rejects.toThrow('Invalid credentials');
+      expect(jwtService.signAsync).not.toHaveBeenCalled();
+    });
+
+    it('signs in with a valid code, keeping the trust-this-device choice', async () => {
+      const user = freshUser({ failedLoginAttempts: 3 });
+      jwtService.verifyAsync.mockResolvedValue({
+        sub: 'u1',
+        typ: 'mfa',
+        rem: true,
+      });
+      usersRepository.findById.mockResolvedValue(user);
+      twoFactorService.check.mockResolvedValue('totp');
+
+      const result = await service.verifyTwoFactor('challenge', '123456', ctx);
+
+      expect(jwtService.verifyAsync).toHaveBeenCalledWith('challenge', {
+        audience: 'luxa:mfa-challenge',
+      });
+      expect(twoFactorService.check).toHaveBeenCalledWith(
+        user,
+        '123456',
+        ctx,
+        'sign-in',
+      );
+      expect(sessionsService.start).toHaveBeenCalledWith(
+        { id: 'u1', businessId: 'u1' },
+        ctx,
+        true,
+      );
+      expect(result.session.accessToken).toBe('signed-token');
+      expect(user.failedLoginAttempts).toBe(0);
+      expect(user.lastLogin).toBeInstanceOf(Date);
+    });
+
+    it('counts a wrong code toward the lockout', async () => {
+      const user = freshUser({ failedLoginAttempts: 4 });
+      jwtService.verifyAsync.mockResolvedValue({
+        sub: 'u1',
+        typ: 'mfa',
+        rem: false,
+      });
+      usersRepository.findById.mockResolvedValue(user);
+      twoFactorService.check.mockResolvedValue(null);
+
+      await expect(
+        service.verifyTwoFactor('challenge', '000000', ctx),
+      ).rejects.toBeInstanceOf(UnauthorizedException);
+
+      expect(user.lockedUntil).toBeInstanceOf(Date);
+      expect(accountService.accountLocked).toHaveBeenCalledWith(user, ctx);
+      expect(sessionsService.start).not.toHaveBeenCalled();
+    });
+
+    it('refuses a locked account without checking the code', async () => {
+      jwtService.verifyAsync.mockResolvedValue({ sub: 'u1', typ: 'mfa' });
+      usersRepository.findById.mockResolvedValue(
+        freshUser({ lockedUntil: new Date(Date.now() + 60_000) }),
+      );
+
+      await expect(
+        service.verifyTwoFactor('challenge', '123456'),
+      ).rejects.toBeInstanceOf(UnauthorizedException);
+      expect(twoFactorService.check).not.toHaveBeenCalled();
+    });
+
+    it('refuses an expired or foreign challenge', async () => {
+      jwtService.verifyAsync.mockRejectedValue(new Error('jwt expired'));
+      await expect(
+        service.verifyTwoFactor('challenge', '123456'),
+      ).rejects.toThrow('Your sign-in timed out');
+
+      jwtService.verifyAsync.mockResolvedValue({ sub: 'u1', sid: 'x' });
+      await expect(
+        service.verifyTwoFactor('access-token', '123456'),
+      ).rejects.toThrow('Your sign-in timed out');
+    });
+
+    it('refuses an inactive account at the code step', async () => {
+      jwtService.verifyAsync.mockResolvedValue({ sub: 'u1', typ: 'mfa' });
+      usersRepository.findById.mockResolvedValue(
+        freshUser({ status: 'inactive' }),
+      );
+      await expect(
+        service.verifyTwoFactor('challenge', '123456'),
+      ).rejects.toBeInstanceOf(ForbiddenException);
     });
   });
 });

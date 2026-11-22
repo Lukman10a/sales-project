@@ -30,16 +30,15 @@ export const emptyNewItem: Omit<InventoryItem, "id"> = {
   name: "",
   category: ["Accessories"],
   image: "",
-  wholesalePrice: 0,
+  costPrice: 0,
   sellingPrice: 0,
   quantity: 0,
   sold: 0,
   status: "in-stock",
-  confirmedByApprentice: false,
   reorderPoint: 0,
   barcode: "",
-  bundleQuantity: undefined,
-  bundlePrice: undefined,
+  cartonSize: undefined,
+  cartonPrice: undefined,
 };
 
 export const sortOptions = [

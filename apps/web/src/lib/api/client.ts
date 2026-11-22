@@ -16,12 +16,20 @@ export interface ApiErrorField {
 export class ApiError extends Error {
   errors?: ApiErrorField[];
   status?: number;
+  /** Machine-readable reason, e.g. EMAIL_UNVERIFIED or ACCOUNT_INACTIVE. */
+  code?: string;
 
-  constructor(message: string, errors?: ApiErrorField[], status?: number) {
+  constructor(
+    message: string,
+    errors?: ApiErrorField[],
+    status?: number,
+    code?: string,
+  ) {
     super(message);
     this.name = "ApiError";
     this.errors = errors;
     this.status = status;
+    this.code = code;
   }
 }
 
@@ -29,6 +37,7 @@ interface RequestOptions {
   method?: "GET" | "POST" | "PATCH" | "DELETE";
   body?: unknown;
   formData?: FormData;
+  headers?: Record<string, string>;
 }
 
 type FetchInit = {
@@ -42,6 +51,11 @@ export const CSRF_HEADER = "x-csrf-token";
 
 function baseUrl(): string {
   return process.env.NEXT_PUBLIC_API_URL ?? "/api";
+}
+
+/** Absolute URL of an API path, for links such as file downloads. */
+export function apiUrl(path: string): string {
+  return `${baseUrl()}${path}`;
 }
 
 export function readCookie(name: string): string | null {
@@ -118,11 +132,14 @@ export function refreshSession(): Promise<boolean> {
 async function toApiError(res: Response): Promise<ApiError> {
   let message = `Request failed with status ${res.status}`;
   let errors: ApiErrorField[] | undefined;
+  let code: string | undefined;
   try {
     const body = (await res.json()) as {
       message?: string | string[];
       errors?: ApiErrorField[];
+      code?: unknown;
     };
+    if (typeof body.code === "string") code = body.code;
     if (typeof body.message === "string") {
       message = body.message;
     } else if (Array.isArray(body.message)) {
@@ -134,7 +151,7 @@ async function toApiError(res: Response): Promise<ApiError> {
   } catch {
     // Non-JSON error body; keep the status fallback message.
   }
-  return new ApiError(message, errors, res.status);
+  return new ApiError(message, errors, res.status, code);
 }
 
 async function request<T>(
@@ -148,6 +165,9 @@ async function request<T>(
   };
   if (options.method && options.method !== "GET") {
     Object.assign(headers, csrfHeaders());
+  }
+  if (options.headers) {
+    Object.assign(headers, options.headers);
   }
 
   const init: FetchInit = { headers, credentials: "include" };
@@ -183,8 +203,11 @@ async function request<T>(
 
 export const api = {
   get: <T>(path: string) => request<T>(path, { method: "GET" }),
-  post: <T>(path: string, body?: unknown) =>
-    request<T>(path, { method: "POST", body }),
+  post: <T>(
+    path: string,
+    body?: unknown,
+    extra?: { headers?: Record<string, string> },
+  ) => request<T>(path, { method: "POST", body, headers: extra?.headers }),
   postForm: <T>(path: string, formData: FormData) =>
     request<T>(path, { method: "POST", formData }),
   patch: <T>(path: string, body?: unknown) =>

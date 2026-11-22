@@ -15,12 +15,11 @@ const baseItem: InventoryItem = {
   name: "Widget",
   category: [],
   image: "",
-  wholesalePrice: 5,
+  costPrice: 5,
   sellingPrice: 10,
   quantity: 2,
   sold: 0,
   status: "in-stock",
-  confirmedByApprentice: false,
   createdBy: "u1",
   createdByName: "Ada Lovelace",
 };
@@ -34,27 +33,10 @@ describe("ItemBasicInfoCard", () => {
     expect(screen.getByText("Ada Lovelace")).toBeInTheDocument();
   });
 
-  it("shows the confirmer name and date once confirmed", () => {
-    render(
-      <ItemBasicInfoCard
-        item={{
-          ...baseItem,
-          confirmedBy: "u2",
-          confirmedAt: "2026-08-02T10:00:00.000Z",
-          confirmedByName: "Grace Hopper",
-        }}
-      />,
-    );
+  it("shows the expiry date when set", () => {
+    render(<ItemBasicInfoCard item={{ ...baseItem, expiryDate: "2030-01-31" }} />);
 
-    expect(screen.getByText("Grace Hopper")).toBeInTheDocument();
-    expect(
-      screen.getByText(new Date("2026-08-02T10:00:00.000Z").toLocaleDateString()),
-    ).toBeInTheDocument();
-  });
-
-  it("does not show a confirmer row before confirmation", () => {
-    render(<ItemBasicInfoCard item={baseItem} />);
-
-    expect(screen.queryByText("Confirmed by")).not.toBeInTheDocument();
+    expect(screen.getByText("Expiry date")).toBeInTheDocument();
+    expect(screen.getByText("2030-01-31")).toBeInTheDocument();
   });
 });

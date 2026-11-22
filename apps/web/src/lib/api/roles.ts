@@ -1,5 +1,6 @@
 import type { AuthUser } from "./types";
 import type { Permission } from "@/types/teamTypes";
+import { fromBackendPermissions } from "./access-compat";
 
 export type StaffRole =
   | "sales-assistant"
@@ -21,15 +22,19 @@ export interface AppUser {
   businessId?: string;
   avatar: string;
   permissions?: Permission[];
+  /** Largest discount (percent) this user may give; owners 100. */
+  maxDiscountPercent?: number;
+  emailVerified?: boolean;
+  verifyBy?: string | null;
 }
 
 export const INVESTOR_COMING_SOON =
   "Investor portal is coming soon. Please use a staff account to continue.";
 
 /**
- * Map a backend staff role to the frontend role model. Backend `manager`
- * becomes `apprentice` with `staffRole = "manager"` so managers keep the
- * manager label the UI already understands.
+ * Map a backend role (owner, manager, cashier) to the frontend role model.
+ * Staff become `apprentice` with the staffRole the UI already understands:
+ * `manager` for managers and `checkout` for cashiers.
  */
 export function backendRoleToUserRole(
   role: string,
@@ -39,6 +44,8 @@ export function backendRoleToUserRole(
       return { role: "owner" };
     case "manager":
       return { role: "apprentice", staffRole: "manager" };
+    case "cashier":
+      return { role: "apprentice", staffRole: "checkout" };
     case "apprentice":
       return { role: "apprentice" };
     default:
@@ -80,6 +87,11 @@ export function mapAuthUser(backendUser: AuthUser): AppUser {
     businessName: backendUser.businessName,
     businessId: backendUser.businessId,
     avatar: backendUser.avatar ?? "",
-    permissions: backendUser.permissions as Permission[] | undefined,
+    permissions: backendUser.permissions
+      ? fromBackendPermissions(backendUser.permissions)
+      : undefined,
+    maxDiscountPercent: backendUser.maxDiscountPercent,
+    emailVerified: backendUser.emailVerified ?? true,
+    verifyBy: backendUser.verifyBy ?? null,
   };
 }

@@ -36,7 +36,6 @@ describe('NotificationsRepository', () => {
       managerMock.save.mockResolvedValue(notification);
 
       const data = {
-        businessId: 'b1',
         userId: 'u1',
         type: 'inventory' as const,
         title: 'Low Stock Alert',
@@ -44,9 +43,12 @@ describe('NotificationsRepository', () => {
         metadata: { productId: 'p1' },
       };
 
-      const result = await repository.createNotification(data);
+      const result = await repository.createNotification('b1', data);
 
-      expect(managerMock.create).toHaveBeenCalledWith(Notification, data);
+      expect(managerMock.create).toHaveBeenCalledWith(Notification, {
+        ...data,
+        businessId: 'b1',
+      });
       expect(managerMock.save).toHaveBeenCalledWith(notification);
       expect(result).toBe(notification);
     });
@@ -61,7 +63,7 @@ describe('NotificationsRepository', () => {
       } as Notification;
       managerMock.findOne.mockResolvedValue(notification);
 
-      await expect(repository.findByIdAndUser('n1', 'b1', 'u1')).resolves.toBe(
+      await expect(repository.findByIdAndUser('b1', 'n1', 'u1')).resolves.toBe(
         notification,
       );
       expect(managerMock.findOne).toHaveBeenCalledWith(Notification, {
@@ -82,12 +84,13 @@ describe('NotificationsRepository', () => {
     it('marks the notification as read and saves it', async () => {
       const notification = {
         id: 'n1',
+        businessId: 'b1',
         read: false,
       } as Notification;
       const saved = { ...notification, read: true };
       managerMock.save.mockResolvedValue(saved);
 
-      const result = await repository.markAsRead(notification);
+      const result = await repository.markAsRead('b1', notification);
 
       expect(notification.read).toBe(true);
       expect(managerMock.save).toHaveBeenCalledWith(notification);
@@ -97,10 +100,10 @@ describe('NotificationsRepository', () => {
 
   describe('removeNotification', () => {
     it('removes the notification through the manager', async () => {
-      const notification = { id: 'n1' } as Notification;
+      const notification = { id: 'n1', businessId: 'b1' } as Notification;
       managerMock.remove.mockResolvedValue(notification);
 
-      await repository.removeNotification(notification);
+      await repository.removeNotification('b1', notification);
 
       expect(managerMock.remove).toHaveBeenCalledWith(notification);
     });
@@ -142,8 +145,7 @@ describe('NotificationsRepository', () => {
       jest.spyOn(repository, 'createQueryBuilder').mockReturnValue(qb as never);
       managerMock.count.mockResolvedValue(3);
 
-      const result = await repository.list({
-        businessId: 'b1',
+      const result = await repository.list('b1', {
         userId: 'u1',
         page: 1,
         limit: 20,
@@ -188,8 +190,7 @@ describe('NotificationsRepository', () => {
       jest.spyOn(repository, 'createQueryBuilder').mockReturnValue(qb as never);
       managerMock.count.mockResolvedValue(0);
 
-      await repository.list({
-        businessId: 'b1',
+      await repository.list('b1', {
         userId: 'u1',
         page: 1,
         limit: 20,

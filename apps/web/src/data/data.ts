@@ -38,9 +38,9 @@ export const actions: QuickAction[] = [
 
 export const apprenticeActions: QuickAction[] = [
   {
-    id: "confirm-stock",
-    title: "Confirm Stock",
-    description: "Verify incoming inventory",
+    id: "expiring-stock",
+    title: "Expiring Soon",
+    description: "Products expiring in 30 days",
     icon: CheckCircle,
     variant: "accent",
     href: "/inventory",

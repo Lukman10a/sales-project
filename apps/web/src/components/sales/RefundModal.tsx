@@ -23,6 +23,30 @@ import {
 import { useLanguage } from "@/contexts/LanguageContext";
 import { SaleRecord } from "@/types/salesTypes";
 import { cn } from "@/lib/utils";
+import type { RefundLine } from "@/lib/refund";
+
+type SaleLine = SaleRecord["items"][number];
+
+const leftOf = (line: SaleLine) => line.quantity - (line.refundedQuantity ?? 0);
+
+/** What is still refundable on a sale. */
+const remainingOf = (sale: SaleRecord) =>
+  Math.max(0, sale.total - (sale.refundAmount ?? 0));
+
+/**
+ * The share of what was paid that the chosen lines give back (discount and
+ * VAT in proportion). The server works out the exact figure.
+ */
+function estimateRefund(sale: SaleRecord, qty: Record<string, number>): number {
+  const subtotal =
+    sale.subtotal ?? sale.items.reduce((s, l) => s + l.price * l.quantity, 0);
+  if (subtotal <= 0) return 0;
+  const lines = sale.items.reduce(
+    (s, l) => s + (l.id ? (qty[l.id] ?? 0) * l.price : 0),
+    0,
+  );
+  return Math.min(remainingOf(sale), (lines * sale.total) / subtotal);
+}
 
 interface RefundModalProps {
   open: boolean;
@@ -30,8 +54,8 @@ interface RefundModalProps {
   onClose: () => void;
   onProcessRefund: (
     saleId: string,
-    refundAmount: number,
     reason: string,
+    items?: RefundLine[],
   ) => void;
 }
 
@@ -44,12 +68,15 @@ export default function RefundModal({
   const { t, formatCurrency } = useLanguage();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedSale, setSelectedSale] = useState<SaleRecord | null>(null);
-  const [refundAmount, setRefundAmount] = useState(0);
+  const [lineQty, setLineQty] = useState<Record<string, number>>({});
   const [refundReason, setRefundReason] = useState("");
   const [refundType, setRefundType] = useState<"full" | "partial">("full");
 
   const completedSales = useMemo(
-    () => recentSales.filter((s) => s.status === "completed"),
+    () =>
+      recentSales.filter(
+        (s) => s.status === "completed" || s.status === "partial-refund",
+      ),
     [recentSales],
   );
 
@@ -65,29 +92,49 @@ export default function RefundModal({
 
   const handleSelectSale = (sale: SaleRecord) => {
     setSelectedSale(sale);
-    setRefundAmount(sale.total);
+    setLineQty({});
     setRefundType("full");
     setRefundReason("");
   };
 
   const handleRefundTypeChange = (type: "full" | "partial") => {
     setRefundType(type);
-    if (type === "full" && selectedSale) {
-      setRefundAmount(selectedSale.total);
-    }
+    setLineQty({});
   };
+
+  const setQty = (line: SaleLine, value: number) => {
+    if (!line.id) return;
+    const id = line.id;
+    setLineQty((q) => ({
+      ...q,
+      [id]: Math.min(leftOf(line), Math.max(0, Math.floor(value || 0))),
+    }));
+  };
+
+  const chosen: RefundLine[] = Object.entries(lineQty)
+    .filter(([, quantity]) => quantity > 0)
+    .map(([saleItemId, quantity]) => ({ saleItemId, quantity }));
+
+  const refundAmount = selectedSale
+    ? refundType === "full"
+      ? remainingOf(selectedSale)
+      : estimateRefund(selectedSale, lineQty)
+    : 0;
 
   const isValidRefund =
     selectedSale &&
-    refundAmount > 0 &&
-    refundAmount <= selectedSale.total &&
-    refundReason.trim().length > 0;
+    refundReason.trim().length > 0 &&
+    (refundType === "full" ? refundAmount > 0 : chosen.length > 0);
 
   const handleProcessRefund = () => {
     if (isValidRefund && selectedSale) {
-      onProcessRefund(selectedSale.id, refundAmount, refundReason);
+      onProcessRefund(
+        selectedSale.id,
+        refundReason.trim(),
+        refundType === "partial" ? chosen : undefined,
+      );
       setSelectedSale(null);
-      setRefundAmount(0);
+      setLineQty({});
       setRefundReason("");
       setSearchQuery("");
       onClose();
@@ -264,31 +311,54 @@ export default function RefundModal({
                 </div>
               </div>
 
-              {/* Refund Amount */}
-              <div className="space-y-2">
+              {/* Partial: choose how many of each line come back */}
+              {refundType === "partial" && (
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">
+                    {t("Items to refund")}
+                  </Label>
+                  {selectedSale.items.map((line, idx) => (
+                    <div
+                      key={line.id ?? idx}
+                      className="flex items-center justify-between gap-3 text-sm"
+                    >
+                      <span className="truncate">
+                        {line.name}
+                        <span className="text-xs text-muted-foreground">
+                          {" "}
+                          ({t("{n} left", { values: { n: leftOf(line) } })})
+                        </span>
+                      </span>
+                      <Input
+                        type="number"
+                        min="0"
+                        max={leftOf(line)}
+                        step="1"
+                        aria-label={t("Quantity to refund for {name}", {
+                          values: { name: line.name },
+                        })}
+                        value={line.id ? (lineQty[line.id] ?? 0) : 0}
+                        onChange={(e) => setQty(line, Number(e.target.value))}
+                        disabled={!line.id || leftOf(line) <= 0}
+                        className="h-8 w-20 text-sm"
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Refund Amount (worked out by the server) */}
+              <div className="space-y-1">
                 <Label className="flex items-center gap-2 text-sm font-medium">
                   <DollarSign className="w-4 h-4" />
                   {t("Refund Amount")}
                 </Label>
-                <Input
-                  type="number"
-                  min="0"
-                  max={selectedSale.total}
-                  step="1000"
-                  value={refundAmount}
-                  onChange={(e) =>
-                    setRefundAmount(
-                      Math.min(
-                        selectedSale.total,
-                        Math.max(0, Number(e.target.value)),
-                      ),
-                    )
-                  }
-                  className="h-8 text-sm"
-                  disabled={refundType === "full"}
-                />
+                <p className="text-sm font-medium">
+                  {refundType === "partial" ? "≈ " : ""}
+                  {formatCurrency(refundAmount)}
+                </p>
                 <p className="text-xs text-muted-foreground">
-                  {t("Max amount")}: {formatCurrency(selectedSale.total)}
+                  {t("Max amount")}: {formatCurrency(remainingOf(selectedSale))}
                 </p>
               </div>
 
@@ -322,11 +392,11 @@ export default function RefundModal({
                     -{formatCurrency(refundAmount)}
                   </span>
                 </div>
-                {refundAmount < selectedSale.total && (
+                {refundAmount < remainingOf(selectedSale) && (
                   <div className="flex justify-between text-sm">
                     <span>{t("Amount Kept")}</span>
                     <span className="font-medium">
-                      {formatCurrency(selectedSale.total - refundAmount)}
+                      {formatCurrency(remainingOf(selectedSale) - refundAmount)}
                     </span>
                   </div>
                 )}

@@ -68,11 +68,14 @@ describe('csrfProtection', () => {
     expect(res.status).toHaveBeenCalledWith(403);
   });
 
-  it('skips the token check for login so stale cookies never block sign-in', () => {
-    const { next } = run({
-      path: '/auth/login',
-      headers: { origin: ORIGIN, cookie: sessionCookies },
-    });
-    expect(next).toHaveBeenCalled();
-  });
+  it.each(['/auth/login', '/auth/2fa/verify'])(
+    'skips the token check for %s so stale cookies never block sign-in',
+    (path) => {
+      const { next } = run({
+        path,
+        headers: { origin: ORIGIN, cookie: sessionCookies },
+      });
+      expect(next).toHaveBeenCalled();
+    },
+  );
 });

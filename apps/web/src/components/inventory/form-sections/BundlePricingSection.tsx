@@ -15,9 +15,9 @@ export default function BundlePricingSection({
   const { t } = useLanguage();
 
   const bundleDiscount =
-    item.bundleQuantity && item.bundlePrice
-      ? ((item.bundleQuantity * item.sellingPrice - item.bundlePrice) /
-          (item.bundleQuantity * item.sellingPrice)) *
+    item.cartonSize && item.cartonPrice
+      ? ((item.cartonSize * item.sellingPrice - item.cartonPrice) /
+          (item.cartonSize * item.sellingPrice)) *
         100
       : 0;
 
@@ -40,40 +40,40 @@ export default function BundlePricingSection({
             type="number"
             min={2}
             placeholder="e.g. 3"
-            value={item.bundleQuantity || ""}
+            value={item.cartonSize || ""}
             onChange={(e) =>
               onItemChange({
                 ...item,
-                bundleQuantity: Number(e.target.value) || undefined,
+                cartonSize: Number(e.target.value) || undefined,
               })
             }
           />
         </div>
         <div className="grid gap-2">
-          <Label htmlFor="bundlePrice">{t("Bundle Price (NGN)")}</Label>
+          <Label htmlFor="cartonPrice">{t("Bundle Price (NGN)")}</Label>
           <Input
-            id="bundlePrice"
+            id="cartonPrice"
             type="number"
             min={0}
             placeholder="e.g. 10000"
-            value={item.bundlePrice || ""}
+            value={item.cartonPrice || ""}
             onChange={(e) =>
               onItemChange({
                 ...item,
-                bundlePrice: Number(e.target.value) || undefined,
+                cartonPrice: Number(e.target.value) || undefined,
               })
             }
           />
         </div>
       </div>
-      {item.bundleQuantity && item.bundlePrice && bundleDiscount > 0 && (
+      {item.cartonSize && item.cartonPrice && bundleDiscount > 0 && (
         <div className="bg-success/10 border border-success/20 rounded-xl p-3">
           <p className="text-sm text-success font-medium">
             {t("Bundle saves {discount}% ({amount} off)", {
               values: {
                 discount: bundleDiscount.toFixed(1),
                 amount: Math.round(
-                  item.bundleQuantity * item.sellingPrice - item.bundlePrice,
+                  item.cartonSize * item.sellingPrice - item.cartonPrice,
                 ).toLocaleString(),
               },
             })}

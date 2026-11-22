@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import { businessDay } from "@/lib/businessDay";
 import {
   toHeldPayload,
   toInventoryPayload,
@@ -13,7 +14,7 @@ import type { UserProfile } from "@/types/profileTypes";
 import { buildSaleRecord } from "@/lib/sales/saleRecord";
 
 describe("toTeamPermissions", () => {
-  it("keeps backend-valid permission names", () => {
+  it("sends the canonical backend names", () => {
     expect(
       toTeamPermissions([
         "view-products",
@@ -21,25 +22,19 @@ describe("toTeamPermissions", () => {
         "assign-roles",
         "view-reports",
       ]),
-    ).toEqual(["view-products", "record-sales", "assign-roles", "view-reports"]);
+    ).toEqual(["sales.record", "staff.manage", "reports.view_profit"]);
   });
 
-  it("strips the deprecated checkout-sales alias", () => {
-    expect(toTeamPermissions(["view-products", "checkout-sales"])).toEqual([
-      "view-products",
+  it("folds the deprecated checkout-sales alias into sales.record", () => {
+    expect(toTeamPermissions(["checkout-sales", "record-sales"])).toEqual([
+      "sales.record",
     ]);
   });
 
-  it("strips the deprecated view-out-of-stock alias", () => {
-    expect(toTeamPermissions(["view-inventory", "view-out-of-stock"])).toEqual([
-      "view-inventory",
-    ]);
-  });
-
-  it("returns an empty array when only aliases are sent", () => {
-    expect(toTeamPermissions(["checkout-sales", "view-out-of-stock"])).toEqual(
-      [],
-    );
+  it("returns an empty array when only view permissions are sent", () => {
+    expect(
+      toTeamPermissions(["view-inventory", "view-out-of-stock", "view-products"]),
+    ).toEqual([]);
   });
 });
 
@@ -58,7 +53,7 @@ describe("toSalePayload", () => {
     discount: 10,
   };
 
-  it("maps items to productId/quantity/price when productId is present", () => {
+  it("maps items to productId/quantity/unit, never a price, when productId is present", () => {
     const payload = toSalePayload({
       ...sale,
       items: [
@@ -68,13 +63,19 @@ describe("toSalePayload", () => {
     });
 
     expect(payload.items).toEqual([
-      { productId: "p1", quantity: 2, price: 50 },
-      { productId: "p2", quantity: 1, price: 30 },
+      { productId: "p1", quantity: 2, unit: "unit" },
+      { productId: "p2", quantity: 1, unit: "unit" },
     ]);
   });
 
   it("maps discount to discountPercent", () => {
     expect(toSalePayload(sale).discountPercent).toBe(10);
+  });
+
+  it("leaves out today's date so the server sets the Lagos day", () => {
+    const payload = toSalePayload({ ...sale, saleDate: businessDay() });
+
+    expect(payload.saleDate).toBeUndefined();
   });
 
   it("passes customerId, customerName, saleDate and paymentMethod", () => {
@@ -162,7 +163,7 @@ describe("toSalePayload", () => {
     const payload = toSalePayload(record);
 
     expect(payload.items.length).toBeGreaterThan(0);
-    expect(payload.items).toEqual([{ productId: "p1", quantity: 2, price: 50 }]);
+    expect(payload.items).toEqual([{ productId: "p1", quantity: 2, unit: "unit" }]);
   });
 });
 
@@ -171,7 +172,7 @@ describe("toHeldPayload", () => {
   const held: HeldTransaction = {
     id: "h1",
     customerName: "Ada",
-    items: [{ productId: "p1", quantity: 2, price: 50 }],
+    items: [{ productId: "p1", quantity: 2, unit: "unit", price: 50 }],
     heldBy: "u1",
     discountPercent: 5,
     paymentMethod: "cash",
@@ -184,7 +185,7 @@ describe("toHeldPayload", () => {
 
     expect(payload).toEqual({
       customerName: "Ada",
-      items: [{ productId: "p1", quantity: 2, price: 50 }],
+      items: [{ productId: "p1", quantity: 2, unit: "unit" }],
       discountPercent: 5,
       paymentMethod: "cash",
     });
@@ -324,22 +325,37 @@ describe("toPreferencesUpdate", () => {
 });
 
 describe("toInventoryPayload", () => {
-  it("passes image, lastRestocked, and confirmedByApprentice through", () => {
+  it("passes image through and leaves lastRestocked to the server", () => {
     const payload = toInventoryPayload({
       name: "Widget",
       sellingPrice: 150,
       image: "img.png",
       lastRestocked: "2026-08-01T00:00:00.000Z",
-      confirmedByApprentice: true,
     });
 
     expect(payload).toEqual({
       name: "Widget",
       sellingPrice: 150,
       image: "img.png",
-      lastRestocked: "2026-08-01T00:00:00.000Z",
-      confirmedByApprentice: true,
     });
+  });
+
+  it("sends the expiry date, and clears it on update when blank", () => {
+    expect(
+      toInventoryPayload({ name: "Milk", expiryDate: "2030-01-31" }).expiryDate,
+    ).toBe("2030-01-31");
+    expect(
+      toInventoryPayload({ name: "Milk", expiryDate: "" }, { includeStock: false })
+        .expiryDate,
+    ).toBeNull();
+  });
+
+  it("leaves quantity out on update", () => {
+    const payload = toInventoryPayload(
+      { name: "Milk", quantity: 9 },
+      { includeStock: false },
+    );
+    expect(payload.quantity).toBeUndefined();
   });
 
   it("omits an empty-string image", () => {
@@ -374,13 +390,13 @@ describe("toInventoryPayload", () => {
     const payload = toInventoryPayload({
       name: "Widget",
       sellingPrice: 100,
-      bundleQuantity: undefined,
-      bundlePrice: undefined,
+      cartonSize: undefined,
+      cartonPrice: undefined,
       reorderPoint: undefined,
     });
 
-    expect(payload.bundleQuantity).toBeUndefined();
-    expect(payload.bundlePrice).toBeUndefined();
+    expect(payload.cartonSize).toBeUndefined();
+    expect(payload.cartonPrice).toBeUndefined();
     expect(payload.reorderPoint).toBeUndefined();
   });
 
@@ -389,11 +405,9 @@ describe("toInventoryPayload", () => {
       name: "Widget",
       quantity: 0,
       reorderPoint: 0,
-      confirmedByApprentice: false,
     });
 
     expect(payload.quantity).toBe(0);
     expect(payload.reorderPoint).toBe(0);
-    expect(payload.confirmedByApprentice).toBe(false);
   });
 });

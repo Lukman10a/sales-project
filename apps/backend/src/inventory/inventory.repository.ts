@@ -1,35 +1,63 @@
 import { Injectable } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
-import { DataSource, EntityManager, In, Repository } from 'typeorm';
+import { DataSource, EntityManager, In } from 'typeorm';
+import {
+  TransactionalRepository,
+  runInTransaction,
+} from '../common/transactions/transactions';
 import { InventoryItem } from '../entities/inventory-item.entity';
+import { Category } from '../entities/category.entity';
 import { User } from '../entities/user.entity';
 import { PaginatedResult } from '../common/interfaces/paginated-result.interface';
+import { assertTenant } from '../common/tenancy/assert-tenant';
 
 export interface InventoryListQuery {
-  businessId: string;
   page: number;
   limit: number;
   search?: string;
   category?: string;
   status?: string;
   sort?: string;
+  /** Only products whose expiry date is within this many days (or past). */
+  expiring?: number;
 }
 
+/** Tenant-owned: every method takes `businessId` first. */
 @Injectable()
-export class InventoryRepository extends Repository<InventoryItem> {
+export class InventoryRepository extends TransactionalRepository<InventoryItem> {
   constructor(@InjectDataSource() private readonly dataSource: DataSource) {
     super(InventoryItem, dataSource.createEntityManager());
   }
 
   transaction<T>(fn: (manager: EntityManager) => Promise<T>): Promise<T> {
-    return this.dataSource.transaction(fn);
+    return runInTransaction(this.dataSource, fn);
   }
 
-  async resolveCreatorNames(ids: string[]): Promise<Map<string, string>> {
+  createItem(
+    businessId: string,
+    data: Omit<Partial<InventoryItem>, 'businessId'>,
+  ): InventoryItem {
+    return this.create({ ...data, businessId });
+  }
+
+  saveItem(businessId: string, item: InventoryItem): Promise<InventoryItem> {
+    assertTenant(businessId, item);
+    return this.save(item);
+  }
+
+  async removeItem(businessId: string, item: InventoryItem): Promise<void> {
+    assertTenant(businessId, item);
+    await this.remove(item);
+  }
+
+  async resolveCreatorNames(
+    businessId: string,
+    ids: string[],
+  ): Promise<Map<string, string>> {
     if (ids.length === 0) return new Map();
 
     const users = await this.manager.find(User, {
-      where: { id: In(ids) },
+      where: { id: In(ids), businessId },
       select: ['id', 'firstName', 'lastName'],
     });
 
@@ -38,22 +66,77 @@ export class InventoryRepository extends Repository<InventoryItem> {
     );
   }
 
-  async findByIdAndBusiness(
-    id: string,
+  async findById(
     businessId: string,
+    id: string,
   ): Promise<InventoryItem | null> {
-    return this.findOne({ where: { id, businessId } });
+    return this.findOne({
+      where: { id, businessId },
+      relations: ['categories'],
+    });
+  }
+
+  findByBarcode(
+    businessId: string,
+    barcode: string,
+  ): Promise<InventoryItem | null> {
+    return this.findOne({ where: { businessId, barcode } });
+  }
+
+  /** The business's products, locked for the rest of the transaction. */
+  lockById(businessId: string, id: string): Promise<InventoryItem | null> {
+    return this.createQueryBuilder('item')
+      .setLock('pessimistic_write')
+      .where('item.id = :id AND item.businessId = :businessId', {
+        id,
+        businessId,
+      })
+      .getOne();
+  }
+
+  /** The named categories, created where missing (names are trimmed). */
+  async ensureCategories(
+    businessId: string,
+    names: string[],
+  ): Promise<Category[]> {
+    const unique = [
+      ...new Set(names.map((n) => n.trim().slice(0, 100)).filter(Boolean)),
+    ];
+    if (unique.length === 0) return [];
+    await this.manager
+      .createQueryBuilder()
+      .insert()
+      .into(Category)
+      .values(unique.map((name) => ({ businessId, name })))
+      .orIgnore()
+      .execute();
+    return this.manager.find(Category, {
+      where: { businessId, name: In(unique) },
+    });
+  }
+
+  /** The business's categories, by name. */
+  listCategories(businessId: string): Promise<Category[]> {
+    return this.manager.find(Category, {
+      where: { businessId },
+      order: { name: 'ASC' },
+    });
+  }
+
+  /** Every product of the business, for matching import rows. */
+  findAllForImport(businessId: string): Promise<InventoryItem[]> {
+    return this.find({ where: { businessId } });
   }
 
   async list(
+    businessId: string,
     query: InventoryListQuery,
   ): Promise<PaginatedResult<InventoryItem>> {
-    const { businessId, page, limit, search, category, status, sort } = query;
+    const { page, limit, search, category, status, sort, expiring } = query;
 
-    const qb = this.createQueryBuilder('item').where(
-      'item.businessId = :businessId',
-      { businessId },
-    );
+    const qb = this.createQueryBuilder('item')
+      .leftJoinAndSelect('item.categories', 'cat')
+      .where('item.businessId = :businessId', { businessId });
 
     if (search) {
       qb.andWhere(
@@ -63,7 +146,19 @@ export class InventoryRepository extends Repository<InventoryItem> {
     }
 
     if (category) {
-      qb.andWhere(':category = ANY(item.category)', { category });
+      qb.andWhere(
+        `EXISTS (SELECT 1 FROM "product_categories" pc
+           JOIN "categories" c ON c."id" = pc."categoryId"
+           WHERE pc."productId" = item.id AND c."name" = :category)`,
+        { category },
+      );
+    }
+
+    if (expiring !== undefined) {
+      qb.andWhere(
+        `item.expiryDate IS NOT NULL AND item.expiryDate <= CURRENT_DATE + :expiring::int`,
+        { expiring },
+      );
     }
 
     if (status) {
@@ -82,6 +177,9 @@ export class InventoryRepository extends Repository<InventoryItem> {
         break;
       case 'sold':
         qb.orderBy('item.sold', 'DESC');
+        break;
+      case 'expiry':
+        qb.orderBy('item.expiryDate', 'ASC', 'NULLS LAST');
         break;
       case 'name':
       default:
@@ -103,78 +201,5 @@ export class InventoryRepository extends Repository<InventoryItem> {
         pages: Math.ceil(total / limit),
       },
     };
-  }
-
-  async decrementStock(
-    id: string,
-    businessId: string,
-    qty: number,
-  ): Promise<InventoryItem | null> {
-    await this.createQueryBuilder()
-      .update(InventoryItem)
-      .set({
-        quantity: () => 'quantity - :qty',
-        sold: () => 'sold + :qty',
-        status: () =>
-          `CASE WHEN quantity - :qty <= 0 THEN 'out-of-stock' ` +
-          `WHEN reorder_point IS NOT NULL AND quantity - :qty <= reorder_point THEN 'low-stock' ` +
-          `ELSE 'in-stock' END`,
-      })
-      .where('id = :id AND businessId = :businessId AND quantity >= :qty', {
-        id,
-        businessId,
-        qty,
-      })
-      .execute();
-
-    return this.findOne({ where: { id, businessId } });
-  }
-
-  async bulkUpsert(
-    items: Array<{
-      name: string;
-      category: string[];
-      sku?: string;
-      barcode?: string;
-      description?: string;
-      wholesalePrice: number;
-      sellingPrice: number;
-      quantity: number;
-      reorderPoint?: number;
-      supplier?: string;
-      status: InventoryItem['status'];
-    }>,
-    businessId: string,
-    createdBy: string,
-  ): Promise<number> {
-    const prepared = items.map((item) => ({
-      ...item,
-      businessId,
-      createdBy,
-    }));
-
-    await this.createQueryBuilder()
-      .insert()
-      .into(InventoryItem)
-      .values(prepared)
-      .orUpdate(
-        [
-          'name',
-          'category',
-          'sku',
-          'barcode',
-          'description',
-          'wholesalePrice',
-          'sellingPrice',
-          'quantity',
-          'reorderPoint',
-          'supplier',
-          'status',
-        ],
-        ['sku'],
-      )
-      .execute();
-
-    return prepared.length;
   }
 }

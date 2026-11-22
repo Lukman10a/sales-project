@@ -1,84 +1,97 @@
 import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
-import { render, screen, cleanup, fireEvent, waitFor } from "@testing-library/react";
+import {
+  render,
+  screen,
+  cleanup,
+  fireEvent,
+  waitFor,
+} from "@testing-library/react";
 
-const bulkImportMock = vi.hoisted(() => vi.fn());
+const previewMock = vi.hoisted(() => vi.fn());
+const confirmMock = vi.hoisted(() => vi.fn());
 
 vi.mock("@/contexts/InventoryDataContext", () => ({
   useInventoryData: () => ({
-    inventory: [],
-    bulkImportInventory: bulkImportMock,
-    isLoading: false,
+    previewImport: previewMock,
+    confirmImport: confirmMock,
   }),
 }));
 
 import ImportTab from "./ImportTab";
 import { Tabs } from "@/components/ui/tabs";
 
-function renderWithTabs(ui: React.ReactNode) {
-  return render(<Tabs value="import">{ui}</Tabs>);
+const preview = {
+  summary: { rows: 3, valid: 2, invalid: 1, creates: 1, updates: 1 },
+  rows: [
+    { row: 2, name: "Rice", action: "update", quantity: 5, stockChange: 1, errors: [] },
+    { row: 3, name: "Milk", action: "create", quantity: 2, stockChange: 2, errors: [] },
+    {
+      row: 4,
+      name: "Beans",
+      action: "create",
+      quantity: 0,
+      stockChange: 0,
+      errors: ["sellingPrice is required"],
+    },
+  ],
+};
+
+function chooseFile() {
+  const file = new File(["name,sellingPrice\nA,10"], "stock.csv", {
+    type: "text/csv",
+  });
+  const input = document.querySelector('input[type="file"]') as HTMLInputElement;
+  Object.defineProperty(input, "files", { value: [file], writable: false });
+  fireEvent.change(input);
+  return file;
 }
 
 describe("ImportTab", () => {
   beforeEach(() => {
-    bulkImportMock.mockReset();
-    bulkImportMock.mockResolvedValue({ imported: 5, skipped: 1, errors: ["Row 3: bad"] });
+    previewMock.mockReset().mockResolvedValue(preview);
+    confirmMock.mockReset().mockResolvedValue(preview);
   });
   afterEach(() => cleanup());
 
-  it("calls bulkImportInventory with selected file and shows result", async () => {
-    renderWithTabs(<ImportTab />);
-    fireEvent.click(screen.getByRole("button", { name: /Import Data/i }));
-    const file = new File(["name,price\nA,10"], "test.csv", { type: "text/csv" });
-    const input = document.querySelector('input[type="file"]') as HTMLInputElement;
-    expect(input).toBeTruthy();
+  it("previews the file without saving, then imports on confirm", async () => {
+    render(
+      <Tabs value="import">
+        <ImportTab />
+      </Tabs>,
+    );
+    const file = chooseFile();
+    fireEvent.click(screen.getByRole("button", { name: /Check file/i }));
 
-    // simulate file selection
-    Object.defineProperty(input, "files", {
-      value: [file],
-      writable: false,
-    });
-    fireEvent.change(input);
+    await waitFor(() => expect(previewMock).toHaveBeenCalledWith(file));
+    expect(await screen.findByText(/Nothing has been saved yet/)).toBeTruthy();
+    expect(screen.getByText("sellingPrice is required")).toBeTruthy();
+    expect(screen.getByText("1 with errors")).toBeTruthy();
+    expect(confirmMock).not.toHaveBeenCalled();
 
-    // click Start Import
-    const startButton = screen.getByRole("button", { name: /Start Import/i });
-    fireEvent.click(startButton);
-
-    await waitFor(() => expect(bulkImportMock).toHaveBeenCalledWith(file));
-    await waitFor(() => expect(screen.getAllByText(/5 imported/i).length).toBeGreaterThan(0));
-    expect(screen.getAllByText(/1 skipped/i).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/Row 3: bad/).length).toBeGreaterThan(0);
+    fireEvent.click(screen.getByRole("button", { name: /Import 2 products/i }));
+    await waitFor(() => expect(confirmMock).toHaveBeenCalledWith(file));
+    expect(await screen.findByText(/1 added, 1 updated, 1 skipped/)).toBeTruthy();
   });
 
-  it("disables button while pending", async () => {
-    let resolve!: (v: any) => void;
-    bulkImportMock.mockReturnValue(new Promise((r) => (resolve = r)));
-    renderWithTabs(<ImportTab />);
-    fireEvent.click(screen.getByRole("button", { name: /Import Data/i }));
-    const file = new File(["a"], "test.csv", { type: "text/csv" });
-    const input = document.querySelector('input[type="file"]') as HTMLInputElement;
-    Object.defineProperty(input, "files", { value: [file], writable: false });
-    fireEvent.change(input);
-    fireEvent.click(screen.getByRole("button", { name: /Start Import/i }));
-    // button should be disabled or show loading (text changes to Importing...)
-    await waitFor(() => {
-      const btns = screen.getAllByRole("button");
-      const startBtn = btns.find((b) => /Start Import|Importing/.test(b.textContent || ""));
-      expect(startBtn).toBeTruthy();
-      expect(startBtn!.hasAttribute("disabled") || (startBtn!.textContent || "").includes("Importing")).toBeTruthy();
-    });
-    resolve({ imported: 1, skipped: 0, errors: [] });
-    await waitFor(() => expect(screen.getAllByText(/1 imported/i).length).toBeGreaterThan(0));
+  it("offers the template download", () => {
+    render(
+      <Tabs value="import">
+        <ImportTab />
+      </Tabs>,
+    );
+    const link = screen.getByRole("link", { name: /Download template/i });
+    expect(link.getAttribute("href")).toContain("/inventory/import/template");
   });
 
-  it("shows error message on failure", async () => {
-    bulkImportMock.mockRejectedValue(new Error("Upload failed"));
-    renderWithTabs(<ImportTab />);
-    fireEvent.click(screen.getByRole("button", { name: /Import Data/i }));
-    const file = new File(["a"], "test.csv", { type: "text/csv" });
-    const input = document.querySelector('input[type="file"]') as HTMLInputElement;
-    Object.defineProperty(input, "files", { value: [file], writable: false });
-    fireEvent.change(input);
-    fireEvent.click(screen.getByRole("button", { name: /Start Import/i }));
-    await waitFor(() => expect(screen.getAllByText(/Upload failed/i).length).toBeGreaterThan(0));
+  it("shows the error when the check fails", async () => {
+    previewMock.mockRejectedValue(new Error("The file is larger than 5 MB"));
+    render(
+      <Tabs value="import">
+        <ImportTab />
+      </Tabs>,
+    );
+    chooseFile();
+    fireEvent.click(screen.getByRole("button", { name: /Check file/i }));
+    expect(await screen.findByText("The file is larger than 5 MB")).toBeTruthy();
   });
 });

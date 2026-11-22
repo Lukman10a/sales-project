@@ -48,9 +48,14 @@ export interface InventoryBreakdown {
   totalProducts: number;
   byStatus: Record<InventoryItem['status'], number>;
   lowStockItems: InventoryItem[];
+  /** Products expiring within EXPIRY_ALERT_DAYS, or already expired. */
+  expiringSoonCount: number;
+  expiringSoonItems: InventoryItem[];
 }
 
 const LOW_STOCK_ALERT_LIMIT = 10;
+/** Expiry alerts look this many days ahead (T36). */
+export const EXPIRY_ALERT_DAYS = 30;
 
 @Injectable()
 export class AnalyticsRepository extends Repository<Sale> {
@@ -78,7 +83,7 @@ export class AnalyticsRepository extends Repository<Sale> {
       .addSelect('COUNT(DISTINCT s.id)', 'orders')
       .addSelect(
         nairaSql(
-          'COALESCE(SUM((si.price - COALESCE(ii.wholesalePrice, 0)) * si.quantity), 0)',
+          'COALESCE(SUM((si.price - COALESCE(ii.costPrice, 0)) * si.quantity), 0)',
         ),
         'netProfit',
       )
@@ -151,14 +156,16 @@ export class AnalyticsRepository extends Repository<Sale> {
         'ii',
         'ii.id = si.productId AND ii.businessId = :businessId',
       )
-      .select('unnest(ii.category)', 'category')
+      .innerJoin('product_categories', 'pc', 'pc."productId" = ii.id')
+      .innerJoin('categories', 'c', 'c.id = pc."categoryId"')
+      .select('c.name', 'category')
       .addSelect('SUM(si.quantity)', 'units')
       .addSelect(nairaSql('SUM(si.price * si.quantity)'), 'revenue')
       .addSelect('COUNT(DISTINCT s.id)', 'orders')
       .where('s.businessId = :businessId', { businessId })
       .andWhere("s.status = 'completed'")
       .andWhere('s.createdAt BETWEEN :from AND :to', { from, to })
-      .groupBy('category')
+      .groupBy('c.name')
       .orderBy('revenue', 'DESC');
 
     const raw = await qb.getRawMany<{
@@ -277,7 +284,20 @@ export class AnalyticsRepository extends Repository<Sale> {
       .limit(LOW_STOCK_ALERT_LIMIT)
       .getMany();
 
+    const [expiringSoonItems, expiringSoonCount] = await this.manager
+      .createQueryBuilder(InventoryItem, 'item')
+      .where('item.businessId = :businessId', { businessId })
+      .andWhere('item.expiryDate IS NOT NULL')
+      .andWhere('item.expiryDate <= CURRENT_DATE + :days::int', {
+        days: EXPIRY_ALERT_DAYS,
+      })
+      .orderBy('item.expiryDate', 'ASC')
+      .take(LOW_STOCK_ALERT_LIMIT)
+      .getManyAndCount();
+
     return {
+      expiringSoonCount,
+      expiringSoonItems,
       totalProducts: Object.values(byStatus).reduce(
         (sum, count) => sum + count,
         0,

@@ -3,7 +3,11 @@ import {
   NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
-import * as bcrypt from 'bcrypt';
+import {
+  hashPassword,
+  verifyPassword,
+} from '../auth/passwords/password-hasher';
+import { SessionsService } from '../auth/sessions.service';
 import { UsersRepository } from '../auth/users.repository';
 import { UserProfileRepository } from './user-profiles.repository';
 import { UpdateProfileDto } from './dto/update-profile.dto';
@@ -28,6 +32,7 @@ export class ProfileService {
   constructor(
     private usersRepository: UsersRepository,
     private profilesRepository: UserProfileRepository,
+    private sessionsService: SessionsService,
   ) {}
 
   async getProfile(userId: string) {
@@ -116,7 +121,15 @@ export class ProfileService {
     return this.getProfile(userId);
   }
 
-  async changePassword(userId: string, changePasswordDto: ChangePasswordDto) {
+  /**
+   * Changes the password and signs out every other device. The session that
+   * made the change stays signed in.
+   */
+  async changePassword(
+    userId: string,
+    changePasswordDto: ChangePasswordDto,
+    currentSessionId?: string,
+  ) {
     const user = await this.usersRepository.findById(userId);
 
     if (!user) {
@@ -124,7 +137,7 @@ export class ProfileService {
     }
 
     // Verify current password
-    const isCurrentValid = await bcrypt.compare(
+    const isCurrentValid = await verifyPassword(
       changePasswordDto.currentPassword,
       user.password,
     );
@@ -141,10 +154,14 @@ export class ProfileService {
     }
 
     // Hash and save new password
-    user.password = await bcrypt.hash(changePasswordDto.newPassword, 10);
+    user.password = await hashPassword(changePasswordDto.newPassword);
     await this.usersRepository.save(user);
+    const signedOut = await this.sessionsService.revokeOthers(
+      user.id,
+      currentSessionId,
+    );
 
-    return { message: 'Password changed successfully' };
+    return { message: 'Password changed successfully', signedOut };
   }
 
   async uploadAvatar(userId: string, updateAvatarDto: UpdateAvatarDto) {

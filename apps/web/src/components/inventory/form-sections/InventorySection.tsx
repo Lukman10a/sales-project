@@ -1,18 +1,13 @@
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { InventoryItem } from "@/types/inventoryTypes";
 
 interface InventorySectionProps {
   item: Omit<InventoryItem, "id">;
   onItemChange: (item: Omit<InventoryItem, "id">) => void;
+  /** Editing: stock is shown but changed only by Restock / Adjust. */
+  stockLocked?: boolean;
   validation?: {
     reorderError?: string;
   };
@@ -21,6 +16,7 @@ interface InventorySectionProps {
 export default function InventorySection({
   item,
   onItemChange,
+  stockLocked = false,
   validation,
 }: InventorySectionProps) {
   const { t } = useLanguage();
@@ -52,11 +48,14 @@ export default function InventorySection({
           )}
         </div>
         <div className="grid gap-2">
-          <Label htmlFor="qty">{t("Quantity")}</Label>
+          <Label htmlFor="qty">
+            {stockLocked ? t("Quantity in stock") : t("Opening stock")}
+          </Label>
           <Input
             id="qty"
             type="number"
             min={0}
+            disabled={stockLocked}
             value={item.quantity}
             onChange={(e) =>
               onItemChange({
@@ -65,27 +64,25 @@ export default function InventorySection({
               })
             }
           />
+          {stockLocked && (
+            <p className="text-xs text-muted-foreground">
+              {t("Use Change stock to restock or adjust")}
+            </p>
+          )}
         </div>
         <div className="grid gap-2">
-          <Label>{t("Status")}</Label>
-          <Select
-            value={item.status}
-            onValueChange={(value: InventoryItem["status"]) =>
+          <Label htmlFor="expiryDate">{t("Expiry date")}</Label>
+          <Input
+            id="expiryDate"
+            type="date"
+            value={item.expiryDate ?? ""}
+            onChange={(e) =>
               onItemChange({
                 ...item,
-                status: value as InventoryItem["status"],
+                expiryDate: e.target.value,
               })
             }
-          >
-            <SelectTrigger>
-              <SelectValue placeholder={t("Select status")} />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="in-stock">{t("In Stock")}</SelectItem>
-              <SelectItem value="low-stock">{t("Low Stock")}</SelectItem>
-              <SelectItem value="out-of-stock">{t("Out of Stock")}</SelectItem>
-            </SelectContent>
-          </Select>
+          />
         </div>
       </div>
     </div>

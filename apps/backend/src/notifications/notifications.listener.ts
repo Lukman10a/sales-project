@@ -29,6 +29,30 @@ export class NotificationsListener {
     });
   }
 
+  /** The business id is the owner's user id. */
+  @OnEvent('inventory.ledger-mismatch')
+  async handleLedgerMismatch(payload: {
+    businessId: string;
+    products: Array<{
+      productId: string;
+      name: string;
+      quantity: number;
+      ledger: number;
+    }>;
+  }): Promise<void> {
+    await this.notificationsService.create({
+      businessId: payload.businessId,
+      userId: payload.businessId,
+      type: 'alert',
+      title: 'Stock check found a mismatch',
+      message: `${payload.products.length} product(s) have a stock count that does not match their history: ${payload.products
+        .slice(0, 5)
+        .map((p) => p.name)
+        .join(', ')}.`,
+      metadata: { products: payload.products.slice(0, 50) },
+    });
+  }
+
   @OnEvent('sale.completed')
   async handleSaleCompletedEvent(payload: {
     businessId: string;

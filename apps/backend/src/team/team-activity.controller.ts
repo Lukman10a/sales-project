@@ -4,8 +4,6 @@ import {
   JwtAuthGuard,
   PermissionsGuard,
   RequirePermissions,
-  Roles,
-  RolesGuard,
   ZodValidationPipe,
 } from '../common';
 import type { CurrentUserPayload } from '../common';
@@ -18,9 +16,8 @@ export class TeamActivityController {
   constructor(private readonly activityService: TeamActivityService) {}
 
   @Get('activity')
-  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
-  @Roles('owner', 'manager')
-  @RequirePermissions('view-reports', 'assign-roles')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions('staff.manage')
   getActivity(
     @CurrentUser() user: CurrentUserPayload,
     @Query(new ZodValidationPipe(QueryActivityDtoSchema))

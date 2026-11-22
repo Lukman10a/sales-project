@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ReportsController } from './reports.controller';
 import { ReportsService } from './reports.service';
-import { JwtAuthGuard, PermissionsGuard, RolesGuard } from '../common';
+import { JwtAuthGuard, PermissionsGuard } from '../common';
 import { CreateReportDtoSchema } from './dto/create-report.dto';
 
 describe('ReportsController', () => {
@@ -16,7 +16,9 @@ describe('ReportsController', () => {
   const currentUser = {
     id: 'u1',
     email: 'owner@luxa.com',
-    role: 'owner',
+    role: 'owner' as const,
+    permissions: [],
+    maxDiscountPercent: 100,
     businessName: 'LUXA',
     businessId: 'b1',
   };
@@ -36,8 +38,6 @@ describe('ReportsController', () => {
       .overrideGuard(JwtAuthGuard)
       .useValue({ canActivate: () => true })
       .overrideGuard(PermissionsGuard)
-      .useValue({ canActivate: () => true })
-      .overrideGuard(RolesGuard)
       .useValue({ canActivate: () => true })
       .compile();
 

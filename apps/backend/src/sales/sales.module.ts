@@ -4,6 +4,7 @@ import { Sale } from '../entities/sale.entity';
 import { SaleItem } from '../entities/sale-item.entity';
 import { HeldTransaction } from '../entities/held-transaction.entity';
 import { InventoryItem } from '../entities/inventory-item.entity';
+import { InventoryModule } from '../inventory/inventory.module';
 import { SalesController } from './sales.controller';
 import { SalesService } from './sales.service';
 import { SalesRepository } from './sales.repository';
@@ -11,6 +12,7 @@ import { SalesRepository } from './sales.repository';
 @Module({
   imports: [
     TypeOrmModule.forFeature([Sale, SaleItem, HeldTransaction, InventoryItem]),
+    InventoryModule,
   ],
   controllers: [SalesController],
   providers: [SalesService, SalesRepository],

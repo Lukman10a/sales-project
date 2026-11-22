@@ -13,3 +13,6 @@ coverage
 .idea
 *.swp
 *.swo
+
+# Development email previews (T39)
+.mail-preview/

@@ -2,6 +2,7 @@ import { In } from 'typeorm';
 import { InventoryRepository } from './inventory.repository';
 import { InventoryItem } from '../entities/inventory-item.entity';
 import { User } from '../entities/user.entity';
+import { Category } from '../entities/category.entity';
 
 describe('InventoryRepository', () => {
   let repository: InventoryRepository;
@@ -19,25 +20,22 @@ describe('InventoryRepository', () => {
     jest.restoreAllMocks();
   });
 
-  describe('findByIdAndBusiness', () => {
+  describe('findById', () => {
     it('queries by id and businessId', async () => {
       const item = { id: 'i1', businessId: 'b1' } as InventoryItem;
       const findOne = jest.spyOn(repository, 'findOne').mockResolvedValue(item);
 
-      await expect(repository.findByIdAndBusiness('i1', 'b1')).resolves.toBe(
-        item,
-      );
+      await expect(repository.findById('b1', 'i1')).resolves.toBe(item);
       expect(findOne).toHaveBeenCalledWith({
         where: { id: 'i1', businessId: 'b1' },
+        relations: ['categories'],
       });
     });
 
     it('returns null when no item matches', async () => {
       jest.spyOn(repository, 'findOne').mockResolvedValue(null);
 
-      await expect(
-        repository.findByIdAndBusiness('missing', 'b1'),
-      ).resolves.toBeNull();
+      await expect(repository.findById('b1', 'missing')).resolves.toBeNull();
     });
   });
 
@@ -52,34 +50,70 @@ describe('InventoryRepository', () => {
     });
   });
 
-  describe('decrementStock', () => {
-    it('runs the atomic decrement then reloads the item', async () => {
+  describe('lockById', () => {
+    it('locks the business row for update', async () => {
       const qb = {
-        update: jest.fn().mockReturnThis(),
-        set: jest.fn().mockReturnThis(),
+        setLock: jest.fn().mockReturnThis(),
         where: jest.fn().mockReturnThis(),
-        execute: jest.fn().mockResolvedValue({ affected: 1 }),
+        getOne: jest.fn().mockResolvedValue(null),
       };
       jest.spyOn(repository, 'createQueryBuilder').mockReturnValue(qb as never);
 
-      const reloaded = { id: 'i1', quantity: 5, status: 'in-stock' } as never;
-      const findOne = jest
-        .spyOn(repository, 'findOne')
-        .mockResolvedValue(reloaded);
-
-      const result = await repository.decrementStock('i1', 'b1', 2);
-
-      expect(qb.update).toHaveBeenCalledWith(InventoryItem);
-      expect(qb.set).toHaveBeenCalled();
+      await expect(repository.lockById('b1', 'i1')).resolves.toBeNull();
+      expect(qb.setLock).toHaveBeenCalledWith('pessimistic_write');
       expect(qb.where).toHaveBeenCalledWith(
-        'id = :id AND businessId = :businessId AND quantity >= :qty',
-        { id: 'i1', businessId: 'b1', qty: 2 },
+        'item.id = :id AND item.businessId = :businessId',
+        { id: 'i1', businessId: 'b1' },
       );
-      expect(qb.execute).toHaveBeenCalled();
+    });
+  });
+
+  describe('findByBarcode', () => {
+    it('looks the barcode up within the business', async () => {
+      const findOne = jest.spyOn(repository, 'findOne').mockResolvedValue(null);
+      await repository.findByBarcode('b1', '123');
       expect(findOne).toHaveBeenCalledWith({
-        where: { id: 'i1', businessId: 'b1' },
+        where: { businessId: 'b1', barcode: '123' },
       });
-      expect(result).toBe(reloaded);
+    });
+  });
+
+  describe('ensureCategories', () => {
+    it('inserts missing names once, trimmed, and returns them all', async () => {
+      const qb = {
+        insert: jest.fn().mockReturnThis(),
+        into: jest.fn().mockReturnThis(),
+        values: jest.fn().mockReturnThis(),
+        orIgnore: jest.fn().mockReturnThis(),
+        execute: jest.fn().mockResolvedValue({}),
+      };
+      const rows = [{ id: 'c1', name: 'Food' }];
+      const manager = {
+        createQueryBuilder: jest.fn(() => qb),
+        find: jest.fn().mockResolvedValue(rows),
+      };
+      const repo = new InventoryRepository({
+        createEntityManager: () => manager,
+        transaction: transactionFn,
+      } as never);
+
+      await expect(
+        repo.ensureCategories('b1', [' Food', 'Food', '']),
+      ).resolves.toBe(rows);
+      expect(qb.into).toHaveBeenCalledWith(Category);
+      expect(qb.values).toHaveBeenCalledWith([
+        { businessId: 'b1', name: 'Food' },
+      ]);
+      expect(qb.orIgnore).toHaveBeenCalled();
+      expect(manager.find).toHaveBeenCalledWith(Category, {
+        where: { businessId: 'b1', name: In(['Food']) },
+      });
+    });
+
+    it('does nothing for no names', async () => {
+      await expect(repository.ensureCategories('b1', [' '])).resolves.toEqual(
+        [],
+      );
     });
   });
 
@@ -95,10 +129,10 @@ describe('InventoryRepository', () => {
         transaction: transactionFn,
       } as never);
 
-      const result = await repo.resolveCreatorNames(['u1', 'u2']);
+      const result = await repo.resolveCreatorNames('b1', ['u1', 'u2']);
 
       expect(manager.find).toHaveBeenCalledWith(User, {
-        where: { id: In(['u1', 'u2']) },
+        where: { id: In(['u1', 'u2']), businessId: 'b1' },
         select: ['id', 'firstName', 'lastName'],
       });
       expect(result.get('u1')).toBe('Ada Lovelace');
@@ -112,54 +146,10 @@ describe('InventoryRepository', () => {
         transaction: transactionFn,
       } as never);
 
-      const result = await repo.resolveCreatorNames([]);
+      const result = await repo.resolveCreatorNames('b1', []);
 
       expect(manager.find).not.toHaveBeenCalled();
       expect(result.size).toBe(0);
-    });
-  });
-
-  describe('bulkUpsert', () => {
-    it('inserts rows with businessId/createdBy and returns count', async () => {
-      const qb = {
-        insert: jest.fn().mockReturnThis(),
-        into: jest.fn().mockReturnThis(),
-        values: jest.fn().mockReturnThis(),
-        orUpdate: jest.fn().mockReturnThis(),
-        execute: jest.fn().mockResolvedValue({ affected: 2 }),
-      };
-      jest.spyOn(repository, 'createQueryBuilder').mockReturnValue(qb as never);
-
-      const count = await repository.bulkUpsert(
-        [
-          {
-            name: 'A',
-            category: ['x'],
-            wholesalePrice: 1,
-            sellingPrice: 2,
-            quantity: 3,
-            status: 'in-stock',
-          },
-        ],
-        'b1',
-        'u1',
-      );
-
-      expect(qb.into).toHaveBeenCalledWith(InventoryItem);
-      expect(qb.values).toHaveBeenCalledWith([
-        {
-          name: 'A',
-          category: ['x'],
-          wholesalePrice: 1,
-          sellingPrice: 2,
-          quantity: 3,
-          status: 'in-stock',
-          businessId: 'b1',
-          createdBy: 'u1',
-        },
-      ]);
-      expect(qb.orUpdate).toHaveBeenCalled();
-      expect(count).toBe(1);
     });
   });
 });

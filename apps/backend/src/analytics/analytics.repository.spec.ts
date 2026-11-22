@@ -15,6 +15,8 @@ function createQbMock(overrides: Record<string, unknown> = {}) {
     addGroupBy: jest.fn().mockReturnThis(),
     orderBy: jest.fn().mockReturnThis(),
     limit: jest.fn().mockReturnThis(),
+    take: jest.fn().mockReturnThis(),
+    getManyAndCount: jest.fn().mockResolvedValue([[], 0]),
     getRawOne: jest.fn().mockResolvedValue(null),
     getRawMany: jest.fn().mockResolvedValue([]),
     getMany: jest.fn().mockResolvedValue([]),
@@ -175,7 +177,7 @@ describe('AnalyticsRepository', () => {
   });
 
   describe('categoryBreakdown', () => {
-    it('expands multi-category products via unnest and groups by category', async () => {
+    it('counts a product under each of its categories', async () => {
       const qb = createQbMock({
         getRawMany: jest.fn().mockResolvedValue([
           { category: 'Drinks', units: '10', revenue: '100.00', orders: '2' },
@@ -190,8 +192,13 @@ describe('AnalyticsRepository', () => {
         new Date(),
       );
 
-      expect(qb.select).toHaveBeenCalledWith('unnest(ii.category)', 'category');
-      expect(qb.groupBy).toHaveBeenCalledWith('category');
+      expect(qb.innerJoin).toHaveBeenCalledWith(
+        'product_categories',
+        'pc',
+        'pc."productId" = ii.id',
+      );
+      expect(qb.select).toHaveBeenCalledWith('c.name', 'category');
+      expect(qb.groupBy).toHaveBeenCalledWith('c.name');
       expect(qb.orderBy).toHaveBeenCalledWith('revenue', 'DESC');
       expect(result).toEqual([
         { category: 'Drinks', units: 10, revenue: 100, orders: 2 },
@@ -286,9 +293,15 @@ describe('AnalyticsRepository', () => {
       const lowStockQb = createQbMock({
         getMany: jest.fn().mockResolvedValue([{ id: 'p1' } as InventoryItem]),
       });
+      const expiringQb = createQbMock({
+        getManyAndCount: jest
+          .fn()
+          .mockResolvedValue([[{ id: 'p2' } as InventoryItem], 1]),
+      });
       managerMock.createQueryBuilder
         .mockReturnValueOnce(countsQb)
-        .mockReturnValueOnce(lowStockQb);
+        .mockReturnValueOnce(lowStockQb)
+        .mockReturnValueOnce(expiringQb);
 
       const result = await repository.inventoryBreakdown('b1');
 
@@ -301,7 +314,13 @@ describe('AnalyticsRepository', () => {
         totalProducts: 4,
         byStatus: { 'in-stock': 2, 'low-stock': 1, 'out-of-stock': 1 },
         lowStockItems: [{ id: 'p1' }],
+        expiringSoonCount: 1,
+        expiringSoonItems: [{ id: 'p2' }],
       });
+      expect(expiringQb.andWhere).toHaveBeenCalledWith(
+        'item.expiryDate <= CURRENT_DATE + :days::int',
+        { days: 30 },
+      );
     });
   });
 });

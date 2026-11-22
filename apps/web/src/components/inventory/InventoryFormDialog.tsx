@@ -27,6 +27,8 @@ interface InventoryFormDialogProps {
   onSave: () => void;
   onCancel: () => void;
   saveDisabled?: boolean;
+  /** Editing: stock changes go through Restock / Adjust, not this form. */
+  stockLocked?: boolean;
   validation?: {
     nameError?: string;
     priceError?: string;
@@ -44,6 +46,7 @@ export default function InventoryFormDialog({
   onSave,
   onCancel,
   saveDisabled,
+  stockLocked = false,
   validation,
 }: InventoryFormDialogProps) {
   const { t } = useLanguage();
@@ -115,6 +118,7 @@ export default function InventoryFormDialog({
           <InventorySection
             item={item}
             onItemChange={onItemChange}
+            stockLocked={stockLocked}
             validation={{ reorderError: validation?.reorderError }}
           />
         </div>

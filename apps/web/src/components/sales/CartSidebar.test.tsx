@@ -42,7 +42,6 @@ const baseProps = {
   paymentMethod: "cash" as const,
   onRemoveItem: vi.fn(),
   onUpdateQuantity: vi.fn(),
-  onUpdatePrice: vi.fn(),
   onDiscountChange: vi.fn(),
   onPaymentMethodChange: vi.fn(),
   onCompleteSale: vi.fn(),

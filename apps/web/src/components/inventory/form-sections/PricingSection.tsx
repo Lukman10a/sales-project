@@ -19,12 +19,12 @@ export default function PricingSection({
   const { t } = useLanguage();
 
   const markup =
-    item.wholesalePrice > 0
-      ? ((item.sellingPrice - item.wholesalePrice) / item.wholesalePrice) * 100
+    item.costPrice > 0
+      ? ((item.sellingPrice - item.costPrice) / item.costPrice) * 100
       : 0;
   const profitMargin =
     item.sellingPrice > 0
-      ? ((item.sellingPrice - item.wholesalePrice) / item.sellingPrice) * 100
+      ? ((item.sellingPrice - item.costPrice) / item.sellingPrice) * 100
       : 0;
 
   const getMarginColor = (margin: number) => {
@@ -45,11 +45,11 @@ export default function PricingSection({
             id="wholesale"
             type="number"
             min={0}
-            value={item.wholesalePrice}
+            value={item.costPrice}
             onChange={(e) =>
               onItemChange({
                 ...item,
-                wholesalePrice: Number(e.target.value) || 0,
+                costPrice: Number(e.target.value) || 0,
               })
             }
           />
@@ -73,7 +73,7 @@ export default function PricingSection({
           )}
         </div>
       </div>
-      {item.wholesalePrice > 0 && item.sellingPrice > item.wholesalePrice && (
+      {item.costPrice > 0 && item.sellingPrice > item.costPrice && (
         <div className="bg-gradient-to-r from-muted/50 to-muted/30 rounded-xl p-4 grid grid-cols-2 gap-4 border">
           <div>
             <p className="text-xs text-muted-foreground mb-1">{t("Markup")}</p>

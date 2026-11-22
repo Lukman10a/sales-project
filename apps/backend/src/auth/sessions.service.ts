@@ -126,6 +126,16 @@ export class SessionsService {
     return this.sessions.revokeAllForUser(userId, 'logout');
   }
 
+  /** Ends every session of the user except one (e.g. after a password change). */
+  async revokeOthers(userId: string, keepFamilyId?: string): Promise<number> {
+    if (!keepFamilyId) return this.sessions.revokeAllForUser(userId, 'revoked');
+    return this.sessions.revokeAllForUserExcept(
+      userId,
+      keepFamilyId,
+      'revoked',
+    );
+  }
+
   async revokeOne(userId: string, familyId: string): Promise<void> {
     const affected = await this.sessions.revokeFamilyForUser(
       userId,

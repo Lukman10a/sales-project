@@ -43,7 +43,7 @@ cd e2e
 pnpm exec playwright install chromium        # once
 NEXT_DIST_DIR=.next-e2e E2E_API_PORT=4100 E2E_WEB_PORT=3100 \
 FRONTEND_URL=http://localhost:3100 NODE_ENV=production \
-DATABASE_URL=... DATABASE_SSL=disable JWT_SECRET=... JWT_REFRESH_SECRET=... \
+DATABASE_URL=... DATABASE_SSL=disable JWT_SECRET=... JWT_REFRESH_SECRET=... ENCRYPTION_KEY=... \
   pnpm run test:e2e
 ```
 

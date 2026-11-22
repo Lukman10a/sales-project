@@ -1,22 +1,25 @@
 import { z } from 'zod';
 
+/** Stock is not editable here: use restock or adjust. */
 export const UpdateInventoryDtoSchema = z
   .object({
-    name: z.string().min(1).max(200).optional(),
-    category: z.array(z.string().min(1)).min(1).optional(),
+    name: z.string().trim().min(1).max(200).optional(),
+    category: z.array(z.string().trim().min(1).max(100)).max(20).optional(),
     sku: z.string().max(100).optional(),
-    barcode: z.string().max(100).optional(),
+    barcode: z.string().trim().max(100).optional(),
     description: z.string().max(1000).optional(),
-    wholesalePrice: z.coerce.number().min(0).optional(),
+    costPrice: z.coerce.number().min(0).optional(),
     sellingPrice: z.coerce.number().min(0).optional(),
-    quantity: z.coerce.number().int().min(0).optional(),
     reorderPoint: z.coerce.number().int().min(0).nullable().optional(),
     supplier: z.string().max(200).optional(),
-    bundleQuantity: z.coerce.number().int().min(1).nullable().optional(),
-    bundlePrice: z.coerce.number().min(0).nullable().optional(),
+    cartonSize: z.coerce.number().int().min(1).nullable().optional(),
+    cartonPrice: z.coerce.number().min(0).nullable().optional(),
+    expiryDate: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/, 'Use a date like 2027-03-31')
+      .nullable()
+      .optional(),
     image: z.string().optional(),
-    lastRestocked: z.coerce.date().optional(),
-    confirmedByApprentice: z.boolean().optional(),
   })
   .strict();
 

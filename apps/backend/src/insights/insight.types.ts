@@ -26,7 +26,7 @@ export interface InventoryFact {
   name: string;
   quantity: number;
   reorderPoint?: number;
-  wholesalePrice: number;
+  costPrice: number;
   sellingPrice: number;
   category: string[];
 }

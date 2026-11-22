@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState } from "react";
+import { businessDay } from "@/lib/businessDay";
 import dynamic from "next/dynamic";
 import {
   CartItem,
@@ -15,7 +16,7 @@ import { useInventoryData } from "@/contexts/InventoryDataContext";
 import { useSalesData } from "@/contexts/SalesDataContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { usePermissions } from "@/hooks/usePermissions";
-import { routeRefund } from "@/lib/refund";
+import { routeRefund, type RefundLine } from "@/lib/refund";
 import { submitSale } from "@/lib/sales/completeSale";
 import { buildSaleRecord, buildHeldTransaction } from "@/lib/sales/saleRecord";
 import { filterProducts } from "@/lib/sales/filterProducts";
@@ -107,9 +108,7 @@ export default function Sales() {
   } | null>(null);
   const [loyaltyPointsUsed, setLoyaltyPointsUsed] = useState(0);
   const [accountCreditUsed, setAccountCreditUsed] = useState(0);
-  const [saleDate, setSaleDate] = useState(
-    new Date().toISOString().split("T")[0],
-  );
+  const [saleDate, setSaleDate] = useState(() => businessDay());
   const [saleDateOpen, setSaleDateOpen] = useState(false);
   const [refundModalOpen, setRefundModalOpen] = useState(false);
   const [printPreviewOpen, setPrintPreviewOpen] = useState(false);
@@ -190,14 +189,6 @@ export default function Sales() {
           return item;
         })
         .filter(Boolean) as CartItem[],
-    );
-  };
-
-  const updatePrice = (itemId: string, price: number) => {
-    setCart(
-      cart.map((item) =>
-        item.id === itemId ? { ...item, actualPrice: price } : item,
-      ),
     );
   };
 
@@ -298,13 +289,13 @@ export default function Sales() {
 
   const handleProcessRefund = async (
     saleId: string,
-    refundAmount: number,
     reason: string,
+    items?: RefundLine[],
   ) => {
     const routed = await routeRefund({
       saleId,
-      refundAmount,
       reason,
+      items,
       recentSales,
       refundSale,
     });
@@ -453,7 +444,6 @@ export default function Sales() {
               paymentMethod={paymentMethod}
               onRemoveItem={removeFromCart}
               onUpdateQuantity={updateQuantity}
-              onUpdatePrice={updatePrice}
               onDiscountChange={setDiscountPercent}
               onPaymentMethodChange={setPaymentMethod}
               onCompleteSale={handleCompleteSale}

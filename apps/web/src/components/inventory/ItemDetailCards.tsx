@@ -7,9 +7,10 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Calendar, Truck, Package, CheckCircle, AlertTriangle } from "lucide-react";
+import { Calendar, Truck, Package, AlertTriangle } from "lucide-react";
 import ImageDisplay from "./ImageDisplay";
 import { cn } from "@/lib/utils";
+import { expiryState } from "@/lib/expiry";
 import { InventoryItem } from "@/types/inventoryTypes";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { statusConfig } from "./inventoryConfig";
@@ -56,24 +57,20 @@ export default function ItemBasicInfoCard({ item }: ItemBasicInfoCardProps) {
                 <span className="text-sm font-medium">{item.createdByName}</span>
               </div>
             )}
-            {item.confirmedByName && (
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground flex items-center gap-1">
-                  <CheckCircle className="w-3 h-3" />
-                  {t("Confirmed by")}
-                </span>
-                <span className="text-sm font-medium">
-                  {item.confirmedByName}
-                </span>
-              </div>
-            )}
-            {item.confirmedAt && (
+            {item.expiryDate && (
               <div className="flex items-center justify-between">
                 <span className="text-sm text-muted-foreground">
-                  {t("Confirmed on")}
+                  {t("Expiry date")}
                 </span>
-                <span className="text-sm font-medium">
-                  {new Date(item.confirmedAt).toLocaleDateString()}
+                <span
+                  className={cn(
+                    "text-sm font-medium",
+                    expiryState(item.expiryDate) === "expired" &&
+                      "text-destructive",
+                    expiryState(item.expiryDate) === "soon" && "text-warning",
+                  )}
+                >
+                  {item.expiryDate}
                 </span>
               </div>
             )}
@@ -129,7 +126,7 @@ export default function ItemBasicInfoCard({ item }: ItemBasicInfoCardProps) {
                 </span>
               </div>
             )}
-            {item.bundleQuantity && item.bundlePrice && (
+            {item.cartonSize && item.cartonPrice && (
               <div className="flex items-center justify-between">
                 <span className="text-sm text-muted-foreground">
                   {t("Bundle Offer")}
@@ -137,11 +134,11 @@ export default function ItemBasicInfoCard({ item }: ItemBasicInfoCardProps) {
                 <span className="text-sm font-medium">
                   {t("{qty} for {price}", {
                     values: {
-                      qty: item.bundleQuantity,
+                      qty: item.cartonSize,
                       price: new Intl.NumberFormat("en-NG", {
                         style: "currency",
                         currency: "NGN",
-                      }).format(item.bundlePrice),
+                      }).format(item.cartonPrice),
                     },
                   })}
                 </span>
@@ -194,12 +191,12 @@ export function PricingCard({ item, userRole }: PricingCardProps) {
   if (userRole !== "owner") return null;
 
   const markup =
-    item.wholesalePrice > 0
-      ? ((item.sellingPrice - item.wholesalePrice) / item.wholesalePrice) * 100
+    item.costPrice > 0
+      ? ((item.sellingPrice - item.costPrice) / item.costPrice) * 100
       : 0;
   const profitMargin =
     item.sellingPrice > 0
-      ? ((item.sellingPrice - item.wholesalePrice) / item.sellingPrice) * 100
+      ? ((item.sellingPrice - item.costPrice) / item.sellingPrice) * 100
       : 0;
 
   const getMarginColor = (margin: number) => {
@@ -234,7 +231,7 @@ export function PricingCard({ item, userRole }: PricingCardProps) {
           <div className="flex justify-between">
             <span className="text-muted-foreground">{t("Cost Price")}</span>
             <span className="font-medium">
-              {formatCurrency(item.wholesalePrice)}
+              {formatCurrency(item.costPrice)}
             </span>
           </div>
           <div className="flex justify-between">
@@ -248,11 +245,11 @@ export function PricingCard({ item, userRole }: PricingCardProps) {
               {t("Profit per Unit")}
             </span>
             <span className={`font-bold ${getMarginColor(profitMargin)}`}>
-              {formatCurrency(item.sellingPrice - item.wholesalePrice)}
+              {formatCurrency(item.sellingPrice - item.costPrice)}
             </span>
           </div>
         </div>
-        {item.bundleQuantity && item.bundlePrice && (
+        {item.cartonSize && item.cartonPrice && (
           <div className="border-t pt-3">
             <p className="text-xs text-muted-foreground mb-2">
               {t("Bundle Offer")}
@@ -261,8 +258,8 @@ export function PricingCard({ item, userRole }: PricingCardProps) {
               <p className="text-sm font-semibold">
                 {t("Buy {qty} for {price}", {
                   values: {
-                    qty: item.bundleQuantity,
-                    price: formatCurrency(item.bundlePrice),
+                    qty: item.cartonSize,
+                    price: formatCurrency(item.cartonPrice),
                   },
                 })}
               </p>
@@ -270,16 +267,16 @@ export function PricingCard({ item, userRole }: PricingCardProps) {
                 {t("Save {amount}", {
                   values: {
                     amount: formatCurrency(
-                      item.bundleQuantity * item.sellingPrice -
-                        item.bundlePrice,
+                      item.cartonSize * item.sellingPrice -
+                        item.cartonPrice,
                     ),
                   },
                 })}{" "}
                 (
                 {(
-                  ((item.bundleQuantity * item.sellingPrice -
-                    item.bundlePrice) /
-                    (item.bundleQuantity * item.sellingPrice)) *
+                  ((item.cartonSize * item.sellingPrice -
+                    item.cartonPrice) /
+                    (item.cartonSize * item.sellingPrice)) *
                   100
                 ).toFixed(1)}
                 % {t("off")})

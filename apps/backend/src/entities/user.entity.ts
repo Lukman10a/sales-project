@@ -34,16 +34,13 @@ export class User {
   @Column({ type: 'uuid', nullable: true })
   businessId?: string;
 
+  /** Login role. Staff permissions live on their team-member row. */
   @Column({
     type: 'enum',
-    enum: ['owner', 'manager', 'apprentice'],
+    enum: ['owner', 'manager', 'cashier'],
     default: 'owner',
   })
-  role!: 'owner' | 'manager' | 'apprentice';
-
-  @Column({ nullable: true })
-  staffRole?:
-    'sales-assistant' | 'manager' | 'checkout' | 'inventory' | 'investor';
+  role!: 'owner' | 'manager' | 'cashier';
 
   @Column({ nullable: true })
   avatar?: string;
@@ -63,6 +60,42 @@ export class User {
 
   @Column({ nullable: true })
   lastLogin?: Date;
+
+  /** Owners verify within 7 days of sign-up. Staff are created verified. */
+  @Column({ type: 'timestamptz', nullable: true })
+  emailVerifiedAt?: Date | null;
+
+  /** Consecutive wrong passwords; reset by a successful sign-in. */
+  @Column({ type: 'int', default: 0 })
+  failedLoginAttempts!: number;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  lockedUntil?: Date | null;
+
+  /**
+   * TOTP seed, AES-256-GCM sealed with ENCRYPTION_KEY (never plaintext).
+   * Present but not yet enabled while enrolment awaits its first code.
+   */
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  twoFactorSecret?: string | null;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  twoFactorEnabledAt?: Date | null;
+
+  /** Last accepted TOTP time step, so a code cannot be replayed. */
+  @Column({ type: 'integer', nullable: true })
+  twoFactorLastStep?: number | null;
+
+  /**
+   * Business setting, read from the owner's row: owners and managers must
+   * use two-step verification. On for businesses created from T32 onwards.
+   */
+  @Column({ type: 'boolean', default: false })
+  requireTwoFactor!: boolean;
+
+  /** Business setting, read from the owner's row: charge 7.5% VAT on sales. */
+  @Column({ type: 'boolean', default: false })
+  vatEnabled!: boolean;
 
   // Relations
   @OneToMany(() => Sale, (sale) => sale.owner)

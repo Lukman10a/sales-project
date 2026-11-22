@@ -4,7 +4,7 @@ import {
   DashboardController,
 } from './analytics.controller';
 import { AnalyticsService } from './analytics.service';
-import { JwtAuthGuard, RolesGuard } from '../common';
+import { JwtAuthGuard } from '../common';
 
 describe('AnalyticsController', () => {
   let analyticsController: AnalyticsController;
@@ -20,7 +20,9 @@ describe('AnalyticsController', () => {
   const currentUser = {
     id: 'u1',
     email: 'owner@luxa.com',
-    role: 'owner',
+    role: 'owner' as const,
+    permissions: [],
+    maxDiscountPercent: 100,
     businessName: 'LUXA',
     businessId: 'b1',
   };
@@ -39,8 +41,6 @@ describe('AnalyticsController', () => {
       providers: [{ provide: AnalyticsService, useValue: analyticsService }],
     })
       .overrideGuard(JwtAuthGuard)
-      .useValue({ canActivate: () => true })
-      .overrideGuard(RolesGuard)
       .useValue({ canActivate: () => true })
       .compile();
 

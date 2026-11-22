@@ -1,32 +1,55 @@
-export const ALL_PERMISSIONS = [
-  'view-products',
-  'edit-products',
-  'delete-products',
-  'view-sales-history',
-  'record-sales',
-  'view-inventory',
-  'edit-inventory',
-  'assign-roles',
-  'view-reports',
+/**
+ * The canonical permission set (T33), matching the Staff screen. Owners hold
+ * every permission; staff hold what their team-member row grants.
+ */
+export const PERMISSIONS = [
+  'sales.record',
+  'sales.discount',
+  'sales.refund',
+  'products.edit_price',
+  'products.restock',
+  'products.delete',
+  'reports.view_profit',
+  'expenses.manage',
+  'staff.manage',
+  'billing.manage',
+  'settings.manage',
 ] as const;
 
-// Default permission set for each staff role, used when a TeamMember row has
-// no stored permissions (e.g. legacy members invited before permissions were
-// recorded). Owner resolves to ALL_PERMISSIONS and is not listed here.
-export const ROLE_DEFAULT_PERMISSIONS: Record<string, string[]> = {
-  manager: [
-    'view-products',
-    'edit-products',
-    'view-sales-history',
-    'record-sales',
-    'view-inventory',
-    'edit-inventory',
-    'assign-roles',
-    'view-reports',
-  ],
-  'sales-assistant': ['view-products', 'record-sales'],
-  checkout: ['view-products', 'record-sales'],
-  inventory: ['view-inventory', 'edit-inventory'],
-  // Investors have no staff workspace permissions; their screens are mock-only.
-  investor: [],
+export type Permission = (typeof PERMISSIONS)[number];
+
+/** Roles a team member can hold. The owner is the account that registered. */
+export const STAFF_ROLES = ['manager', 'cashier'] as const;
+export type StaffRole = (typeof STAFF_ROLES)[number];
+
+/** Login roles: the owner plus the staff roles. */
+export const USER_ROLES = ['owner', ...STAFF_ROLES] as const;
+export type UserRole = (typeof USER_ROLES)[number];
+
+export interface RolePreset {
+  permissions: readonly Permission[];
+  /** Largest discount (percent of the sale) a person may give. */
+  maxDiscountPercent: number;
+}
+
+/**
+ * Starting permissions for each role. A team member's row may then be edited
+ * switch by switch; the preset only fills a new or reset member.
+ */
+export const ROLE_PRESETS: Record<UserRole, RolePreset> = {
+  owner: { permissions: PERMISSIONS, maxDiscountPercent: 100 },
+  manager: {
+    permissions: [
+      'sales.record',
+      'sales.discount',
+      'sales.refund',
+      'products.restock',
+      'expenses.manage',
+    ],
+    maxDiscountPercent: 10,
+  },
+  cashier: { permissions: ['sales.record'], maxDiscountPercent: 0 },
 };
+
+export const isPermission = (value: string): value is Permission =>
+  (PERMISSIONS as readonly string[]).includes(value);
